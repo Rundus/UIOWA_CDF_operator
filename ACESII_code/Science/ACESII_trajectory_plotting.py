@@ -14,8 +14,10 @@ start_time = time.time()
 # --- --- --- ---
 
 ##### PLOT 1: Altitude vs Geodetic lat vs Geomagnetic lat ###
-Plot1 = False
+Plot1 = True
 Plot2 = True
+
+plotConnectingLines = True
 
 # Andoya_magnetic_inclination = 78.1300 deg
 figure_size = (13,10)
@@ -46,7 +48,10 @@ scatter_text_alignment_low = ['right','right','right','left','left','left','left
 scatter_text_alignment_low_values = [-0.1,-0.1,-0.1,0.1,0.1,0.1,0.1] #geomagnetic
 
 # magnetic lines
-background_style = dict(color = 'black',linewidth = 0.75, linestyle='-.')
+background_style = dict(color = 'black',linewidth = 2, linestyle='-.',alpha=0.2)
+
+# Connecting lines
+connecting_lines_style =  dict(color='green', linestyle="--",alpha = 0.7)
 
 
 ##### PLOT 2: Lat vs Long ###
@@ -81,7 +86,7 @@ from spacepy import coordinates as coord
 coord.DEFAULTS.set_values(use_irbem=False, itol=5)  # maximum separation, in seconds, for which the coordinate transformations will not be recalculated. To force all transformations to use an exact transform for the time, set ``itol`` to zero.
 from spacepy.time import Ticktock #used to determine the time I'm choosing the reference geomagentic field
 
-print(color.BOLD + color.CYAN + 'csv_to_cdf.py' + color.END + color.END)
+print(color.BOLD + color.CYAN + 'ACESII_trajectory_plotting.py' + color.END + color.END)
 
 
 
@@ -143,10 +148,8 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
         # store data
         ECEFCvals.append(cvals_GEO)
         ECEFMAGCvals.append(cvals_GEO_MAG)
-
         geodeticCvals.append(cvals_GEO)
         geodeticMAGCvals.append(cvals_GDZ_MAG)
-
         geomagnetic_lat.append(geodeticMAGCvals[i].lati)
 
         # --- find the points 100s, 200s ... 600s in the data ---
@@ -154,7 +157,6 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
         geoTargetsLat.append([data_dicts[i]['Lat'][0][k] for k in target_indices[i]])
         geoTargetsAlt.append([data_dicts[i]['Alt'][0][k] for k in target_indices[i]])
         geoTargetsLong.append([data_dicts[i]['Long'][0][k] for k in target_indices[i]])
-
         Done(start_time)
 
 
@@ -177,6 +179,16 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
         ax1.plot(data_dicts[1]['Lat'][0], data_dicts[1]['Alt'][0], **plot_style12)  # High Flyer
         ax1.scatter(geoTargetsLat[0], geoTargetsAlt[0], **scatter_plot_Marker_style1) # High Flyer text labels
         ax1.scatter(geoTargetsLat[1], geoTargetsAlt[1], **scatter_plot_Marker_style2)  # Low Flyer text labels
+
+        # plot connecting lines
+        if plotConnectingLines:
+            highFlyerOffset = 2
+            for i in range(len(geoTargetsLat[1])):
+                x_values = [geoTargetsLat[1][i], geoTargetsLat[0][i+highFlyerOffset]]
+                y_values = [geoTargetsAlt[1][i], geoTargetsAlt[0][i+highFlyerOffset]]
+                ax1.plot(x_values, y_values, **connecting_lines_style)
+
+
 
         # ticks major/minor
         ax1.minorticks_on()
@@ -216,7 +228,6 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
         ax2.xaxis.set_minor_locator(AutoMinorLocator())
         ax2.tick_params(**tick_params_major2)
         ax2.tick_params(**tick_params_minor2)
-
         ax2.set_xlabel('Geomagnetic Latitude',**plot_label_style2)
 
         ax3 = ax1.twinx()
@@ -225,7 +236,7 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
         for i in range(11):
             ax3.axline(xy1=(69+i*0.5,-1*slope), xy2=(69 + (0.5*(i+1)), 0),**background_style)
 
-        fig.savefig(r'D:\Data\ACESII\trajectories\magnetic_latitude_trajectories.png')
+        fig.savefig(r'D:\Data\ACESII\trajectories\trajectory_plots\Altitude_vs_lat_vs_maglat.png')
         Done(start_time)
 
     if Plot2:
@@ -285,13 +296,13 @@ def plot_Range_vs_Altitude(inputFiles, dataFolderPath,missionDicts):
             txtUTC = epoch.time()
             ax1.text(geoTargetsLat[1][i] + scatter_text_alignment_low_values_plot2[i],geoTargetsLong[1][i],str(txtUTC) ,ha=scatter_text_alignment_low_plot2[i] ,**scatter_text_style2)
 
-        fig.savefig(r'D:\Data\ACESII\trajectories\lat_long_trajectories.png')
+        fig.savefig(r'D:\Data\ACESII\trajectories\trajectory_plots\Long_vs_lat_vs_maglat.png')
 
 
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-inputFiles = [ACES_cdf_trajectories[0][0],ACES_cdf_trajectories[1][0]]
+inputFiles = [ACES_cdf_trajectories[0][0], ACES_cdf_trajectories[1][0]]
 
 if path.exists(inputFiles[0]) and path.exists(inputFiles[1]):
     missionDicts = ACES_mission_dicts()

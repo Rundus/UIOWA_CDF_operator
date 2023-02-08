@@ -17,7 +17,7 @@ import itertools
 # --- --- --- --- ---
 
 import time
-from class_var_func import Done, setupPYCDF
+from ACESII_code.class_var_func import Done, setupPYCDF
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -45,6 +45,7 @@ wRocket = 4
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
 wFiles = [0,1,2]
 
+useILatILongData = True
 
 
 # --- --- --- ---
@@ -55,9 +56,9 @@ import os
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
 from tqdm import tqdm
-from missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from class_var_func import color, L2_TRICE_Quick, prgMsg
+from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
+from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
+from ACESII_code.class_var_func import color, L2_TRICE_Quick, prgMsg
 from glob import glob
 from os.path import getsize
 setupPYCDF()
@@ -68,7 +69,6 @@ pycdf.lib.set_backward(False)
 def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     if wRocket in [0,1,4,5]:
-
         # --- ACES II Flight/Integration Data ---
         rocketAttrs,b,c = ACES_mission_dicts()
         rocketID = rocketAttrs.rocketID[wflyer]
@@ -85,16 +85,21 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
 
     # Set the paths for the file names
-    L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*.cdf')
+    if useILatILongData:
+        modifier = '_ILatILong'
+    else:
+        modifier = ''
+
+    L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\*.cdf')
     L2Files = glob(f'{rocketFolderPath}L2\{fliers[wflyer]}\*.cdf')
 
-    L1_names = [ifile.replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '') for ifile in L1Files]
+    L1_names = [ifile.replace(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\\', '') for ifile in L1Files]
     L2_names = [ofile.replace(f'{rocketFolderPath}L2\{fliers[wflyer]}\\', '') for ofile in L2Files]
 
     L1_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace('l1_', '').replace('_v00', '') for ifile in L1_names]
     L2_names_searchable = [ofile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace('l2_', '').replace('_v00', '').replace('__', '_') for ofile in L2_names]
 
-    dataFile_name = L1Files[wFile].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '')
+    dataFile_name = L1Files[wFile].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\\', '')
     fileoutName = dataFile_name.replace('l1', 'l2')
 
     # determine which instrument the file corresponds to:

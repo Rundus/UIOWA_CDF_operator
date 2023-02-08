@@ -3,10 +3,6 @@
 # DESCRIPTION: Read in CDF telemetry files and processes them to L0
 
 
-# TODO: Figure out how to solve the issues plaguing magCal Files 5 and 23
-#FILES WITH ISSUES: [3 lowflyer,highflyer 25,lowflyer 25,]
-
-
 # --- bookkeeping ---
 # !/usr/bin/env python
 __author__ = "Connor Feltman"
@@ -16,7 +12,7 @@ __version__ = "1.0.0"
 import itertools
 import os.path
 import time
-from class_var_func import Done, prgMsg,setupPYCDF
+from ACESII_code.class_var_func import Done, prgMsg,setupPYCDF
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -36,12 +32,20 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#1,#2,...etc] --> only specific files
-wFiles = [5]
+wFiles = [4,5,6]
+
+
+
+
+#########################
+# --- Special Toggles ---
+#########################
+plugHolesInData = False
 
 # select how much of the back-end of the data not to include, given in decimal percents
 wPercent = [0.04, 0.08]
@@ -50,19 +54,18 @@ wPercent = [0.04, 0.08]
 deltaT_median = 249984 # nanoseconds, in TT2000
 
 
-plugHolesInData = False
+
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 import numpy as np
-
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
 from tqdm import tqdm
-from missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
-from data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder,fliers
-from class_var_func import color, L0_TRICE_Quick
+from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
+from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder,fliers
+from ACESII_code.class_var_func import color, L0_TRICE_Quick
 from glob import glob
 from os.path import getsize
 setupPYCDF()

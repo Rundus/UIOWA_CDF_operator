@@ -18,7 +18,7 @@ import time
 
 import cdflib
 
-from class_var_func import Done, setupPYCDF
+from ACESII_code.class_var_func import Done, setupPYCDF
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -39,18 +39,25 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2]
+wFiles = [4,5,6]
 
 # Break data into chunkNum pieces to write out
 chunkNum = 10
 
+
+
+#########################
+# --- SPECIAL TOGGLES ---
+#########################
+
+
 # Reduce the back-end of the data based on the wPercent variable.
-reduceFile = True
+reduceFile = False
 
 # select how much of the back-end of the data not to include, given in decimal percents
 wPercent = [0.04, 0.08] # nominal 4% and 8% for BSS file
@@ -59,22 +66,20 @@ wPercent = [0.04, 0.08] # nominal 4% and 8% for BSS file
 # To fix the gSync Epoch dropouts, I get the previously non-fillval epoch values and add the median delta T to it
 deltaT_median = 249984 # nanoseconds, in TT2000
 
-# --- --- --- --- --- --- --- ---
-# SPECIAL TOGGLES FOR HIGH FLYER
-# --- --- --- --- --- --- --- ---
-
+# --- --- --- --- --- --- ---
+# --- HIGH FLYER TOGGLES ---
+# --- --- --- --- --- --- ---
 # requires reduceFile = True
 
 # If processing scott's copy of the high flyer, remove the sfid 40 point.
 plugHolesInScottsData = False
 
 # If processing BSS high flyer, use Scott's tmCDF file to fill in a value of sfid == 60
-plugHolesInBSSData_High = True
+plugHolesInBSSData_High = False
 
 # If processing BSS low flyer, fill the one sfid = -1 value with a fillval
 plugHolesInBSSData_Low = False
 
-#
 
 
 
@@ -89,14 +94,14 @@ import datetime as dt
 from gc import collect
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
-from data_paths import ACES_data_folder,TRICE_data_folder,Integration_data_folder,fliers
+from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
+from ACESII_code.data_paths import ACES_data_folder,TRICE_data_folder,Integration_data_folder,fliers
 from struct import unpack
 from tqdm import tqdm
 from os.path import getsize
 from glob import glob
 from cdflib import cdfwrite
-from class_var_func import newCDFvar,color,tmCDF_TRICE_Quick,prgMsg,Done
+from ACESII_code.class_var_func import newCDFvar,color,tmCDF_TRICE_Quick,prgMsg,Done
 setupPYCDF()
 from spacepy import pycdf
 pycdf.lib.set_backward(False)
@@ -562,7 +567,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
 
                     # --- Fix BSS High Flyer ---
                     if plugHolesInBSSData_High: # special case that inserts 12 fillvals at index 3653578 and inserts a value from Scotts data at sfid == 60, index 4725425
-
+                        prgMsg('Plugging Holes in Data')
                         # --- PROBLEM #1 sfid 60---
 
                         path_to_processed_scotts_file = r"D:\Data\ACESII\tmCDF\high\ACESII_36359_flight_11202022_processedtm_20221120T170834_v00.cdf"
@@ -576,7 +581,6 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
 
                         a0 = 722237393164357000 # epoch where sfid 60 occurs in BSS
                         index60 = np.abs(tmCDF_epoch_scott - a0).argmin()
-                        print(index60)
 
                         # replace sfid 60 point
                         spindex = 4725425  # where sfid 60 occurs in BSS
@@ -585,11 +589,20 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                         tmCDF_epoch[spindex] = tmCDF_epoch_scott[index60]
 
                         # --- PROBLEM #2 insert data for the missing 12 values ---
+                        # The 12 values look like 15 16 17 [NONE] 30 31 32
                         spindex = 3653578
-                        tmCDF_sfid = np.insert(tmCDF_sfid, spindex, [-1 for i in range(11)] )
-                        tmCDF_mf = np.insert(tmCDF_mf, [spindex + i for i in range(11)], [[-1 for i in range(150)] for j in range(11)],axis= 0 )
-                        tmCDF_epoch = np.insert(tmCDF_epoch, spindex, [-9223372036854775808 for i in range(11)] )
 
+                        # remove the bad value
+                        tmCDF_sfid = np.delete(tmCDF_sfid,[spindex],axis=0)
+                        tmCDF_mf = np.delete(tmCDF_mf, [spindex], axis=0)
+                        tmCDF_epoch = np.delete(tmCDF_epoch, [spindex], axis=0)
+
+                        # insert the new value
+                        tmCDF_sfid = np.insert(tmCDF_sfid, spindex, [18 + i for i in range(11+1)] )
+                        tmCDF_mf = np.insert(tmCDF_mf, [spindex + i for i in range(11+1)], [[-1 for i in range(150)] for j in range(11+1)],axis= 0 )
+                        tmCDF_epoch = np.insert(tmCDF_epoch, spindex, [-9223372036854775808 for i in range(11+1)] )
+
+                        Done(start_time)
 
                     # --- Fix BSS Low Flyer ---
                     if plugHolesInBSSData_Low:

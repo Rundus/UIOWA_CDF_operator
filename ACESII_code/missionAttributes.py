@@ -51,6 +51,9 @@ class makeRocketAttrs:
         self.LPswept_voltage_range = missionAttrs['LPswept_voltage_range']
         self.LPFixedProbeBias = missionAttrs['LPFixedProbeBias']
         self.Epoch_range_to_determine_stepDAC = missionAttrs['Epoch_range_to_determine_stepDAC']
+        self.LP_probe_areas = missionAttrs['LP_probe_areas']
+        self.startEndLangmuirBreakIntoCurves = missionAttrs['startEndLangmuirBreakIntoCurves']
+        self.Andoya_Space_Lat_Long = missionAttrs['Andoya_Space_Lat_Long']
 
 
 
@@ -62,6 +65,7 @@ def ACES_mission_dicts():
     from copy import deepcopy
 
     ACESII_attrs_dict = {
+        'Andoya_Space_Lat_Long':[69.294167, 16.020833],
         'Andoya_magnetic_inclination':78.1300,
         'missionNam': 'ACESII',
         'rocketID': ['36359', '36364'],
@@ -106,11 +110,37 @@ def ACES_mission_dicts():
         'MinorFrameTime': 250000,
         'LPSamplePeriod': 31250,
         'LPFixedProbeBias':[-5.05,-4.96],
-        'LPFixed_calResistances':[ {'Open':165,'500M':2170,'250M':2308,'100M':2540,'50M':2710,'10M':3122,'5M':3299},
-                                   {'Open':165,'500M':2063,'250M':2260,'100M':2500,'50M':2660,'10M':3060,'5M':3194}],
-        'LPswept_voltage_range':[[-4.72,2.12],[-4.68,2.08]],
-        'Epoch_range_to_determine_stepDAC': [[dt.datetime(2022, 11, 20,17,24,50,300),dt.datetime(2022, 11, 20,17,25,10,310)],
-                                             [dt.datetime(2022, 11, 20,17,24,50,400),dt.datetime(2022, 11, 20,17,25,10,450)]],
+        'LPFixed_calResistances':[ {'Open':165,500000000:2170,250000000:2308,100000000:2540,50000000:2710,10000000:3122,5000000:3299},
+                                   {'Open':165,500000000:2063,250000000:2260,100000000:2500,50000000:2660,10000000:3060,5000000:3194}],
+        'LPswept_voltage_range':[[-4.72, 2.12], [-4.68, 2.08]],
+        'LPswept_cal_epoch_ranges': # open 500M 250M 100M 50M 10M 5M
+            [
+                [ # HIGH FLYER
+             [dt.datetime(2022, 11, 3, 13, 56, 12, 000000), dt.datetime(2022, 11, 3, 13, 56, 18, 000000)], #open
+             [dt.datetime(2022, 11, 3, 13, 53, 28, 500000), dt.datetime(2022, 11, 3, 13, 53, 32, 200000)], #500M
+             [dt.datetime(2022, 11, 3, 13, 54, 8, 000000), dt.datetime(2022, 11, 3, 13, 54, 16, 000000)],# 250M
+             [dt.datetime(2022, 11, 3, 13, 54, 38, 000000), dt.datetime(2022, 11, 3, 13, 54, 46, 000000)],# 100M
+             [dt.datetime(2022, 11, 3, 13, 55, 2, 000000), dt.datetime(2022, 11, 3, 13, 55, 16, 000000)],# 50M
+             [dt.datetime(2022, 11, 3, 13, 55, 32, 000000), dt.datetime(2022, 11, 3, 13, 55, 42, 000000)],# 10M
+             [dt.datetime(2022, 11, 3, 13, 56, 0, 000000), dt.datetime(2022, 11, 3, 13, 56, 8, 000000)] # 5M
+                ],
+                [
+             [dt.datetime(2022, 11, 3, 14, 25, 23, 000000), dt.datetime(2022, 11, 3, 14, 25, 26, 500000)],# open
+             [dt.datetime(2022, 11, 3, 14, 23, 5, 000000), dt.datetime(2022, 11, 3, 14, 23, 9, 000000)],# 500M
+             [dt.datetime(2022, 11, 3, 14, 23, 33, 445653), dt.datetime(2022, 11, 3, 14, 23, 41, 321627)],# 250M
+             [dt.datetime(2022, 11, 3, 14, 23, 57, 127446), dt.datetime(2022, 11, 3, 14, 24, 4, 669378)],# 100M
+             [dt.datetime(2022, 11, 3, 14, 24, 22, 943856), dt.datetime(2022, 11, 3, 14, 24, 28, 845243)],# 50M
+             [dt.datetime(2022, 11, 3, 14, 24, 46, 753576), dt.datetime(2022, 11, 3, 14, 24, 57, 182238)],# 10M
+             [dt.datetime(2022, 11, 3, 14, 25, 11, 122669), dt.datetime(2022, 11, 3, 14, 25, 19, 107600)],# 5M
+
+                ]
+
+             ],
+        'LP_probe_areas': [[0.002014, 0.002014], [0.002014, 0.002014]], # square meters
+        'Epoch_range_to_determine_stepDAC': [[dt.datetime(2022, 11, 20,17,24,30,300000),dt.datetime(2022, 11, 20,17,25,10,310000)],
+                                             [dt.datetime(2022, 11, 20,17,24,30,440000),dt.datetime(2022, 11, 20,17,25,10,450000)]],
+        'startEndLangmuirBreakIntoCurves':[[dt.datetime(2022, 11, 20,17,21,00,890000),dt.datetime(2022, 11, 20,17,29,57,700000) ],
+                                           [dt.datetime(2022, 11, 20,17,23,5,  10000),dt.datetime(2022, 11, 20,17,28,9,900000)]],
         'InstrNames_Full': ['EEPAA>Electron Energy Pitch Angle Analyzer',
                             'LEESA>Low Energy Electrostatic Analyzer',
                             'IEPAA>Ion Energy Pitch Angle Analyzer',

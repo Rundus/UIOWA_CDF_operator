@@ -1,16 +1,15 @@
 # --- L0_to_L1.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Convert electrostatic analyzer data from sector counts to raw counts
+# Truncates all data to only that past 17:20:00. Special case given to LP's s.t. its dataset starts on sfid = 0 when reducing dataset
+
+
 
 # NOTE: I have aligned the sector counts to start on an sfid 0 and end with an sfid 39 BUT
 #  that doesn't mean I've started my energy sweeps at the beginning. It takes 4 minorframes
 #  to complete 1 energy record and there are 49 + 1 retrace energy records per instrument sweep.
 #  It takes 360,280 and 360 words for the eepaa, iepaa, and leesa to complete a sweep respectively,
 #  which means for each major frame eepaa,iepaa,leesa complete 7 sweeps with 10 words left over
-
-#  TODO: Figure out the issue plaguing data file 66 on rocket 0. The data_dict isn't right. Solution: need to write code specifically for LP data
-
-
 
 
 
@@ -43,15 +42,21 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [3]
+wFiles = [4,5]
 
 # how many energy values not to keep, starting from the lowest values
 energy_adjust = 1
+
+#########################
+# --- Special Toggles ---
+#########################
+# Truncates all data to everything past 17:20:00
+truncateData = False
 
 
 
@@ -137,7 +142,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         # --- Calculate Instrument Data ---
         # --- --- --- --- --- --- --- --- ---
 
-        prgMsg('Creating L1 instrument data')
+        prgMsg('\nCreating L1 instrument data')
 
         # 0 -> EEPAA
         # 1 -> LEESA
@@ -212,28 +217,31 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                 del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'],data_dict['major_frame_counter']
 
-                # --- --- --- --- --- ---
-                # --- REDUCE DATASET ---
-                # --- --- --- --- --- ---
-                # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
 
-                targetDate, targetTime  = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
-                targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
-                Epoch_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch'][0]]).argmin()
-                Epoch_esa_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_esa'][0]]).argmin()
-                Epoch_monitors_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_monitors'][0]]).argmin()
+                if truncateData:
 
-                noReduction = ['geometric_factor','Energy','Pitch_Angle','Sector_Number']
-                needsReduction_esa = [rocketAttrs.InstrNames_LC[wInstr[0]], 'Epoch_esa']
-                needsReduction_monitors = ['28V_Monitor','Boom_Monitor','Epoch_monitors']
+                    # --- --- --- --- --- ---
+                    # --- REDUCE DATASET ---
+                    # --- --- --- --- --- ---
+                    # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
 
-                for key, val in data_dict.items():
-                    if key in needsReduction_esa: # counts data
-                        data_dict[key][0] = data_dict[key][0][Epoch_esa_targetIndex:]
-                    elif key in needsReduction_monitors: # Monitors data
-                        data_dict[key][0] = data_dict[key][0][Epoch_monitors_targetIndex:]
-                    elif key not in noReduction: # Everything else
-                        data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
+                    targetDate, targetTime  = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
+                    targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
+                    Epoch_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch'][0]]).argmin()
+                    Epoch_esa_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_esa'][0]]).argmin()
+                    Epoch_monitors_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_monitors'][0]]).argmin()
+
+                    noReduction = ['geometric_factor','Energy','Pitch_Angle','Sector_Number']
+                    needsReduction_esa = [rocketAttrs.InstrNames_LC[wInstr[0]], 'Epoch_esa']
+                    needsReduction_monitors = ['28V_Monitor','Boom_Monitor','Epoch_monitors']
+
+                    for key, val in data_dict.items():
+                        if key in needsReduction_esa: # counts data
+                            data_dict[key][0] = data_dict[key][0][Epoch_esa_targetIndex:]
+                        elif key in needsReduction_monitors: # Monitors data
+                            data_dict[key][0] = data_dict[key][0][Epoch_monitors_targetIndex:]
+                        elif key not in noReduction: # Everything else
+                            data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
 
                 dataFailed = False
 
@@ -306,45 +314,72 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                 # --- --- --- --- --- ---
                 # --- REDUCE DATASET ---
                 # --- --- --- --- --- ---
-                # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
-                targetDate, targetTime = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
-                targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
-                Epoch_targetIndex = np.array([np.abs(time - targetDateTime_TT2000) for time in L0epoch]).argmin()
-                L0epoch = L0epoch[Epoch_targetIndex:]
-                L0ChannelCounts = L0ChannelCounts[Epoch_targetIndex:]
-                L0sfid = L0sfid[Epoch_targetIndex:]
+
+                if truncateData:
+                    # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
+                    targetDate, targetTime = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
+                    targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
+                    Epoch_targetIndex = np.array([np.abs(time - targetDateTime_TT2000) for time in L0epoch]).argmin()
+
+                    # --- Backtrack to where sfid = 0 ---
+                    dataset_targetIndex = 0
+                    for i in range(0,len(L0sfid)):
+                        if L0sfid[Epoch_targetIndex-1*i] == 0:
+                            dataset_targetIndex = Epoch_targetIndex-1*i
+                            break
+                else:
+                    # if we don't truncate, just find where sfid = 0 and cut everything else
+                    dataset_targetIndex = np.where(L0sfid == 0)[0][0]
+
+
+                # --- reduce the dataset ---
+                L0epoch = L0epoch[dataset_targetIndex:]
+                L0ChannelCounts = L0ChannelCounts[dataset_targetIndex:]
+                L0sfid = L0sfid[dataset_targetIndex:]
+
 
                 # create the 5 variables in the LP data_dict: deltaNdivN,ni,ne_swept,ni_swept,step
                 for i in range(len(rocketAttrs.LP_Variables)):
                     data_dict = {**data_dict, **{f'Epoch_{rocketAttrs.LP_Variables[i]}': [[], {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808, 'FORMAT': 'E12.2', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}]}}
                     data_dict = {**data_dict, **{f'{rocketAttrs.LP_Variables[i]}': [[], {'LABLAXIS': rocketAttrs.LP_Variables[i], 'DEPEND_0': f"Epoch_{rocketAttrs.LP_Variables[i]}", 'DEPEND_1':None, 'DEPEND_2':None, 'FILLVAL': -1, 'FORMAT': 'E12.2', 'UNITS': 'Digital', 'VALIDMIN': 0, 'VALIDMAX': rocketAttrs.esaMaxCounts, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
+                no_of_fillvals = []
+
                 for j in tqdm(range(len(L0epoch))):
 
-                    LP_var_counter = L0sfid[j]%4 + 1 # sets which LP_var I'm on. (ni, ne_swept, ni_swept, step)
+                    LP_var_counter = L0sfid[j]%4 + 1 # sets which LP_var I'm on. (step, ne_swept, ni_swept, ni)
 
                     # deltaNdivN takes the first 8 values
                     data_dict[rocketAttrs.LP_Variables[0]][0].append(L0ChannelCounts[j][0:8])
 
                     if L0epoch[j] != -9223372036854775808:
+
                         data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([(L0epoch[j] - minorFrameTime) + l * samplePeriod for l in range(8)])  # assign epoch values for each point with a sample rate of 35.25kHz
 
-                        data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(L0ChannelCounts[j][8]) # LP_vars
+                        if L0ChannelCounts[j][8] > 4095: # set all values above 4095 to the fillval
+                            data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(-1)
+                        else:
+                            data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(L0ChannelCounts[j][8]) # LP_vars
+
                         data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append((L0epoch[j] - minorFrameTime) + 8 * samplePeriod)
 
-                    else: # if epoch is a fillvalue
-                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([L0epoch[j] for l in range(8)]) # deltaNdivN
+                    else: # if epoch is a fillval
+                        no_of_fillvals.append([rocketAttrs.LP_Variables[LP_var_counter],j])
 
-                        data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(L0ChannelCounts[j][8])  # LP_vars
-                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append(65535) # LP_vars
+                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([-9223372036854775808 for l in range(8)]) # deltaNdivN
+                        data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(-1)  # LP_vars
+                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append(-9223372036854775808) # LP_vars
 
-                # Convert it all to numpy arrays
+
+                # Convert all data to numpy arrays
                 for key, var in data_dict.items():
                     data_dict[key][0] = np.array(data_dict[key][0])
 
                 data_dict['deltaNdivN'][0] = np.array(data_dict['deltaNdivN'][0]).flatten()
                 data_dict['Epoch_deltaNdivN'][0] = np.array(data_dict['Epoch_deltaNdivN'][0]).flatten()
+
                 dataFailed = False
+
 
             except Exception as e:
                 dataFailed = True
@@ -356,10 +391,10 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
             if not dataFailed:
 
-                prgMsg('Creating output LP file\n')
+                prgMsg('\nCreating output LP file')
 
                 # LP data is too large to be dumped all at once, must break it up
-                for i in tqdm(range(len(rocketAttrs.LP_Variables))):
+                for i in range(len(rocketAttrs.LP_Variables)):
 
                     # determine the outputPath and the variables which need to be output'd
                     outputPath = f'{rocketFolderPath}L1\{fliers[wflyer]}\\{fileoutName.replace("lp", f"lp_{rocketAttrs.LP_Variables[i]}")}'
@@ -412,6 +447,8 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                         for varKey, varVal in data_dict_writeOut.items():
                             if 'Epoch' in varKey:
                                 outputFile.new(varKey, data=varVal[0], type=33)
+                            elif 'ni_swept' in varKey or 'ne_swept' in varKey:
+                                outputFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_INT4)
                             else:
                                 outputFile.new(varKey, data=varVal[0])
 
