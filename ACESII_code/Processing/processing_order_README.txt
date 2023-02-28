@@ -7,10 +7,11 @@ The order that files must be executed
 [2] tmCDF_to_L0.py
 [3] L0_to_L1.py
 
+
 --- Langmuir Probes ---
 [4] L1_to_Langmuir.py
 
 --- ESAs ---
-[4] Trajectory_to_ESA_ILatILong.py
+[4] L1_&_Traject_to_Traject_ILatILong.py
 [5] L1_to_L2.py
 [6] L2_to_DistFunc.py

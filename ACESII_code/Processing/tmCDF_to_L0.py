@@ -37,9 +37,10 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#1,#2,...etc] --> only specific files
-wFiles = [4,5,6]
+wFiles = [3]
 
-
+getMAGdata = True # get the mag data and the ESA data
+justgetMAGdata = True # Only get the MAG data
 
 
 #########################
@@ -52,9 +53,6 @@ wPercent = [0.04, 0.08]
 
 # To fix the gSync Epoch dropouts, I get the previously non-fillval epoch values and add the median delta T to it
 deltaT_median = 249984 # nanoseconds, in TT2000
-
-
-
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -93,7 +91,6 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         rocketID = rocketAttrs.rocketID[wflyer]
         L0ModelData = L0_TRICE_Quick(wflyer)
 
-
     # Set the paths for the file names
     tmCDFFiles = glob(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\*.cdf')
     L0Files = glob(f'{rocketFolderPath}L0\{fliers[wflyer]}\*.cdf')
@@ -102,7 +99,6 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
     L0_names = [ofile.replace(f'{rocketFolderPath}L0\{fliers[wflyer]}\\', '').replace(".cdf", '') for ofile in L0Files]
     L0_names_searchable = [ fname.replace('ACES_','').replace('l0_','').replace('eepaa_','').replace('leesa_','').replace('iepaa_','').replace('_v00','').replace('_','').replace('eepaa','').replace('leesa','').replace('iepaa','').replace('36359','').replace('36364','') for fname in L0_names]
     dataFile_name = tmCDFFiles[wFile].replace(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\\', '')
-
 
     # Output Naming Format: EEPAA, LEESA, IEPAA
     if wRocket in [0, 1]: # Integration Files
@@ -204,188 +200,262 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             data_dicts[i]['sfid'][0] = np.zeros(shape=(No_of_esa_measurements), dtype='uint8')
             data_dicts[i]['Sector_Counts'][0] = np.zeros(shape=(No_of_esa_measurements, rocketAttrs.num_of_sector_counts[i]), dtype='int32')
 
-        # --- variables with special conditions ---
-        prgMsg('Collecting variables with special conditions')
-        for j in range(rocketAttrs.NumOfInstr):
-            if j == 0:
-                data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 1]
-                data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 17]
-                data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 17]
-                data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%4 == 1]
-            elif j == 1:
-                data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 6]
-                data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 18]
-                data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 18]
-                data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 0]
-            elif j == 2:
-                data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 2]
-                data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 33]
-                data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 33]
-                data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 2]
-            elif j == 3:
+        ######################
+        # --- GET MAG DATA ---
+        ######################
 
-                data_dicts[j]['Boom_Monitor_1'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
-                data_dicts[j]['Epoch_monitor_1'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
+        if getMAGdata:
+            prgMsg('Collecting MAG data')
+            RingCore_data = np.array([tmCDF_mf[iv][120 - 1] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 2 == 0])
+            RingCore_sfid = np.array([tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 2 == 0])
+            RingCore_epoch = np.array([tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 2 == 0])
 
-                data_dicts[j]['Boom_Monitor_2'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 4]
-                data_dicts[j]['Epoch_monitor_2'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 4]
+            # package all the MAG data into a data_dict
+            data_dict_mag = {
+                'RingCore_Data': [RingCore_data, {'DEPEND_0': 'RingCore_epoch', 'DEPEND_1': None, 'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}],
+                'RingCore_sfid': [RingCore_sfid, {'DEPEND_0': 'RingCore_epoch', 'DEPEND_1': None, 'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}],
+                'RingCore_epoch': [RingCore_epoch, {'DEPEND_0': 'RingCore_epoch', 'DEPEND_1': None, 'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]
+            }
 
-                data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 19]
-                data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 19]
+            if wRocket == 5: # Low Flyer has Ring Core and Tesseract
+                Tesseract_data = np.array([tmCDF_mf[iv][16 - 1] for iv in (range(len(tmCDF_sfid)))])
+                Tesseract_sfid = np.array(tmCDF_sfid)
+                Tesseract_epoch = np.array(tmCDF_epoch)
 
-                data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 3]
+                data_dict_mag = {**data_dict_mag, **{'Tesseract_data':[Tesseract_data, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                data_dict_mag = {**data_dict_mag, **{'Tesseract_sfid': [Tesseract_sfid, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                data_dict_mag = {**data_dict_mag, **{'Tesseract_epoch': [Tesseract_epoch, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]}}
 
-        Done(start_time)
+            Done(start_time)
 
-        # --- Major Frame counter ---
-        prgMsg('Counting major frames')
-        for ii in (range(len(tmCDF_sfid))): # NOTE: Major frame counter 1 is the first 16 binary digits of the majorframe number and major frame counter 2 is the next 16 binary digits, which totals a 32 binary word.
-            if (tmCDF_sfid[ii] + 1) not in [4, 12, 20, 28, 36]:
-                for j in (range(rocketAttrs.NumOfInstr)):  # MajF counter 1
-                    data_dicts[j]['major_frame_counter'][0].append([tmCDF_mf[ii][72 - 1]])
-            else:
-                for j in (range(rocketAttrs.NumOfInstr)):  # MajF counter 2
-                    data_dicts[j]['major_frame_counter'][0].append([tmCDF_mf[ii][136 - 1], tmCDF_mf[ii][72 - 1]])
-        Done(start_time)
+        if not justgetMAGdata:
+            # --- variables with special conditions ---
+            prgMsg('Collecting variables with special conditions')
+            for j in tqdm(range(rocketAttrs.NumOfInstr)):
+                if j == 0:
+                    data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 1]
+                    data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 17]
+                    data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 17]
+                    data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%4 == 1]
+                elif j == 1:
+                    data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 6]
+                    data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 18]
+                    data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 18]
+                    data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 0]
+                elif j == 2:
+                    data_dicts[j]['Boom_Monitor'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 2]
+                    data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 33]
+                    data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 33]
+                    data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 2]
+                elif j == 3:
 
-        # --- LP Data ---
-        prgMsg('Collecting LP Data')
-        data_dicts[3]['Channel_Counts'][0] = [[tmCDF_mf[iv][word - 1] for word in rocketAttrs.LP_words] for iv in (range(len(tmCDF_sfid))) ]
-        data_dicts[3]['Epoch'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid)))]
-        data_dicts[3]['sfid'][0] = [tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid)))]
-        Done(start_time)
+                    data_dicts[j]['Boom_Monitor_1'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
+                    data_dicts[j]['Epoch_monitor_1'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
 
-        # --- --- --- --- --- --- --- --- --- --- --- ---
-        # --- COLLECT MINORFRAME DATA FOR THE ESAs  ---
-        # --- --- --- --- --- --- --- --- --- --- --- ---
+                    data_dicts[j]['Boom_Monitor_2'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 4]
+                    data_dicts[j]['Epoch_monitor_2'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 4]
 
-        for iii in range(rocketAttrs.NumOfInstr - 1):
-            words = rocketAttrs.ESA_words[iii]
-            deConvolveKey = deConvolveKeys[iii]
-            deConvolveItems = deConvolveKey.items()
-            SectorDataCounter = 0
+                    data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 19]
+                    data_dicts[j]['Epoch_monitors'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 19]
 
-            for iv in tqdm(range(No_of_esa_measurements)):
-                esaMeasurement = tmCDF_mf[4 * iv: 4 * (iv + 1)]
-                data_dicts[iii]['sfid'][0][iv] = tmCDF_sfid[4 * iv]
-                data_dicts[iii]['Epoch'][0][iv] = tmCDF_epoch[4 * iv]
+                    data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 3]
 
-                for index in range(len(esaMeasurement)):
-                    mfdata = [esaMeasurement[index][k - 1] for k in words]
-                    keyset = [val for key, val in deConvolveItems if key in [i for i in range(1 + index * len(words), 1 + (1 + index) * len(words))]]
+            Done(start_time)
 
-                    for v in (range(len(mfdata))):  # place all the data
-                        if keyset[v] == 'Sector_Counts':
-                            data_dicts[iii]['Sector_Counts'][0][iv][SectorDataCounter] = mfdata[v]
-                            SectorDataCounter += 1
+            # --- Major Frame counter ---
+            prgMsg('Counting major frames')
+            for ii in (range(len(tmCDF_sfid))): # NOTE: Major frame counter 1 is the first 16 binary digits of the majorframe number and major frame counter 2 is the next 16 binary digits, which totals a 32 binary word.
+                if (tmCDF_sfid[ii] + 1) not in [4, 12, 20, 28, 36]:
+                    for j in (range(rocketAttrs.NumOfInstr)):  # MajF counter 1
+                        data_dicts[j]['major_frame_counter'][0].append([tmCDF_mf[ii][72 - 1]])
+                else:
+                    for j in (range(rocketAttrs.NumOfInstr)):  # MajF counter 2
+                        data_dicts[j]['major_frame_counter'][0].append([tmCDF_mf[ii][136 - 1], tmCDF_mf[ii][72 - 1]])
+            Done(start_time)
 
-                            if SectorDataCounter == rocketAttrs.num_of_sector_counts[iii]:
-                                SectorDataCounter = 0
+            # --- LP Data ---
+            prgMsg('Collecting LP Data')
+            data_dicts[3]['Channel_Counts'][0] = [[tmCDF_mf[iv][word - 1] for word in rocketAttrs.LP_words] for iv in (range(len(tmCDF_sfid))) ]
+            data_dicts[3]['Epoch'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid)))]
+            data_dicts[3]['sfid'][0] = [tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid)))]
+            Done(start_time)
 
-                        elif keyset[v] == 'status_word_2':
-                            data_dicts[iii]['HV_div16'][0].append((mfdata[v] >> 14) & 1)
-                            data_dicts[iii]['HV_enable'][0].append((mfdata[v] >> 7) & 1)
-                            data_dicts[iii]['sweep_step'][0].append((mfdata[v] >> 8) & 63)
-                            data_dicts[iii]['TP5_enable'][0].append((mfdata[v] >> 5) & 1)
+            # --- --- --- --- --- --- --- --- --- --- --- ---
+            # --- COLLECT MINORFRAME DATA FOR THE ESAs  ---
+            # --- --- --- --- --- --- --- --- --- --- --- ---
 
-                        elif keyset[v] == '625kHz_Clock_Input':
-                            data_dicts[iii][keyset[v]][0].append(mfdata[v])
-                            if mfdata[v] / rocketAttrs.ESA_CLK_INPUT >= 2:
-                                data_dicts[iii]['Count_Interval'][0].append(65535)
+            for iii in range(rocketAttrs.NumOfInstr - 1):
+                words = rocketAttrs.ESA_words[iii]
+                deConvolveKey = deConvolveKeys[iii]
+                deConvolveItems = deConvolveKey.items()
+                SectorDataCounter = 0
+
+                for iv in tqdm(range(No_of_esa_measurements)):
+                    esaMeasurement = tmCDF_mf[4 * iv: 4 * (iv + 1)]
+                    data_dicts[iii]['sfid'][0][iv] = tmCDF_sfid[4 * iv]
+                    data_dicts[iii]['Epoch'][0][iv] = tmCDF_epoch[4 * iv]
+
+                    for index in range(len(esaMeasurement)):
+                        mfdata = [esaMeasurement[index][k - 1] for k in words]
+                        keyset = [val for key, val in deConvolveItems if key in [i for i in range(1 + index * len(words), 1 + (1 + index) * len(words))]]
+
+                        for v in (range(len(mfdata))):  # place all the data
+                            if keyset[v] == 'Sector_Counts':
+                                data_dicts[iii]['Sector_Counts'][0][iv][SectorDataCounter] = mfdata[v]
+                                SectorDataCounter += 1
+
+                                if SectorDataCounter == rocketAttrs.num_of_sector_counts[iii]:
+                                    SectorDataCounter = 0
+
+                            elif keyset[v] == 'status_word_2':
+                                data_dicts[iii]['HV_div16'][0].append((mfdata[v] >> 14) & 1)
+                                data_dicts[iii]['HV_enable'][0].append((mfdata[v] >> 7) & 1)
+                                data_dicts[iii]['sweep_step'][0].append((mfdata[v] >> 8) & 63)
+                                data_dicts[iii]['TP5_enable'][0].append((mfdata[v] >> 5) & 1)
+
+                            elif keyset[v] == '625kHz_Clock_Input':
+                                data_dicts[iii][keyset[v]][0].append(mfdata[v])
+                                if mfdata[v] / rocketAttrs.ESA_CLK_INPUT >= 2:
+                                    data_dicts[iii]['Count_Interval'][0].append(65535)
+                                else:
+                                    data_dicts[iii]['Count_Interval'][0].append(mfdata[v] / rocketAttrs.ESA_CLK_INPUT)
+                            elif keyset[v] != None:
+                                data_dicts[iii][keyset[v]][0].append(mfdata[v])
+
+            # --- --- --- --- ---
+            # --- PROCESSING ---
+            # --- --- --- --- ---
+            prgMsg('Processing Data')
+            for jjj in range(rocketAttrs.NumOfInstr):
+
+                # --- Major Frame Counter ---
+                MF_counter, get_first_major_frame = [], []
+                MFDat = data_dicts[jjj]['major_frame_counter'][0]
+                topNum, botNum = 0, 0
+
+                for data in MFDat:
+                    if len(data) == 1:
+                        botNum = data[0]
+                    elif len(data) == 2:
+                        botNum = data[1]
+                        topNum = data[0]
+
+                        if get_first_major_frame == []: # used to start the minor frame counter
+                            if topNum != 0:
+                                get_first_major_frame.append( (topNum << 16) - 1 ) # -1 to remove the MF that I start on
                             else:
-                                data_dicts[iii]['Count_Interval'][0].append(mfdata[v] / rocketAttrs.ESA_CLK_INPUT)
-                        elif keyset[v] != None:
-                            data_dicts[iii][keyset[v]][0].append(mfdata[v])
+                                get_first_major_frame.append(botNum - 1)
 
-        # --- --- --- --- ---
-        # --- PROCESSING ---
-        # --- --- --- --- ---
-        prgMsg('Processing Data')
-        for jjj in range(rocketAttrs.NumOfInstr):
+                    num = (topNum << 16) + botNum
+                    MF_counter.append(num)
 
-            # --- Major Frame Counter ---
-            MF_counter, get_first_major_frame = [], []
-            MFDat = data_dicts[jjj]['major_frame_counter'][0]
-            topNum, botNum = 0, 0
+                data_dicts[jjj]['major_frame_counter'][0] = MF_counter
 
-            for data in MFDat:
-                if len(data) == 1:
-                    botNum = data[0]
-                elif len(data) == 2:
-                    botNum = data[1]
-                    topNum = data[0]
+                # --- minor Frame Counter ---
+                data_dicts[jjj]['minor_frame_counter'][0] = np.array([i + (get_first_major_frame[0]*40) for i in (range(1,len(tmCDF_sfid)+1))])
 
-                    if get_first_major_frame == []: # used to start the minor frame counter
-                        if topNum != 0:
-                            get_first_major_frame.append( (topNum << 16) - 1 ) # -1 to remove the MF that I start on
+                # --- Convert all data to numpy arrays ---
+                for key, dataVal in data_dicts[jjj].items():
+                    data_dicts[jjj][key][0] = np.array(dataVal[0])
+
+
+            Done(start_time)
+
+            # --- --- --- --- --- --- ---
+            # --- WRITE OUT THE DATA ---
+            # --- --- --- --- --- --- ---
+            writeOut_path = [f'{rocketFolderPath}L0\{fliers[wflyer]}\\{fileoutName[i]}' for i in range(rocketAttrs.NumOfInstr)]
+
+            # --- loop through instruments ---
+            for v in range(rocketAttrs.NumOfInstr):
+                prgMsg(f'Writing out {rocketAttrs.InstrNames[v]} data')
+                outputPath = writeOut_path[v]
+
+                # --- delete output file if it already exists ---
+                if os.path.exists(outputPath):
+                    os.remove(outputPath)
+
+                # --- open the output file ---
+                with pycdf.CDF(outputPath,'') as L0File:
+                    L0File.readonly(False)
+
+                    # --- write out global attributes ---
+                    inputGlobDic = L0ModelData.cdfFile.globalattsget()
+                    for key, val in inputGlobDic.items():
+                        if key == 'Descriptor':
+                            globalAttrsMod[key] = rocketAttrs.InstrNames_Full[v]
+
+                        if key in globalAttrsMod:
+                            L0File.attrs[key] = globalAttrsMod[key]
                         else:
-                            get_first_major_frame.append(botNum - 1)
+                            L0File.attrs[key] = val
 
-                num = (topNum << 16) + botNum
-                MF_counter.append(num)
+                    # --- WRITE OUT DATA ---
+                    for varKey, varVal in data_dicts[v].items():
+                        if varKey == 'Epoch' or varKey == 'Epoch_monitors':
+                            L0File.new(varKey, data=varVal[0], type = 33)
+                        elif varKey == 'Sector_Counts':
+                            L0File.new(varKey, data=varVal[0], type=pycdf.const.CDF_UINT2)
+                        else:
+                            L0File.new(varKey, data=varVal[0])
 
-            data_dicts[jjj]['major_frame_counter'][0] = MF_counter
+                        # --- Write out the attributes and variable info ---
+                        for attrKey, attrVal in data_dicts[v][varKey][1].items():
+                            if attrKey == 'VALIDMIN':
+                                L0File[varKey].attrs[attrKey] = varVal[0].min()
+                            elif attrKey == 'VALIDMAX':
+                                L0File[varKey].attrs[attrKey] = varVal[0].max()
+                            elif attrVal != None:
+                                L0File[varKey].attrs[attrKey] = attrVal
 
-            # --- minor Frame Counter ---
-            data_dicts[jjj]['minor_frame_counter'][0] = np.array([i + (get_first_major_frame[0]*40) for i in (range(1,len(tmCDF_sfid)+1))])
-
-            # --- Convert all data to numpy arrays ---
-            for key, dataVal in data_dicts[jjj].items():
-                data_dicts[jjj][key][0] = np.array(dataVal[0])
+                Done(start_time)
 
 
-        Done(start_time)
 
-        # --- --- --- --- --- --- ---
-        # --- WRITE OUT THE DATA ---
-        # --- --- --- --- --- --- ---
-        writeOut_path = [f'{rocketFolderPath}L0\{fliers[wflyer]}\\{fileoutName[i]}' for i in range(rocketAttrs.NumOfInstr)]
+        if getMAGdata:
+            prgMsg('Writing out MAG data')
 
-        # --- loop through instruments ---
-        for v in range(rocketAttrs.NumOfInstr):
-            prgMsg(f'Writing out {rocketAttrs.InstrNames[v]} data')
-            outputPath = writeOut_path[v]
+            if wRocket == 4:
+                fileoutName = fileoutName[0].replace('eepaa_','mag_').replace('iepaa_','mag_').replace('leesa_','mag_')
+            elif wRocket == 5:
+                fileoutName = fileoutName[0].replace('eepaa_', 'mag&tesseract_').replace('iepaa_', 'mag&tesseract_').replace('leesa_','mag&tesseract_')
+
+            outputPath = f'{rocketFolderPath}mag\{fliers[wflyer]}\\{fileoutName}'
+
 
             # --- delete output file if it already exists ---
             if os.path.exists(outputPath):
                 os.remove(outputPath)
 
             # --- open the output file ---
-            with pycdf.CDF(outputPath,'') as L0File:
-                L0File.readonly(False)
+            with pycdf.CDF(outputPath, '') as magFile:
+                magFile.readonly(False)
 
                 # --- write out global attributes ---
                 inputGlobDic = L0ModelData.cdfFile.globalattsget()
                 for key, val in inputGlobDic.items():
-                    if key == 'Descriptor':
-                        globalAttrsMod[key] = rocketAttrs.InstrNames_Full[v]
-
                     if key in globalAttrsMod:
-                        L0File.attrs[key] = globalAttrsMod[key]
+                        magFile.attrs[key] = globalAttrsMod[key]
                     else:
-                        L0File.attrs[key] = val
+                        magFile.attrs[key] = val
 
                 # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dicts[v].items():
-                    if varKey == 'Epoch' or varKey == 'Epoch_monitors':
-                        L0File.new(varKey, data=varVal[0], type = 33)
-                    elif varKey == 'Sector_Counts':
-                        L0File.new(varKey, data=varVal[0], type=pycdf.const.CDF_UINT2)
-                    else:
-                        L0File.new(varKey, data=varVal[0])
+                for varKey, varVal in data_dict_mag.items():
+                    if 'epoch' in varKey.lower():  # epoch data
+                        magFile.new(varKey, data=varVal[0], type=33)
+                    else:  # other data
+                        magFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_REAL8)
 
                     # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dicts[v][varKey][1].items():
+                    for attrKey, attrVal in data_dict_mag[varKey][1].items():
                         if attrKey == 'VALIDMIN':
-                            L0File[varKey].attrs[attrKey] = varVal[0].min()
+                            magFile[varKey].attrs[attrKey] = varVal[0].min()
                         elif attrKey == 'VALIDMAX':
-                            L0File[varKey].attrs[attrKey] = varVal[0].max()
+                            magFile[varKey].attrs[attrKey] = varVal[0].max()
                         elif attrVal != None:
-                            L0File[varKey].attrs[attrKey] = attrVal
+                            magFile[varKey].attrs[attrKey] = attrVal
 
             Done(start_time)
-
-
 
 
 

@@ -54,6 +54,10 @@ class makeRocketAttrs:
         self.LP_probe_areas = missionAttrs['LP_probe_areas']
         self.startEndLangmuirBreakIntoCurves = missionAttrs['startEndLangmuirBreakIntoCurves']
         self.Andoya_Space_Lat_Long = missionAttrs['Andoya_Space_Lat_Long']
+        self.LPswept_cal_epoch_ranges = missionAttrs['LPswept_cal_epoch_ranges']
+        self.LP_probe_areas = missionAttrs['LP_probe_areas']
+        self.LPswept_cal_resistances = missionAttrs['LPswept_cal_resistances']
+        self.LPswept_cal_epoch_ranges_single_sweep = missionAttrs['LPswept_cal_epoch_ranges_single_sweep']
 
 
 
@@ -113,15 +117,38 @@ def ACES_mission_dicts():
         'LPFixed_calResistances':[ {'Open':165,500000000:2170,250000000:2308,100000000:2540,50000000:2710,10000000:3122,5000000:3299},
                                    {'Open':165,500000000:2063,250000000:2260,100000000:2500,50000000:2660,10000000:3060,5000000:3194}],
         'LPswept_voltage_range':[[-4.72, 2.12], [-4.68, 2.08]],
+        'LPswept_cal_resistances':[10*10**(9),500*10**(6),250*10**(6),100*10**(6),50*10**(6),10*10**(6),5*10**(6)],
+        'LPswept_cal_epoch_ranges_single_sweep':[
+                [ # HIGH FLYER
+             [dt.datetime(2022, 11, 3, 13, 56, 11, 910063), dt.datetime(2022, 11, 3, 13, 56, 14, 88450)], #open
+             [dt.datetime(2022, 11, 3, 13, 53, 30, 000000), dt.datetime(2022, 11, 3, 13, 53, 32, 141247)], #500M
+             [dt.datetime(2022, 11, 3, 13, 54, 9, 973502), dt.datetime(2022, 11, 3, 13, 54, 12, 198665)],# 250M
+             [dt.datetime(2022, 11, 3, 13, 54, 42, 500000), dt.datetime(2022, 11, 3, 13, 54, 44, 000000)],# 100M
+             [dt.datetime(2022, 11, 3, 13, 55, 1, 984859), dt.datetime(2022, 11, 3, 13, 55, 4, 164512)],# 50M
+             [dt.datetime(2022, 11, 3, 13, 55, 31, 964699), dt.datetime(2022, 11, 3, 13, 55, 34, 207151)],# 10M
+             [dt.datetime(2022, 11, 3, 13, 56, 3, 893412), dt.datetime(2022, 11, 3, 13, 56, 6, 218441)] # 5M
+                ],
+                [
+             [dt.datetime(2022, 11, 3, 14, 25, 24, 823952), dt.datetime(2022, 11, 3, 14, 25, 27, 22060)],# open
+             [dt.datetime(2022, 11, 3, 14, 23, 4, 846869), dt.datetime(2022, 11, 3, 14, 23, 7, 845)],# 500M
+             [dt.datetime(2022, 11, 3, 14, 23, 56, 839534), dt.datetime(2022, 11, 3, 14, 23, 59, 1309)],# 250M
+             [dt.datetime(2022, 11, 3, 14, 23, 56, 825072), dt.datetime(2022, 11, 3, 14, 23, 59, 18086)],# 100M
+             [dt.datetime(2022, 11, 3, 14, 24, 22, 871113), dt.datetime(2022, 11, 3, 14, 24, 24, 994890)],# 50M
+             [dt.datetime(2022, 11, 3, 14, 24, 54, 864118), dt.datetime(2022, 11, 3, 14, 24, 56, 974901)],# 10M
+             [dt.datetime(2022, 11, 3, 14, 25, 16, 860398), dt.datetime(2022, 11, 3, 14, 25, 18, 981178)],# 5M
+
+                ]
+
+             ],
         'LPswept_cal_epoch_ranges': # open 500M 250M 100M 50M 10M 5M
             [
                 [ # HIGH FLYER
-             [dt.datetime(2022, 11, 3, 13, 56, 12, 000000), dt.datetime(2022, 11, 3, 13, 56, 18, 000000)], #open
+             [dt.datetime(2022, 11, 3, 13, 56, 11, 264921), dt.datetime(2022, 11, 3, 13, 56, 13, 20998)], #open
              [dt.datetime(2022, 11, 3, 13, 53, 28, 500000), dt.datetime(2022, 11, 3, 13, 53, 32, 200000)], #500M
              [dt.datetime(2022, 11, 3, 13, 54, 8, 000000), dt.datetime(2022, 11, 3, 13, 54, 16, 000000)],# 250M
              [dt.datetime(2022, 11, 3, 13, 54, 38, 000000), dt.datetime(2022, 11, 3, 13, 54, 46, 000000)],# 100M
              [dt.datetime(2022, 11, 3, 13, 55, 2, 000000), dt.datetime(2022, 11, 3, 13, 55, 16, 000000)],# 50M
-             [dt.datetime(2022, 11, 3, 13, 55, 32, 000000), dt.datetime(2022, 11, 3, 13, 55, 42, 000000)],# 10M
+             [dt.datetime(2022, 11, 3, 13, 55, 38, 000000), dt.datetime(2022, 11, 3, 13, 55, 42, 000000)],# 10M
              [dt.datetime(2022, 11, 3, 13, 56, 0, 000000), dt.datetime(2022, 11, 3, 13, 56, 8, 000000)] # 5M
                 ],
                 [
@@ -132,7 +159,6 @@ def ACES_mission_dicts():
              [dt.datetime(2022, 11, 3, 14, 24, 22, 943856), dt.datetime(2022, 11, 3, 14, 24, 28, 845243)],# 50M
              [dt.datetime(2022, 11, 3, 14, 24, 46, 753576), dt.datetime(2022, 11, 3, 14, 24, 57, 182238)],# 10M
              [dt.datetime(2022, 11, 3, 14, 25, 11, 122669), dt.datetime(2022, 11, 3, 14, 25, 19, 107600)],# 5M
-
                 ]
 
              ],
