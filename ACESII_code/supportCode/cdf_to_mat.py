@@ -26,7 +26,7 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files
-justPrintFileNames = False
+justPrintFileNames = True
 
 # --- Select the Rocket ---
 # 0 -> Integration High Flier
@@ -40,11 +40,11 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [3]
 
 modifier = ''
-inputPath_modifier = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'attitude' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+inputPath_modifier = 'tmCDF' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'tmCDF' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
 # --- --- --- ---

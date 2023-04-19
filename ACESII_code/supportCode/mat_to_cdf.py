@@ -40,18 +40,20 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [0,1]
 
 modifier = ''
 inputPath_modifier = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
 outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
+useKentonFormat = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 import numpy as np
 import os
+import scipy
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
 from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
 from ACESII_code.class_var_func import color, prgMsg, L0_ACES_Quick,L0_TRICE_Quick
@@ -65,8 +67,6 @@ from mat73 import loadmat
 from copy import deepcopy
 
 
-
-
 ###########################
 # --- SPECIAL VARIABLES ---
 ###########################
@@ -74,12 +74,19 @@ from copy import deepcopy
 # Program default: recognize Epoch variable, turn it into "support data". Turn other data into "data"
 # Below you can add additional specifications to known variables
 
-special_mods = {'time': {'UNITS':'ns','LABLAXIS':'Epoch'},
-                'Bx': {'UNITS':'Analog','LABLAXIS':'Bx'},
-                'By': {'UNITS':'Analog','LABLAXIS':'By'},
-                'Bz': {'UNITS':'Analog','LABLAXIS':'Bz'}}
+special_mods = {'Bx': {'UNITS':'nT','LABLAXIS':'Bx'},
+                'By': {'UNITS':'nT','LABLAXIS':'By'},
+                'Bz': {'UNITS':'nT','LABLAXIS':'Bz'},
+                'Time': {'UNITS':'ns','LABLAXIS':'Epoch'},
+                'Bmag': {'UNITS':'nT','LABLAXIS':'Bmag'}}
 
+# special_mods = {'time_TT2000': {'UNITS':'ns','LABLAXIS':'Epoch'},
+#                 'BMagFilt': {'UNITS':'Analog','LABLAXIS':'Bx'}}
 
+# special_mods = {'Time': {'UNITS':'ns', 'LABLAXIS':'Epoch'},
+#                 'E_East': {'UNITS':'V/m', 'LABLAXIS':'E_East'},
+#                 'E_North': {'UNITS':'V/m', 'LABLAXIS':'E_North'},
+#                 'E_Up': {'UNITS':'V/m', 'LABLAXIS':'E_Up'}}
 
 
 def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
@@ -115,6 +122,10 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     fileoutName = dataFile_name.replace(f'{inputrocketFolderPath}\\{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', "").replace('.mat','.cdf')
 
+    for index, instr in enumerate(['eepaa', 'leesa', 'iepaa', 'lp']):
+        if instr in dataFile_name:
+            wInstr = [index, instr]
+
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
             anws = ["yes" if input_names_searchable[i].replace('.cdf', "") in output_names_searchable else "no"]
@@ -129,7 +140,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         ##########################
         prgMsg('Converting variables to .cdf format')
 
-        exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+        exampleVar = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
                         'FORMAT': 'I5', 'UNITS': None, 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
                         'SCALETYP': 'linear', 'LABLAXIS': None}
         exampleEpoch = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
@@ -138,13 +149,36 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                   'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear', 'LABLAXIS': 'Epoch'}
 
 
-        # Load in data to data_dict
-        mat = loadmat(inputFiles[wFile])
+        # DETERMINE THE FILETYPE
+        loadThisFile = inputFiles[wFile]
+
+        try:
+            # Load in data to data_dict
+            mat = loadmat(loadThisFile)
+
+        except Exception as e:
+            print('\n')
+            print(e,'\n')
+            prgMsg('Loading with scipy.io instead')
+            mat = scipy.io.loadmat(loadThisFile)
+
 
         # Output data
         data_dict = {}
-        for key, val in mat['rc_struct'].items():
 
+        # --- convert data into dictionary ---
+        if useKentonFormat:
+            iterAble = {}
+            counter = 0
+            for key, val in special_mods.items():
+                iterAble = {**iterAble,**{key: np.array(mat['rc_struct'][0][0][counter]).flatten()}}
+                counter += 1
+        else: # Antonio's Format
+            iterAble = mat['rc_struct']
+
+
+        # IF USING rc_struct format
+        for key, val in iterAble.items():
             # put .mat data into data_dict
             if 'time' in key.lower():
                 data_dict = {**data_dict, **{key: [val, deepcopy(exampleEpoch)]}}
@@ -162,8 +196,16 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                     else: # if attribute doesn't exist yet
                         data_dict[key][1] = {**data_dict[key][1],**{attrNam:attrVal}}
 
-        if 'time' in data_dict:
-            data_dict['Epoch'] = data_dict.pop('time')
+
+        for key,val in special_mods.items():
+            if key in ['Time','time']:
+                data_dict['Epoch'] = data_dict.pop(key)
+
+        # --- Handle the Time variable ---
+        # If "Time" variable is actually "Time since launch" do the conversion from SECONDS
+        if data_dict['Epoch'][0][0] < 100000000000000000:
+            data_dict['Epoch'][0] = np.array([data_dict['Epoch'][0][i]*(10**(9)) + rocketAttrs.Launch_Times[wRocket - 4] for i in range(len(data_dict['Epoch'][0]))])
+
 
 
         Done(start_time)
@@ -185,6 +227,8 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         with pycdf.CDF(outputPath, '') as outputFile:
             outputFile.readonly(False)
+
+            globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
 
             # --- write out global attributes ---
             inputGlobDic = outputModelData.cdfFile.globalattsget()

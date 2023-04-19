@@ -58,6 +58,7 @@ class makeRocketAttrs:
         self.LP_probe_areas = missionAttrs['LP_probe_areas']
         self.LPswept_cal_resistances = missionAttrs['LPswept_cal_resistances']
         self.LPswept_cal_epoch_ranges_single_sweep = missionAttrs['LPswept_cal_epoch_ranges_single_sweep']
+        self.timeBetweenSteps_in_ns = missionAttrs['timeBetweenSteps_in_ns']
 
 
 
@@ -108,6 +109,7 @@ def ACES_mission_dicts():
                       [11, 27, 44, 86, 102, 115, 143]],
         'epoch_fillVal': -9223372036854775808,
         'esaMaxCounts': 4095,
+        'timeBetweenSteps_in_ns':0.001 * (10**(9)),
         'ESA_CLK_INPUT': 625,
         'LP_words': [15, 29, 46, 66, 90, 104, 117, 133, 145],
         'LP_Variables': ["deltaNdivN","step", "ne_swept", "ni_swept","ni"],

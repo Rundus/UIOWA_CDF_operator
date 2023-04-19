@@ -74,9 +74,8 @@ from ACESII_code.class_var_func import setupPYCDF
 setupPYCDF()
 from spacepy import pycdf
 
+count_interval = single_var_data('Count_Interval')['Data']
 
-
-print('BSSneg1   ',pycdf.lib.tt2000_to_datetime(722236286724338984))
-
+print(len(count_interval))
 
 

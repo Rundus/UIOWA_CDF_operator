@@ -1,4 +1,4 @@
-# --- ACS_pyGMT_plotting.py ---
+# --- trajectory3D_PYGMT.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: read in NOM_predict trajectories in order to roughly plot the ACESII rockets
 
@@ -151,7 +151,7 @@ fig.plot3d(
 )
 
 
-fig.savefig(r"D:\Data\ACESII\trajectories\testfig.png")
+fig.savefig(r"D:\Data\ACESII\trajectories\trajectory_plots\testfig.png")
 
 
 

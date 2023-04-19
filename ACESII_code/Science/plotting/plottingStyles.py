@@ -110,9 +110,6 @@ class ILATvsILONG:
     # Connecting lines
     connecting_lines_style = dict(color='green', linestyle="--", alpha=0.7)
 
-
-
-
 ############################################
 # --- PLOT 4: ALT vs EPOCH (ESA OVERLAY) ---
 ############################################
@@ -125,129 +122,135 @@ class ESAoverlay:
     # "Zoom" into data
     lowFlyer_adjust = 1000
 
-    # given in geodetic Latitude
-    start = [71,70.5]
-    end = [73.4,73.5]
+    ####################
+    # --- FIRST AXIS ---
+    ####################
 
     # pcolormesh
-    cdict = {'red': ((0.0, 0.0, 0.0),
-                     (0.1, 0.5, 0.5),
-                     (0.2, 0.0, 0.0),
-                     (0.4, 0.2, 0.2),
-                     (0.6, 0.0, 0.0),
-                     (0.8, 1.0, 1.0),
-                     (1.0, 1.0, 1.0)),'green': ((0.0, 0.0, 0.0),
-                       (0.1, 0.0, 0.0),
-                       (0.2, 0.0, 0.0),
-                       (0.4, 1.0, 1.0),
-                       (0.6, 1.0, 1.0),
-                       (0.8, 1.0, 1.0),
-                       (1.0, 0.0, 0.0)),'blue': ((0.0, 0.0, 0.0),
-                      (0.1, 0.5, 0.5),
-                      (0.2, 1.0, 1.0),
-                      (0.4, 1.0, 1.0),
-                      (0.6, 0.0, 0.0),
-                      (0.8, 0.0, 0.0),
-                      (1.0, 0.0, 0.0))}
-    from matplotlib import colors
-    my_cmap = colors.LinearSegmentedColormap('my_colormap', cdict, 256)
-    pcolormesh_style = dict(vmin=2,vmax=15,cmap=my_cmap,alpha=0.8)
-    colorbar_style = dict(pad=0.04)
-    cbar_label_style = dict(size=10)
+    pcolormesh_style = dict(vmin=3, vmax=80, cmap="turbo", alpha=0.8)
+
+    # colorbar
+    colorbar_style = dict(pad=0.15)
+    cbar_label_style = dict(size=20)
+    majorTicks_style_cbar = dict(labelsize=20)
+    axes_label_style = dict(size=30, labelpad=5)
+    tick_style = dict(labelsize=20)
+
+    #####################
+    # --- SECOND AXIS ---
+    #####################
+
+    # given in geodetic Latitude
+    start = [71,70.8]
+    end = [72.4,73.5]
 
     # high/low flyer plot
-    trajectory_style = [dict(color='red', linewidth=1), dict(color='blue', linewidth=1)]
+    trajectory_style = [dict(color='red', linewidth=2), dict(color='cyan', linewidth=2)]
     plot_style_MAG = dict(color='blue', linewidth=1, alpha=0.0)
-    axes_label_style = dict(size=13, labelpad=5)
-    yaxis_lim = dict(bottom = 20, top = 1300)
-    title_style = dict(size=10)
-    margins_style = dict(tight=True)
+    axes_label_style_twin = dict(size=20, labelpad=5)
+    yaxis_lim = dict(bottom=8, top=1435)
+    title_style = dict(size=40)
+    trajectory_style_twin = [dict(color='white', linewidth=3), dict(color='cyan', linewidth=3)]
 
 
     # ticks
-    spacing_of_majorticks = 1
-    majorTicks_style = dict(labelsize=12, which='major', size=10, pad=5)
-    minorTicks_style = dict(labelsize=8, which='minor', size=8)
+    spacing_of_majorticks_twin = 0.2
 
+##########################
+# --- PLOT 5: ESAMOVIE ---
+##########################
 
 class ESAmovie:
 
     # fps of the video
-    fps = 20
+    fps = 5
 
     # figure size
-    figure_height = 15
-    figure_width = 25
+    figure_height = 20
+    figure_width = 36
 
-    ################
-    # TRAJECT PLOT #
-    ################
+    # "Zoom" into energy range
+    EnergyStart = 12
+    EnergyEnd = 48
+
+    ########################
+    # --- TRAJECT PLOT --- #
+    ########################
 
     # high/low flyer plot
     trajectory_style = [dict(color='red', linewidth=2), dict(color='blue', linewidth=2)]
     axes_label_traj_style = dict(size=20, labelpad=5)
-    title_style = dict(size=25)
+    title_style = dict(size=40)
+    subtitle_style = dict(size=25)
 
     # ticks
     spacing_of_majorticks_Traj = 0.5
-    spacing_of_majorticks_ESA = 10
     majorTicks_style = dict(labelsize=20, which='major', size=15, pad=2)
     minorTicks_style = dict(labelsize=15, which='minor', size=10)
+    polarTicks_degrees_style = dict(size=15 )
+    polarTicks_radii_style = dict(size=50)
 
     # Altitude Text
-    textOffset = 0.15
-    text_alignment = 'right'
-    textUTC_style = [dict(size=22, color='red'), dict(size=22, color='blue')]
+    textOffset_alt = 0.15
+    textOffset_latlong = [[-0.15,-0.15],[0.15, 0.25]]
+    text_alignment = ['left','right']
+    textUTC_style_lat = [dict(size=22, color='red'), dict(size=22, color='blue')]
+    textUTC_style_alt = [dict(size=22, color='red'), dict(size=22, color='blue')]
     altrounding = 1 # how many decimals to round to
 
     # x-mark lines
     marker_style = [dict(marker='o', color='red', s=175), dict(marker='o', color='blue', s=175)]
 
+    ##########################
+    # --- ESA DATA PLOTS --- #
+    ##########################
 
+    spacing_of_majorticks_ESA = 10
+    size_of_axis_orderOfMagnitude = 30
 
-    ##################
-    # ESA DATA PLOTS #
-    ##################
+    #### if plotDistFunc ###
+    vth_e = (2*(1000)*(1.602176565 * 10**(-19)) / (9.11 * 10**(-31)))**(1/2)
+    Vmin_dist, Vmax_dist = 1E-18, 1E-12
+    dist_cmap_style = dict(cmap='turbo', vmin=Vmin_dist, vmax=Vmax_dist, norm='log')
+    normalizedXLimits_dist = [-1.25, 1.25] # values chosen based on Te = 1000eV for vthermal
+    normalizedYLimits_dist = [-0.25, 1.25] # values chosen based on Te = 1000eV for vthermal
+    XLimits_dist = [-3E7, 3E7]
+    YLimits_dist = [-1E7, 3E7]
 
-    # if plotDistFunc:
-    vmin = [1E-18, 1E-18]
-    vmax = [1E-12, 1E-12]
-    # else:
-    #     vmin = [ESAData[0].min(), ESAData[1].min()]
-    #     vmax = [ESAData[0].max(), ESAData[1].max()]
+    #### if plotDiffEFlux ###
+    Vmin_diff, Vmax_diff = 1E6, 1E9
+    diff_cmap_style = dict(cmap='turbo', vmin=Vmin_diff, vmax=Vmax_diff, norm='log')
+    normalizedXLimits_diff = [-1.5, 1.5]  # values chosen based on Te = 1000eV for vthermal
+    normalizedYLimits_diff = [-0.25, 1.5]  # values chosen based on Te = 1000eV for vthermal
+    XLimits_diff = [-3E7, 3E7]
+    YLimits_diff = [-1E7, 3E7]
 
-    # pcolormesh
-    cdict = {'red': ((0.0, 0.0, 0.0),
-                     (0.1, 0.5, 0.5),
-                     (0.2, 0.0, 0.0),
-                     (0.4, 0.2, 0.2),
-                     (0.6, 0.0, 0.0),
-                     (0.8, 1.0, 1.0),
-                     (1.0, 1.0, 1.0)), 'green': ((0.0, 0.0, 0.0),
-                                                 (0.1, 0.0, 0.0),
-                                                 (0.2, 0.0, 0.0),
-                                                 (0.4, 1.0, 1.0),
-                                                 (0.6, 1.0, 1.0),
-                                                 (0.8, 1.0, 1.0),
-                                                 (1.0, 0.0, 0.0)), 'blue': ((0.0, 0.0, 0.0),
-                                                                            (0.1, 0.5, 0.5),
-                                                                            (0.2, 1.0, 1.0),
-                                                                            (0.4, 1.0, 1.0),
-                                                                            (0.6, 0.0, 0.0),
-                                                                            (0.8, 0.0, 0.0),
-                                                                            (1.0, 0.0, 0.0))}
-    from matplotlib import colors
-    my_cmap = colors.LinearSegmentedColormap('my_colormap', cdict, 256)
-    pcolormesh_style = dict(cmap=my_cmap, alpha=1)
-    colorbar_style = dict(pad=-4)
-    cbar_label_style = dict(size=25, labelpad=50,rotation=270)
+    # Plot elements
+    shapes_style = dict(fc='white', edgecolor=None)
+    radius_modifier = 0.95
+
+    # --- if ESA counts data ---
+    vmin = [1E-19, 1E-19]
+    vmax = [1E-13, 1E-13]
+
+    # --- pcolormesh ---
+    pcolormesh_style = dict(cmap='turbo', alpha=1)
 
     # axes label spectrogram
-    axes_label_ESA_style = dict(size=25, labelpad=5)
+    axes_label_ESA_style = dict(size=38, labelpad=5)
 
-    # "Zoom" into energy range
-    EnergyStart = 12
-    EnergyEnd = 42
+
+    ##################
+    # --- COLORBAR ---
+    ##################
+    colorbar_style = dict(pad=-4,cmap='turbo')
+    cbar_label_style = dict(size=35, labelpad=50,rotation=270)
+    majorTicks_colorbar_style = dict(labelsize=35, which='major', size=15, pad=2)
+    minorTicks_colorbar_style = dict(labelsize=25, which='minor', size=10)
+
+
+
+
 
 
 

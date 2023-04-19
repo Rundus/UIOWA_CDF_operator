@@ -43,10 +43,15 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0,1,2]
+wFiles = [0,1,7]
 
-useILatILongData = True
-
+useMagCalData = True
+if useMagCalData:
+    inputPath_modifier = 'L1_mag_cal'  # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+    outputPath_modifier = 'L2_mag_cal'  # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+else:
+    inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+    outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -83,23 +88,16 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         rocketID = rocketAttrs.rocketID[wflyer]
         L0ModelData = L2_TRICE_Quick(wflyer)
 
+    L1Files = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')
+    L2Files = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
 
-    # Set the paths for the file names
-    if useILatILongData:
-        modifier = '_ILatILong'
-    else:
-        modifier = ''
-
-    L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\*.cdf')
-    L2Files = glob(f'{rocketFolderPath}L2\{fliers[wflyer]}\*.cdf')
-
-    L1_names = [ifile.replace(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\\', '') for ifile in L1Files]
-    L2_names = [ofile.replace(f'{rocketFolderPath}L2\{fliers[wflyer]}\\', '') for ofile in L2Files]
+    L1_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '') for ifile in L1Files]
+    L2_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '') for ofile in L2Files]
 
     L1_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace('l1_', '').replace('_v00', '') for ifile in L1_names]
     L2_names_searchable = [ofile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace('l2_', '').replace('_v00', '').replace('__', '_') for ofile in L2_names]
 
-    dataFile_name = L1Files[wFile].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}{modifier}\\', '')
+    dataFile_name = L1Files[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '')
     fileoutName = dataFile_name.replace('l1', 'l2')
 
     # determine which instrument the file corresponds to:
@@ -150,8 +148,9 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             # --- PROCESS ESA DATA ---
             for tme, ptch, engy in tqdm(itertools.product(*ranges)):
-                diffNFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (Energies[engy] * geo_factor[ptch] * ((count_interval[tme] * 10 ** (-6)) - (counts[tme][ptch][engy] * rocketAttrs.deadtime[wflyer]))))
-                diffEFlux[tme][ptch][engy] = int((Energies[engy] * counts[tme][ptch][engy]) / (Energies[engy] * geo_factor[ptch] * ((count_interval[tme] * 10 ** (-6)) - (counts[tme][ptch][engy] * rocketAttrs.deadtime[wflyer]))))
+                deltaT = (count_interval[tme] * 10 ** (-6)) - (counts[tme][ptch][engy] * rocketAttrs.deadtime[wflyer])
+                diffNFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (Energies[engy] * geo_factor[ptch] * deltaT))
+                diffEFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (geo_factor[ptch] * deltaT))
 
             del data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]]
             outputData = True
@@ -170,7 +169,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         if outputData:
 
-            outputPath = f'{rocketFolderPath}L2\{fliers[wflyer]}\\{fileoutName}'
+            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
             data_dict = {**data_dict, **{'Differential_Number_Flux':
                                              [diffNFlux, {'LABLAXIS': 'Differential_Number_Flux',
@@ -182,7 +181,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                                        'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
 
             data_dict = {**data_dict, **{'Differential_Energy_Flux':
-                                             [diffNFlux, {'LABLAXIS': 'Differential_Energy_Flux',
+                                             [diffEFlux, {'LABLAXIS': 'Differential_Energy_Flux',
                                                           'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
                                                           'DEPEND_2': 'Energy',
                                                           'FILLVAL': -1e30, 'FORMAT': 'E12.2',

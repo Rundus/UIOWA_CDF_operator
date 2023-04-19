@@ -1,8 +1,8 @@
 # --- L0_to_L1.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Convert electrostatic analyzer data from sector counts to raw counts
-# Truncates all data to only that past 17:20:00. Special case given to LP's s.t. its dataset starts on sfid = 0 when reducing dataset
-
+# Truncates all data to only that past 17:20:00.
+# Special case given to LP's s.t. its dataset starts on sfid = 0 when reducing dataset
 
 
 # NOTE: I have aligned the sector counts to start on an sfid 0 and end with an sfid 39 BUT
@@ -47,16 +47,16 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [4,5]
+wFiles = [2]
 
 # how many energy values not to keep, starting from the lowest values
-energy_adjust = 1
+energy_adjustment = 1
 
 #########################
 # --- Special Toggles ---
 #########################
 # Truncates all data to everything past 17:20:00
-truncateData = False
+truncateData = True
 
 
 
@@ -158,6 +158,13 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
             sectorCounts = data_dict['Sector_Counts'][0]
 
+            if energy_adjustment == 0:
+                energy_adjust = -1*len(rocketAttrs.Instr_Energy[0])
+            else:
+                energy_adjust = energy_adjustment
+
+
+
             if wInstr[0] in [0]: # EEPAA
                 data_dict['Pitch_Angle'][0] =np.array(rocketAttrs.Instr_sector_to_pitch[0])
                 pitches = data_dict['Pitch_Angle'][0]
@@ -177,77 +184,87 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                 data_dict['geometric_factor'][0] = np.array(rocketAttrs.geometric_factor[2])
 
             # --- PROCESS ESA DATA ---
+            if energy_adjustment == 0:
+                energy_adjust = 0
+            else:
+                energy_adjust = energy_adjustment
+
             sweepLength = len(data_dict['Energy'][0]) + (energy_adjust) + 1 # must be a total of 50 values in a sweep
 
             # --- find index locations of the start and end point of the sweeps ---
-            try:
-                start_of_sweeps = np.where(data_dict['sweep_step'][0] == 49)[0] # before its turned on, sweep_steps are just zeros
-                sweeps_start = start_of_sweeps[0] + 1 # index for the start of the first sweep, beginning on a retrace
-                sweeps_end = start_of_sweeps[-1] + 1
-                sectorCounts_reduced = sectorCounts[sweeps_start:sweeps_end]
-                epoch_reduced = data_dict['Epoch'][0][sweeps_start:sweeps_end]
-                no_of_sweeps = int(len(sectorCounts_reduced) / (sweepLength))
+            # try:
+            start_of_sweeps = np.where(data_dict['sweep_step'][0] == 49)[0] # before its turned on, sweep_steps are just zeros
+            sweeps_start = start_of_sweeps[0] + 1 # index for the start of the first sweep, beginning on a retrace
+            sweeps_end = start_of_sweeps[-1] + 1
+            sectorCounts_reduced = sectorCounts[sweeps_start:sweeps_end]
+            epoch_reduced = data_dict['Epoch'][0][sweeps_start:sweeps_end]
+            no_of_sweeps = int(len(sectorCounts_reduced) / (sweepLength))
 
-                # --- PLACE THE OUTPUT DATA ---
-                counts = np.zeros(shape=(no_of_sweeps, len(pitches), sweepLength - (energy_adjust + 1)  ))
+            # --- PLACE THE OUTPUT DATA ---
+            counts = np.zeros(shape=(no_of_sweeps, len(pitches), sweepLength - (energy_adjust + 1)  ))
 
-                for i in tqdm(range(no_of_sweeps)):
+            for i in tqdm(range(no_of_sweeps)):
 
-                    # downsample the ESA's epoch so it starts at the beginning of each sweep
-                    data_dict['Epoch_esa'][0].append(epoch_reduced[i*sweepLength])
+                # downsample the ESA's epoch so it starts at the beginning of each sweep
+                data_dict['Epoch_esa'][0].append(epoch_reduced[i*sweepLength])
 
-                    # take subset of sector counts and epoch data with all pitch angles
-                    subSet = sectorCounts_reduced[i * sweepLength: (1 + i) * sweepLength]
+                # take subset of sector counts and epoch data with all pitch angles
+                subSet = sectorCounts_reduced[i * sweepLength: (1 + i) * sweepLength]
 
-                    for j in (range(len(pitches))): # place the sector count data
-                        sweep = [int(subSet[k][j]) for k in (range(sweepLength)) if k not in [1, 2]]
-                        sweep.insert(len(sweep)-1, sweep.pop(0)) # move the index 0 value to where the highest
-                        counts[i][j] = sweep[::-1] # Invert the order to match the energy to the sweep no.
+                if energy_adjustment == 0:
+                    remthese = [1]
+                else:
+                    remthese = [1,2]
 
-                data_dict['Epoch_esa'][0] = np.array(data_dict['Epoch_esa'][0])
+                for j in (range(len(pitches))): # place the sector count data
+                    sweep = [int(subSet[k][j]) for k in (range(sweepLength)) if k not in remthese]
+                    sweep.insert(len(sweep)-1, sweep.pop(0)) # move the index 0 value to where the highest
+                    counts[i][j] = sweep[::-1] # Invert the order to match the energy to the sweep no.
 
-                data_dict = {**data_dict, **{rocketAttrs.InstrNames_LC[wInstr[0]]:
-                                                 [counts, {'LABLAXIS': rocketAttrs.InstrNames_LC[wInstr[0]],
-                                                           'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
-                                                           'DEPEND_2': 'Energy',
-                                                           'FILLVAL': 65535, 'FORMAT': 'E12.2',
-                                                           'UNITS': 'counts', 'VALIDMIN': 0,
-                                                           'VALIDMAX': rocketAttrs.esaMaxCounts, 'VAR_TYPE': 'data',
-                                                           'SCALETYP': 'linear'}]}}
+            data_dict['Epoch_esa'][0] = np.array(data_dict['Epoch_esa'][0])
 
-                del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'],data_dict['major_frame_counter']
+            data_dict = {**data_dict, **{rocketAttrs.InstrNames_LC[wInstr[0]]:
+                                             [counts, {'LABLAXIS': rocketAttrs.InstrNames_LC[wInstr[0]],
+                                                       'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
+                                                       'DEPEND_2': 'Energy',
+                                                       'FILLVAL': 65535, 'FORMAT': 'E12.2',
+                                                       'UNITS': 'counts', 'VALIDMIN': 0,
+                                                       'VALIDMAX': rocketAttrs.esaMaxCounts, 'VAR_TYPE': 'data',
+                                                       'SCALETYP': 'linear'}]}}
+
+            del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'],data_dict['major_frame_counter']
 
 
-                if truncateData:
+            if truncateData:
 
-                    # --- --- --- --- --- ---
-                    # --- REDUCE DATASET ---
-                    # --- --- --- --- --- ---
-                    # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
+                # --- --- --- --- --- ---
+                # --- REDUCE DATASET ---
+                # --- --- --- --- --- ---
+                # Nothing interesting happens before 17:20 in the data, find this point and only keep data after it
 
-                    targetDate, targetTime  = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
-                    targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
-                    Epoch_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch'][0]]).argmin()
-                    Epoch_esa_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_esa'][0]]).argmin()
-                    Epoch_monitors_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_monitors'][0]]).argmin()
+                targetDate, targetTime  = dt.datetime(2022, 11, 20), dt.time(17, 20, 0, 0)
+                targetDateTime_TT2000 = pycdf.lib.datetime_to_tt2000(targetDate.combine(targetDate, targetTime))
+                Epoch_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch'][0]]).argmin()
+                Epoch_esa_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_esa'][0]]).argmin()
+                Epoch_monitors_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_monitors'][0]]).argmin()
 
-                    noReduction = ['geometric_factor','Energy','Pitch_Angle','Sector_Number']
-                    needsReduction_esa = [rocketAttrs.InstrNames_LC[wInstr[0]], 'Epoch_esa']
-                    needsReduction_monitors = ['28V_Monitor','Boom_Monitor','Epoch_monitors']
+                noReduction = ['geometric_factor','Energy','Pitch_Angle','Sector_Number']
+                needsReduction_esa = [rocketAttrs.InstrNames_LC[wInstr[0]], 'Epoch_esa']
+                needsReduction_monitors = ['28V_Monitor','Boom_Monitor','Epoch_monitors']
 
-                    for key, val in data_dict.items():
-                        if key in needsReduction_esa: # counts data
-                            data_dict[key][0] = data_dict[key][0][Epoch_esa_targetIndex:]
-                        elif key in needsReduction_monitors: # Monitors data
-                            data_dict[key][0] = data_dict[key][0][Epoch_monitors_targetIndex:]
-                        elif key not in noReduction: # Everything else
-                            data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
+                for key, val in data_dict.items():
+                    if key in needsReduction_esa: # counts data
+                        data_dict[key][0] = data_dict[key][0][Epoch_esa_targetIndex:]
+                    elif key in needsReduction_monitors: # Monitors data
+                        data_dict[key][0] = data_dict[key][0][Epoch_monitors_targetIndex:]
+                    elif key not in noReduction: # Everything else
+                        data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
 
-                dataFailed = False
+            dataFailed = False
 
-            except Exception as e:
-                print(color.RED + f'Data was not processed. Reason: {e}' + color.END)
-                dataFailed = True
+            # except Exception as e:
+            #     print(color.RED + f'Data was not processed. Reason: {e}' + color.END)
+            #     dataFailed = True
 
             # --- --- --- --- --- --- --- ---
             # --- WRITE OUT THE ESA DATA ---
@@ -354,7 +371,8 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                     if L0epoch[j] != -9223372036854775808:
 
-                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([(L0epoch[j] - minorFrameTime) + l * samplePeriod for l in range(8)])  # assign epoch values for each point with a sample rate of 35.25kHz
+                        # assign epoch values for each point with a sample rate of 35.25kHz
+                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([(L0epoch[j] - minorFrameTime) + l * samplePeriod for l in range(8)])
 
                         if L0ChannelCounts[j][8] > 4095: # set all values above 4095 to the fillval
                             data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(-1)
@@ -365,13 +383,12 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                     else: # if epoch is a fillval
                         no_of_fillvals.append([rocketAttrs.LP_Variables[LP_var_counter],j])
-
                         data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([-9223372036854775808 for l in range(8)]) # deltaNdivN
                         data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(-1)  # LP_vars
                         data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append(-9223372036854775808) # LP_vars
 
 
-                # Convert all data to numpy arrays
+                # Converts  all data to numpy arrays
                 for key, var in data_dict.items():
                     data_dict[key][0] = np.array(data_dict[key][0])
 

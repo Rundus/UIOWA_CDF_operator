@@ -64,7 +64,6 @@ for time_index,pitch_index,energy_index in itertools.product(*ranges_high):
                 # 2) Place the data into the right spot
                 dataplacerchecker_high(time_index,pitch_index,energy_index,checker)
 
-
     # FOR ANGLE -10
     if (pitch_index == 0) and ((pitch[2] - 5) <= Pitch_output_high[time_index][pitch_index][energy_index] <= (pitch[2] + 5)  ):
         dataplacer_high(time_index, pitch_index, energy_index)  # Place the data into the right spot
@@ -79,8 +78,6 @@ for time_index,pitch_index,energy_index in itertools.product(*ranges_high):
                 # 2) Place the data into the right spot
                 dataplacerchecker_high(time_index, pitch_index, energy_index, checker)
 
-
-
     # FOR ANGLE 190
     if (pitch_index == 20) and ((pitch[18] - 5) <= Pitch_output_high[time_index][pitch_index][energy_index] <= (pitch[18] + 5)  ):
         dataplacer_high(time_index, pitch_index, energy_index)
@@ -93,8 +90,6 @@ for time_index,pitch_index,energy_index in itertools.product(*ranges_high):
                 dataplacerchecker_high(time_index, pitch_index, energy_index, checker)
             elif (0 < checker < 20) and ((pitch[checker] - 5) <= Pitch_output_high[time_index][pitch_index][energy_index] <= (pitch[checker] + 5)):
                 dataplacerchecker_high(time_index, pitch_index, energy_index, checker)
-
-
 
 
 print('Done')

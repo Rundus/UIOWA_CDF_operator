@@ -12,7 +12,14 @@ __version__ = "1.0.0"
 import numpy as np,time
 from ACESII_code import data_paths
 from cdflib import cdfread
-from os import environ
+from os import environ,path,remove
+def setupPYCDF():
+    environ['HOMEDRIVE'] = data_paths.HOMEDRIVE
+    environ['HOMEPATH'] = data_paths.HOMEPATH
+    environ["CDF_LIB"] = data_paths.CDF_LIB
+
+setupPYCDF()
+from spacepy import pycdf
 
 # -------------------
 # ----- CLASSES -----
@@ -99,11 +106,64 @@ def prgMsg(message):
 def Done(start_time):
     print(f'{color.GREEN}Done{color.END} at {color.YELLOW}{round(time.time() - start_time,1)} seconds {color.END}' )
 
-def setupPYCDF():
-    environ['HOMEDRIVE'] = data_paths.HOMEDRIVE
-    environ['HOMEPATH'] = data_paths.HOMEPATH
-    environ["CDF_LIB"] = data_paths.CDF_LIB
 
+
+def setupPYGMT():
+    environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
+
+def loadCDFdata(inputFiles,wFile):
+    data_dict = {}
+    with pycdf.CDF(inputFiles[wFile]) as dataFile:
+        for key, val in dataFile.items():
+            data_dict = {**data_dict, **{key: [dataFile[key][...], {key: val for key, val in dataFile[key].attrs.items()}]}}
+    return data_dict
+def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod):
+
+    # --- delete output file if it already exists ---
+    if path.exists(outputPath):
+        remove(outputPath)
+
+    # --- open the output file ---
+    with pycdf.CDF(outputPath, '') as sciFile:
+        sciFile.readonly(False)
+
+        # --- write out global attributes ---
+        inputGlobDic = ModelData.cdfFile.globalattsget()
+        for key, val in inputGlobDic.items():
+            if key in globalAttrsMod:
+                sciFile.attrs[key] = globalAttrsMod[key]
+            else:
+                sciFile.attrs[key] = val
+
+        # --- WRITE OUT DATA ---
+        for varKey, varVal in data_dict.items():
+            if 'Epoch' in varKey:  # epoch data
+                sciFile.new(varKey, data=varVal[0], type=33)
+            elif 'Function' in varKey:
+                sciFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_REAL8)
+            else:  # other data
+                sciFile.new(varKey, data=varVal[0])
+
+            # --- Write out the attributes and variable info ---
+            for attrKey, attrVal in data_dict[varKey][1].items():
+                if attrKey == 'VALIDMIN':
+                    sciFile[varKey].attrs[attrKey] = varVal[0].min()
+                elif attrKey == 'VALIDMAX':
+                    sciFile[varKey].attrs[attrKey] = varVal[0].max()
+                elif attrVal != None:
+                    sciFile[varKey].attrs[attrKey] = attrVal
+
+
+# --- The Basic rotation matricies
+def Rx(angle):
+    angleRad = np.radians(angle)
+    return np.array([[1,0,0],[0,np.cos(angleRad),-np.sin(angleRad)],[0,np.sin(angleRad),np.cos(angleRad)]])
+def Ry(angle):
+    angleRad = np.radians(angle)
+    return np.array([[np.cos(angleRad),0,np.sin(angleRad)],[0,1,0],[-np.sin(angleRad),0,np.cos(angleRad)]])
+def Rz(angle):
+    angleRad = np.radians(angle)
+    return np.array([[np.cos(angleRad),-np.sin(angleRad),0],[np.sin(angleRad),np.cos(angleRad),0],[0,0,1]])
 # ---------------------
 # ----- VARIABLES -----
 # ---------------------

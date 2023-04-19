@@ -2,10 +2,7 @@
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-
-a = []
-b = np.array([1,2,3])
-print(sum(b))
+a = [[1,2,3],[1,2,3],[1,2,3]]
+b = [[1,2,3],[1,2,3],[1,2,3]]
+c = zip(a,b)
+print(c[0][0])
