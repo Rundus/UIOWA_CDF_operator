@@ -117,7 +117,7 @@ def loadCDFdata(inputFiles,wFile):
         for key, val in dataFile.items():
             data_dict = {**data_dict, **{key: [dataFile[key][...], {key: val for key, val in dataFile[key].attrs.items()}]}}
     return data_dict
-def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod):
+def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 
     # --- delete output file if it already exists ---
     if path.exists(outputPath):
@@ -130,6 +130,8 @@ def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod):
         # --- write out global attributes ---
         inputGlobDic = ModelData.cdfFile.globalattsget()
         for key, val in inputGlobDic.items():
+            if key == 'Descriptor':
+                globalAttrsMod[key] = instrNam
             if key in globalAttrsMod:
                 sciFile.attrs[key] = globalAttrsMod[key]
             else:

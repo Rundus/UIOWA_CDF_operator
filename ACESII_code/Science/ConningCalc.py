@@ -35,18 +35,19 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = []
+wFiles = [0]
 
 modifier = ''
-inputPath_modifier = '' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-outputPath_modifier = '' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+inputPath_modifier = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_mag = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader input folde
+outputPath_modifier = 'attitude' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
-outputData = False
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -67,25 +68,16 @@ pycdf.lib.set_backward(False)
 
 def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
-    if wRocket in [0, 1, 4, 5]:
-        # --- ACES II Flight/Integration Data ---
-        rocketAttrs, b, c = ACES_mission_dicts()
-        rocketID = rocketAttrs.rocketID[wflyer]
-        globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
-        globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-        outputModelData = outputModelData(wflyer)
-
-    # --- TRICE II ---
-    elif wRocket in [2, 3]:
-        globalAttrsMod = {}
-        rocketAttrs, b, c = TRICE_mission_dicts()
-        rocketID = rocketAttrs.rocketID[wflyer]
-        outputModelData = outputModelData(wflyer)
-
-
+    # --- ACES II Flight/Integration Data ---
+    rocketAttrs, b, c = ACES_mission_dicts()
+    rocketID = rocketAttrs.rocketID[wflyer]
+    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
+    globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
+    outputModelData = L2_TRICE_Quick(wflyer)
 
 
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
@@ -119,19 +111,28 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         data_dict = {}
         with pycdf.CDF(inputFiles[wFile]) as inputDataFile:
             for key, val in inputDataFile.items():
-                data_dict = {**data_dict, **{key : [inputDataFile[key][...] , {key:val for key,val in inputDataFile[key].attrs.items()  }  ]  }  }
+                data_dict = {**data_dict, **{key : [inputDataFile[key][...], {key:val for key,val in inputDataFile[key].attrs.items()  }  ]  }  }
 
         data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in (range(len(data_dict['Epoch'][0])))])
 
         Done(start_time)
 
-        #######################
-        # --- DO STUFF HERE ---
-        #######################
+        ################################
+        # --- Calculate Coning Angle ---
+        ################################
 
+        # calculate coning angle for all time
+        conningAngle = np.array([ data_dict['F_El'][0][i] + data_dict['AoA_T'][0][i] for i in range(len(data_dict['Epoch'][0]))])
 
-
-
+        # add variable to data dict
+        data_dict = {**data_dict, **{'Cone Angle':
+                                         [conningAngle, {'LABLAXIS': 'Cone Angle',
+                                                      'DEPEND_0': 'Epoch', 'DEPEND_1': None,
+                                                      'DEPEND_2': None,
+                                                      'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                      'UNITS': 'deg',
+                                                      'VALIDMIN': conningAngle.min(), 'VALIDMAX': conningAngle.max(),
+                                                      'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
 
 
@@ -145,39 +146,9 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
+            outputCDFdata(outputPath, data_dict, outputModelData,globalAttrsMod,wInstr[2])
 
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as L2File:
-                L2File.readonly(False)
-
-                # --- write out global attributes ---
-                inputGlobDic = outputModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key in globalAttrsMod:
-                        L2File.attrs[key] = globalAttrsMod[key]
-                    else:
-                        L2File.attrs[key] = val
-
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict.items():
-                    if 'Epoch' in varKey: # epoch data
-                        L2File.new(varKey, data=varVal[0], type=33)
-                    else: # other data
-                        L2File.new(varKey, data=varVal[0],type=pycdf.const.CDF_REAL8)
-
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            L2File[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            L2File[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            L2File[varKey].attrs[attrKey] = attrVal
-
-            Done(start_time)
+        Done(start_time)
 
 
 

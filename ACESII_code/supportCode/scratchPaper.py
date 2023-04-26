@@ -1,8 +1,8 @@
 # # --- scratchPaper.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
+import numpy as np
+from ACESII_code.class_var_func import Ry
+n = np.array([1,0,0])
 
-a = [[1,2,3],[1,2,3],[1,2,3]]
-b = [[1,2,3],[1,2,3],[1,2,3]]
-c = zip(a,b)
-print(c[0][0])
+print(np.matmul(Ry(90),n))

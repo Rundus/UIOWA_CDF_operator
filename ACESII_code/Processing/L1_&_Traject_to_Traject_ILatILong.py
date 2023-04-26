@@ -141,7 +141,7 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
         for j in range(rangelen):
 
             for i in range(len(data_dicts[j]['Epoch_esa'][0])):
-                targetIndex = np.abs(data_dicts_traj[j]['Epoch'][0] -  data_dicts[j]['Epoch_esa'][0][i]).argmin()
+                targetIndex = np.abs(data_dicts_traj[j]['Epoch'][0] - data_dicts[j]['Epoch_esa'][0][i]).argmin()
                 AltDS[j].append(data_dicts_traj[j]['Alt'][0][targetIndex])
                 LatDS[j].append(data_dicts_traj[j]['Lat'][0][targetIndex])
                 LongDS[j].append(data_dicts_traj[j]['Long'][0][targetIndex])
@@ -220,6 +220,7 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
         geomagLat = []
         geomagLong = []
 
+
         for i in range(rangelen):
             geodeticPos = np.array([AltDS[i],LatDS[i],LongDS[i]]).transpose()
             ISOtime = [pycdf.lib.tt2000_to_datetime(EpochDS[i][j]).isoformat() for j in range(len(EpochDS[i]))]
@@ -270,6 +271,7 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
         LatDS_km = [[], []]
         LongDS_km = [[], []]
 
+
         for i in range(rangelen):
             # Convert lat/long data to KM
             for j in range(len(geodeticLatIntersects[i])):
@@ -278,26 +280,30 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
                 LatDS_km[i].append(lat_to_meter * (LatDS[i][j] - refLat))
                 LongDS_km[i].append(long_to_meter(refLat) * LongDS[i][j] - long_to_meter(refLat) * refLong)
 
+        # Determine the magntitude distance from the launch point
+        distanceFromLaunchPoint = [
+            [np.sqrt((LatDS_km[0][i])**2 + (LongDS_km[0][i])**2) for i in range(len(LatDS_km[0]))],
+            [np.sqrt((LatDS_km[1][i]) ** 2 + (LongDS_km[1][i]) ** 2) for i in range(len(LatDS_km[1]))]
+        ]
 
 
         ###############################
         # --- CONSTRUCT OUTPUT DATA ---
         ###############################
 
-        # Remove the particular instrument data. This is to avoid using the ESA data here that may be obsolete later...although it may not matter the more I think about it
+        # Remove the particular instrument data. This is to avoid using this ESA data which may be obsolete later...although it may not matter the more I think about it
 
         for i in range(rangelen):
 
             popThese = []
             for key, val in data_dicts[i].items():
-                if key != 'Epoch_esa':
+                if key not in [wInstr,'Pitch_Angle','Energy','Epoch_esa']:
                     popThese.append(key)
 
             for key in popThese:
                 data_dicts[i].pop(key)
 
-            # Rename Epoch_esa to just Epoch
-            data_dicts[i]['Epoch'] = data_dicts[i].pop('Epoch_esa')
+
 
 
             dataNEW = {
@@ -315,6 +321,7 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
                 'geoILat': [np.array(geodeticLatIntersects[i]),'mapped_Ionospheric_geodetic_latitude'],
                 'geoILat_km': [np.array(geodeticLatIntersects_km[i]),'mapped_Ionospheric_geodetic_latitude_km'],
                 'geoILong_km': [np.array(geodeticLatIntersects_km[i]),'mapped_Ionospheric_geodetic_longitude_km'],
+                'distanceFromLaunchPoint_km': [np.array(distanceFromLaunchPoint[i]), 'distance_From_Launch_Point_km']
             }
 
             # Add the new data to the data_dict
@@ -328,7 +335,7 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
                     unitLabel = 'deg'
 
                 data_dicts[i] = {**data_dicts[i], **{key: [val[0], {'LABLAXIS': val[1],
-                                                                 'DEPEND_0': 'Epoch', 'DEPEND_1': None,
+                                                                 'DEPEND_0': 'Epoch_esa', 'DEPEND_1': None,
                                                                  'DEPEND_2': None,
                                                                  'FILLVAL': -1e30, 'FORMAT': 'E12.2',
                                                                  'UNITS': unitLabel,

@@ -13,14 +13,14 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 
-wRocket = 1
+wRocket = 0
 # 0 --> ACESII High Flyer
 # 1 --> ACESII Low Flyer
 
 
 Directories = [r'D:\Data\ACESII\attitude\high\\',r'D:\Data\ACESII\attitude\low\\']
-inputFilenames = [r'36359_Synchronized.csv',r'36364_Synchronized.csv']
-outputFilenames = [r'36359_Attitude_Synchronized.cdf',r'36364_Attitude_Synchronized.cdf']
+inputFilenames = [r'36359_AttitudeSolution.csv',r'36364_AttitudeSolution.csv']
+outputFilenames = [r'36359_Attitude_Solution.cdf',r'36364_Attitude_Solution.cdf']
 inputDirectory = Directories[wRocket]
 inputFileName = inputFilenames[wRocket]
 outputDirectory = inputDirectory
