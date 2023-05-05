@@ -1,8 +1,14 @@
 # # --- scratchPaper.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
-import numpy as np
-from ACESII_code.class_var_func import Ry
-n = np.array([1,0,0])
+from ACESII_code.class_var_func import setupPYCDF
+setupPYCDF()
 
-print(np.matmul(Ry(90),n))
+
+input = r'C:\Users\cfeltman\Desktop\sweptCals_Monday\LP_1p000k.csv'
+import spacepy.pycdf as cdf
+
+# Load the CSV file
+data = cdf.from_csv('data.csv')
+
+print(data)

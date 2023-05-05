@@ -30,7 +30,7 @@ wPitches_overlay = [1, 10, 19] # 0deg, 90deg, 180deg
 wInstr_overlay = 'eepaa'
 
 # --- ESA Movie ---
-plotESAmovie = True
+plotESAmovie = False
 frame_skips = 1 # 1 is no skip i.e. all frames used, 5 is use only every 5th frame, 10 etc...
 wInstr_movie = 'eepaa'
 plotSpecificLocations = False
@@ -45,20 +45,25 @@ normalizeToThermal = True # normalize ESA plots to the electron thermal velocity
 # Use connecting lines in all the relevant plots?
 connectingLines = True
 
+
+# --- Plot Attitude solution movie ---
+plotAttitudeMovie = True
+wFlyer = 4
+
 # --- --- --- ---
 # --- import ---
 # --- --- --- ---
 import numpy as np
 from matplotlib import pyplot as plt, animation
 from matplotlib.patches import Wedge
-from ACESII_code.class_var_func import m_e,q0
+from ACESII_code.class_var_func import m_e, q0
 from copy import deepcopy
 from tqdm import tqdm
 from glob import glob
 from scipy.interpolate import LinearNDInterpolator
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from ACESII_code.data_paths import fliers, ACES_data_folder
-from ACESII_code.class_var_func import color
+from ACESII_code.class_var_func import color, Rotation3D
 from ACESII_code.missionAttributes import ACES_mission_dicts
 setupPYCDF()
 from spacepy import pycdf
@@ -79,9 +84,10 @@ def storeData(inputDict, dataPaths):
                 with pycdf.CDF(dataPaths[pkey][i][0]) as dataFile:
                     for key, val in dataFile.items():
                         data_dict = {**data_dict, **{key: [dataFile[key][...], {key: val for key, val in dataFile[key].attrs.items()}]}}
-
-                data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in range(len(data_dict['Epoch_esa'][0]))])
-
+                try:
+                    data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in range(len(data_dict['Epoch_esa'][0]))])
+                except:
+                    data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in range(len(data_dict['Epoch'][0]))])
 
                 parentDict[pkey].append(data_dict)
             except:
@@ -93,94 +99,116 @@ def ACESIIplotting():
 
     rocketAttrs,b,c = ACES_mission_dicts()
 
-    # Trajectory Data
-    trajFolderPath = f'{ACES_data_folder}trajectories\\'
-    dataPath_traj = [glob(trajFolderPath + rf'{fliers[0]}\\*_ILat_ILong*'),
-                     glob(trajFolderPath + rf'{fliers[1]}\\\\*_ILat_ILong*')]
+    if plotAttitudeMovie == False:
+        # Trajectory Data
+        trajFolderPath = f'{ACES_data_folder}trajectories\\'
+        dataPath_traj = [glob(trajFolderPath + rf'{fliers[0]}\\*_ILat_ILong*'),
+                         glob(trajFolderPath + rf'{fliers[1]}\\\\*_ILat_ILong*')]
 
-    # L1 ESA data
-    FolderPath = f'{ACES_data_folder}L1\\'
-    dataPath_L1ESA = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa_*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_*')],
-                      'iepaa':[glob(FolderPath + rf'{fliers[0]}\\*iepaa*'),glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
-                      'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
-    # L2 ESA data
-    FolderPath = f'{ACES_data_folder}L2\\'
-    dataPath_L2ESA = {'eepaa': [glob(FolderPath + rf'{fliers[0]}\\*eepaa_*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_*')],
-                      'iepaa': [glob(FolderPath + rf'{fliers[0]}\\*iepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
-                      'leesa': [glob(FolderPath + rf'{fliers[0]}\\*leesa*'), glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
+        # L1 ESA data
+        FolderPath = f'{ACES_data_folder}L1\\'
+        dataPath_L1ESA = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa_*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_*')],
+                          'iepaa':[glob(FolderPath + rf'{fliers[0]}\\*iepaa*'),glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
+                          'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
+        # L2 ESA data
+        FolderPath = f'{ACES_data_folder}L2\\'
+        dataPath_L2ESA = {'eepaa': [glob(FolderPath + rf'{fliers[0]}\\*eepaa_*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_*')],
+                          'iepaa': [glob(FolderPath + rf'{fliers[0]}\\*iepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
+                          'leesa': [glob(FolderPath + rf'{fliers[0]}\\*leesa*'), glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
 
-    # Distribution Function Data
-    FolderPath = f'{ACES_data_folder}\science\DistFunc\\'
-    dataPath_Dist = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa*')],
-                      'iepaa':[glob(FolderPath + rf'{fliers[0]}\\*iepaa*'),glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
-                      'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
+        # Distribution Function Data
+        FolderPath = f'{ACES_data_folder}\science\DistFunc\\'
+        dataPath_Dist = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa*')],
+                          'iepaa':[glob(FolderPath + rf'{fliers[0]}\\*iepaa*'),glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
+                          'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
 
-    prgMsg('Collecting Trajectory data')
+        prgMsg('Collecting Trajectory data')
 
-    # --- Create TRAJECTORY Data Dicts ---
-    data_dicts_traj = []
+        # --- Create TRAJECTORY Data Dicts ---
+        data_dicts_traj = []
 
-    for i in range(len(dataPath_traj)):
-        data_dict_traj = {}
-        with pycdf.CDF(dataPath_traj[i][0]) as trajFile:
-            for key, val in trajFile.items():
-                data_dict_traj = {**data_dict_traj, **{key: [trajFile[key][...], {key: val for key, val in trajFile[key].attrs.items()}]}}
+        for i in range(len(dataPath_traj)):
+            data_dict_traj = {}
+            with pycdf.CDF(dataPath_traj[i][0]) as trajFile:
+                print(dataPath_traj[i][0])
+                for key, val in trajFile.items():
+                    data_dict_traj = {**data_dict_traj, **{key: [trajFile[key][...], {key: val for key, val in trajFile[key].attrs.items()}]}}
 
-        data_dict_traj['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch'][0][i]) for i in range(len(data_dict_traj['Epoch'][0]))])
-        data_dicts_traj.append(data_dict_traj)
+            data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in range(len(data_dict_traj['Epoch_esa'][0]))])
+            data_dicts_traj.append(data_dict_traj)
 
-    Done(start_time)
+        Done(start_time)
 
-    # --- Create ESA L1 Data Dicts ---
-    prgMsg('Collecting ESA L1 data')
-    data_dicts_template = {'eepaa':[],'iepaa':[],'leesa':[]}
-    data_dicts_ESA_L1 = storeData(data_dicts_template,dataPath_L1ESA)
-    Done(start_time)
+        # --- Create ESA L1 Data Dicts ---
+        prgMsg('Collecting ESA L1 data')
+        data_dicts_template = {'eepaa':[],'iepaa':[],'leesa':[]}
+        data_dicts_ESA_L1 = storeData(data_dicts_template,dataPath_L1ESA)
+        Done(start_time)
 
-    # --- Create ESA L2 Data Dicts ---
-    prgMsg('Collecting ESA L2 data')
-    data_dicts_template = {'eepaa': [], 'iepaa': [], 'leesa': []}
-    data_dicts_ESA_L2 = storeData(data_dicts_template, dataPath_L2ESA)
-    Done(start_time)
+        # --- Create ESA L2 Data Dicts ---
+        prgMsg('Collecting ESA L2 data')
+        data_dicts_template = {'eepaa': [], 'iepaa': [], 'leesa': []}
+        data_dicts_ESA_L2 = storeData(data_dicts_template, dataPath_L2ESA)
+        Done(start_time)
 
-    # --- Create Distribution_Func Data Dicts ---
-    prgMsg('Collecting Distribution Function data')
-    data_dicts_template = {'eepaa': [], 'iepaa': [], 'leesa': []}
-    data_dicts_dist = storeData(data_dicts_template,dataPath_Dist)
+        # --- Create Distribution_Func Data Dicts ---
+        prgMsg('Collecting Distribution Function data')
+        data_dicts_template = {'eepaa': [], 'iepaa': [], 'leesa': []}
+        data_dicts_dist = storeData(data_dicts_template,dataPath_Dist)
 
-    Done(start_time)
+        ####################################################################
+        # --- find the points 100s, 200s ... 600s in the Trajectory data ---
+        ####################################################################
+        prgMsg('Finding Target Times')
+        timeTargets = [[100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600], [100, 150, 200, 250, 300, 350, 400]]
 
+        timeTargetsIndices = [[], []]
+        timeTargetsEpoch = []
+        for i in range(len(timeTargets)):
+            for timeTarg in timeTargets[i]:
+                timeTargetsIndices[i].append(np.abs(data_dicts_traj[i]['Epoch_esa'][0] - (rocketAttrs.Launch_Times[i] + timeTarg * (10 ** (9)))).argmin())
 
-    ####################################################################
-    # --- find the points 100s, 200s ... 600s in the Trajectory data ---
-    ####################################################################
-    prgMsg('Finding Target Times')
-    timeTargets = [[100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600], [100, 150, 200, 250, 300, 350, 400]]
+            target_in_Epoch = [pycdf.lib.tt2000_to_datetime(data_dicts_traj[i]['Epoch_esa'][0][index]) for index in timeTargetsIndices[i]]
+            timeTargetsEpoch.append([targetTime.strftime("%H:%M:%S") for targetTime in target_in_Epoch])
 
-    timeTargetsIndices = [[],[]]
-    timeTargetsEpoch = []
-    for i in range(len(timeTargets)):
-        for timeTarg in timeTargets[i]:
-            timeTargetsIndices[i].append(np.abs(data_dicts_traj[i]['Epoch'][0] - (rocketAttrs.Launch_Times[i] + timeTarg*(10**(9)))  ).argmin())
+        timeTargetsData = {'Epoch': [
+                [pycdf.lib.tt2000_to_datetime(data_dicts_traj[0]['Epoch'][0][index]).time().strftime("%H:%M:%S") for
+                 index in timeTargetsIndices[0]],
+                [pycdf.lib.tt2000_to_datetime(data_dicts_traj[1]['Epoch'][0][index]).time().strftime("%H:%M:%S") for
+                 index in timeTargetsIndices[1]]],
+            'geoAlt': [[data_dicts_traj[0]['geoAlt'][0][index] for index in timeTargetsIndices[0]],
+                       [data_dicts_traj[1]['geoAlt'][0][index] for index in timeTargetsIndices[1]]],
+            'geoLat': [[data_dicts_traj[0]['geoLat'][0][index] for index in timeTargetsIndices[0]],
+                       [data_dicts_traj[1]['geoLat'][0][index] for index in timeTargetsIndices[1]]],
+            'geoLong': [[data_dicts_traj[0]['geoLong'][0][index] for index in timeTargetsIndices[0]],
+                        [data_dicts_traj[1]['geoLong'][0][index] for index in timeTargetsIndices[1]]],
+            'geomagLat': [[data_dicts_traj[0]['geomagLat'][0][index] for index in timeTargetsIndices[0]],
+                          [data_dicts_traj[1]['geomagLat'][0][index] for index in timeTargetsIndices[1]]],
+            'geomagLong': [[data_dicts_traj[0]['geomagLong'][0][index] for index in timeTargetsIndices[0]],
+                           [data_dicts_traj[1]['geomagLong'][0][index] for index in timeTargetsIndices[1]]],
+            'geoLat_km': [[data_dicts_traj[0]['geoLat_km'][0][index] for index in timeTargetsIndices[0]],
+                          [data_dicts_traj[1]['geoLat_km'][0][index] for index in timeTargetsIndices[1]]],
+            'geoLong_km': [[data_dicts_traj[0]['geoLong_km'][0][index] for index in timeTargetsIndices[0]],
+                           [data_dicts_traj[1]['geoLong_km'][0][index] for index in timeTargetsIndices[1]]],
+            'geoILat': [[data_dicts_traj[0]['geoILat'][0][index] for index in timeTargetsIndices[0]],
+                        [data_dicts_traj[1]['geoILat'][0][index] for index in timeTargetsIndices[1]]],
+            'geoILong': [[data_dicts_traj[0]['geoILong'][0][index] for index in timeTargetsIndices[0]],
+                         [data_dicts_traj[1]['geoILong'][0][index] for index in timeTargetsIndices[1]]],
+            'geoILat_km': [[data_dicts_traj[0]['geoILat_km'][0][index] for index in timeTargetsIndices[0]],
+                           [data_dicts_traj[1]['geoILat_km'][0][index] for index in timeTargetsIndices[1]]],
+            'geoILong_km': [[data_dicts_traj[0]['geoILong_km'][0][index] for index in timeTargetsIndices[0]],
+                            [data_dicts_traj[1]['geoILong_km'][0][index] for index in timeTargetsIndices[1]]]}
+        Done(start_time)
+    else:
+        # --- Create Attitude Data Dict ---
+        prgMsg('Collecting Attitude data')
+        FolderPath = f'{ACES_data_folder}\\attitude\\'
+        dataPath_attitude = {'attitude': [glob(FolderPath + rf'{fliers[0]}\\*Attitude_Solution*'), glob(FolderPath + rf'{fliers[1]}\\\\*Attitude_Solution*')]}
+        data_dicts_template = {'attitude':[]}
+        data_dicts_attitude = storeData(data_dicts_template,dataPath_attitude)
 
-        target_in_Epoch = [pycdf.lib.tt2000_to_datetime(data_dicts_traj[i]['Epoch'][0][index]) for index in timeTargetsIndices[i]]
-        timeTargetsEpoch.append([targetTime.strftime("%H:%M:%S") for targetTime in target_in_Epoch])
+        Done(start_time)
 
-    timeTargetsData = {
-        'Epoch' : [[pycdf.lib.tt2000_to_datetime(data_dicts_traj[0]['Epoch'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[0]],[pycdf.lib.tt2000_to_datetime(data_dicts_traj[1]['Epoch'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[1]]],
-        'geoAlt': [[data_dicts_traj[0]['geoAlt'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoAlt'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLat': [[data_dicts_traj[0]['geoLat'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoLat'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLong': [[data_dicts_traj[0]['geoLong'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoLong'][0][index] for index in timeTargetsIndices[1]]],
-        'geomagLat': [[data_dicts_traj[0]['geomagLat'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geomagLat'][0][index] for index in timeTargetsIndices[1]]],
-        'geomagLong': [[data_dicts_traj[0]['geomagLong'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geomagLong'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLat_km': [[data_dicts_traj[0]['geoLat_km'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoLat_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLong_km': [[data_dicts_traj[0]['geoLong_km'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoLong_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILat': [[data_dicts_traj[0]['geoILat'][0][index] for index in timeTargetsIndices[0]],[data_dicts_traj[1]['geoILat'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILong': [[data_dicts_traj[0]['geoILong'][0][index] for index in timeTargetsIndices[0]], [data_dicts_traj[1]['geoILong'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILat_km':[[data_dicts_traj[0]['geoILat_km'][0][index] for index in timeTargetsIndices[0]],[data_dicts_traj[1]['geoILat_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILong_km':[[data_dicts_traj[0]['geoILong_km'][0][index] for index in timeTargetsIndices[0]],[data_dicts_traj[1]['geoILong_km'][0][index] for index in timeTargetsIndices[1]]]
-    }
-    Done(start_time)
 
     if plotALTvsLAT:
 
@@ -906,9 +934,125 @@ def ACESIIplotting():
 
         Done(start_time)
 
+    if plotAttitudeMovie:
+
+        return rocketAttrs,data_dicts_attitude
+
 
 
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-ACESIIplotting()
+if not plotAttitudeMovie:
+    ACESIIplotting()
+else:
+
+    rocketAttrs, data_dicts_attitude = ACESIIplotting()
+
+    from plottingStyles import AttitudeMovie
+
+
+    def sphere2cart(r, theta, phi):
+        return [
+            r * np.sin(np.radians(theta)) * np.cos(np.radians(phi)),
+            r * np.sin(np.radians(theta)) * np.sin(np.radians(phi)),
+            r * np.cos(np.radians(theta))
+        ]
+
+
+    # --- --- --- --- --- --- --- --- -
+    # --- PREPARE DATA FOR PLOTTING ---
+    # --- --- --- --- --- --- --- --- -
+
+    # convert all Epoch data to datetimes to display them
+    Epoch = data_dicts_attitude["attitude"][wFlyer - 4]["Epoch"][0]
+    timeOffset = [pycdf.lib.datetime_to_tt2000(datetime.datetime(2022, 11, 20, 17, 20, 00, 107800)) - Epoch[0],
+                  pycdf.lib.datetime_to_tt2000(datetime.datetime(2022, 11, 20, 17, 21, 40, 115700)) - Epoch[0]]  # number of nanoseconds from 17:20:00 each was launched
+    datetimesEpoch = np.array([pycdf.lib.tt2000_to_datetime(Epoch[i] + timeOffset[wFlyer - 4]).strftime("%H:%M:%S:%f") for i in range(len(Epoch))])
+
+    YawI =data_dicts_attitude['attitude'][wFlyer - 4]['YawI'][0]
+    PitchI = data_dicts_attitude['attitude'][wFlyer - 4]['PitchI'][0]
+    RollI = data_dicts_attitude['attitude'][wFlyer - 4]['RollI'][0]
+    T0position = sphere2cart(1, AttitudeMovie.launcherSettings[wFlyer-4][1], 90 - AttitudeMovie.launcherSettings[wFlyer-4][2] )
+
+    X_Az = data_dicts_attitude['attitude'][wFlyer - 4]['X_Az'][0]
+    X_El = data_dicts_attitude['attitude'][wFlyer - 4]['X_El'][0]
+    Y_Az = data_dicts_attitude['attitude'][wFlyer - 4]['Y_Az'][0]
+    Y_El = data_dicts_attitude['attitude'][wFlyer - 4]['Y_El'][0]
+    Z_Az = data_dicts_attitude['attitude'][wFlyer - 4]['Z_Az'][0]
+    Z_El = data_dicts_attitude['attitude'][wFlyer - 4]['Z_El'][0]
+
+    # Convert all the axes data into cartesian vectors
+    xAxisData = np.array(
+        [sphere2cart(1, 90 - X_El[i], X_Az[i]) for i in range(len(X_Az))]
+    )
+    yAxisData = np.array(
+        [sphere2cart(1, 270 - Y_El[i], Y_Az[i]) for i in range(len(Y_Az))]
+    )
+    zAxisData = np.array(
+        [sphere2cart(1, 90 - Z_El[i], Z_Az[i]) for i in range(len(Z_Az))]
+    )
+
+    # plot the attitude data at one time
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlim([-1.5, 1.5])
+    ax.set_ylim([-1.5, 1.5])
+    ax.set_zlim([-1.5, 1.5])
+
+    def get_arrow(i, data):
+        x, y, z = 0, 0, 0
+        u = data[i][0]
+        v = data[i][1]
+        w = data[i][2]
+        return x, y, z, u, v, w
+
+
+    # --- INITIALIZE ANIMATION ---
+
+    testval = 0
+
+    # initial direction vectors
+    xQ = ax.quiver(*get_arrow(testval, xAxisData), color='red')
+    yQ = ax.quiver(*get_arrow(testval, yAxisData), color='green')
+    zQ = ax.quiver(*get_arrow(testval, zAxisData), color='blue')
+
+
+
+    title = ax.set_title(f'ACESII {rocketAttrs.rocketID[wFlyer - 4]} \n {datetimesEpoch[0]}')
+
+    ax.set_xlabel('North')
+    ax.set_ylabel('West')
+    ax.set_zlabel('Up')
+
+    plt.show()
+
+
+    # --- --- --- --- --- --- --
+    # --- ANIMATION FUNCTION ---
+    # --- --- --- --- --- --- --
+    def animatePlot(i):
+
+        # update quiver
+        global xQ,yQ,zQ
+        xQ.remove()
+        yQ.remove()
+        zQ.remove()
+
+        xQ = ax.quiver(*get_arrow(i, xAxisData),color='red')
+        yQ = ax.quiver(*get_arrow(i, yAxisData),color='green')
+        zQ = ax.quiver(*get_arrow(i, zAxisData),color='blue')
+
+        # update Epoch title
+        title.set_text(f'ACESII {rocketAttrs.rocketID[wFlyer - 4]} \n {datetimesEpoch[i]}')
+
+    # --- --- --- --- --- --- -
+    # --- PERFORM ANIMATION ---
+    # --- --- --- --- --- --- -
+    prgMsg('Creating Movie')
+    ax.view_init(40,-40)
+    locations = [i for i in range(len(X_Az))]
+    # locations = [i for i in range(0,10000)]
+    anim = animation.FuncAnimation(fig=fig, func=animatePlot, interval=1000 / AttitudeMovie.fps, frames=locations)
+    anim.save(f'D:\Data\ACESII\\trajectories\\trajectory_plots\\ACESII_{rocketAttrs.rocketID[wFlyer - 4]}_Trajectory.mp4')
+    Done(start_time)

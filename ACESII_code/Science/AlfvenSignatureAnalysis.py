@@ -49,20 +49,20 @@ wFiles = [7]
 
 modifier = ''
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_trajectory = 'trajectories'
 outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # Subtracting Inverted V
-removeInvertedV = True # Tries to remove InvertedV from the data
+removeInvertedV = False # Tries to remove InvertedV from the data
 maskVal = 10
 strengthModifier = 1
-
 
 
 # PLOTTING THE DATA
 plotAlfvenRegion = True
 wPitch = 1
 epochRange = [[17,24,55],[17,25,12]] # UTC Ranges for plot Epoch. Format: [hour, minute,second]
-vExtremes = [2, 20] #colorbar limits
+vExtremes = [0, 30] #colorbar limits
 yLimits = [8,1050] # limits of y-axis in eV
 
 # NEXT THING
@@ -97,17 +97,19 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     outputModelData = L2_TRICE_Quick(wflyer)
 
-
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles_trajectory = glob(f'{rocketFolderPath}{inputPath_modifier_trajectory}\{fliers[wflyer]}{modifier}\*_ILat_ILong*')
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
+    input_names_trajectory = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles_trajectory]
     output_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '') for ofile in outputFiles]
 
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
     output_names_searchable = [ofile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(outputPath_modifier.lower() +'_', '').replace('_v00', '').replace('__', '_') for ofile in output_names]
 
     dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '')
+    dataFile_name_trajectory = inputFiles_trajectory[0].replace(f'{rocketFolderPath}{inputPath_modifier_trajectory}\{fliers[wflyer]}{modifier}\\', '')
     fileoutName = dataFile_name.replace(inputPath_modifier.lower(), outputPath_modifier.lower())
 
     # determine which instrument the file corresponds to:
@@ -126,7 +128,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         print(color.UNDERLINE + f'Converting to {outputPath_modifier} data for {dataFile_name}' + color.END)
         print('[' + str(wFile) + ']   ' + str(round(getsize(inputFiles[wFile]) / (10 ** 6), 1)) + 'MiB')
 
-        # --- get the data from the tmCDF file ---
+        # --- get the data from the ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
         data_dict = {}
         with pycdf.CDF(inputFiles[wFile]) as inputDataFile:
@@ -134,6 +136,17 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                 data_dict = {**data_dict, **{key : [inputDataFile[key][...] , {key:val for key,val in inputDataFile[key].attrs.items()  }  ]  }  }
 
         data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in (range(len(data_dict['Epoch_esa'][0])))])
+
+        Done(start_time)
+
+        # --- get data from Trajectory Files ---
+        prgMsg(f'Loading data from {inputPath_modifier} Files')
+        data_dict_traj = {}
+        with pycdf.CDF(inputFiles_trajectory[0]) as inputDataFile:
+            for key, val in inputDataFile.items():
+                data_dict_traj = {**data_dict_traj, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
+
+        data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
 
         Done(start_time)
 
@@ -209,7 +222,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         #######################
         if plotAlfvenRegion:
 
-            prgMsg('Plotting AlfvenSignature Region')
+            prgMsg('Plotting Alfven Signature Region')
             if removeInvertedV:
                 fig, ax = plt.subplots(2, sharex=True)
 
@@ -219,9 +232,8 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             else:
                 fig, ax = plt.subplots()
                 # colormap
+                esaData = np.array([esaData[tme][wPitch] for tme in range(len(esaData))])
                 cmap = ax.pcolormesh(Epoch_reduced, Energy, esaData.transpose(), vmin=vExtremes[0], vmax=vExtremes[1], cmap="turbo")
-
-            # colorbar
 
             # limits
             if removeInvertedV:
@@ -252,18 +264,8 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                 ax.set_xlabel('Epoch')
                 ax.set_title(f'ACESII {rocketAttrs.rocketID[wRocket - 4]} \n {wInstr[1].upper()} \n Pitch {Pitch[wPitch]}$^\circ$')
 
-
-
             plt.show()
             Done(start_time)
-
-
-
-
-
-
-
-
 
 
         # --- --- --- --- --- --- ---
@@ -277,11 +279,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[2])
 
             Done(start_time)
-
-
-
-
-
 
 
 # --- --- --- ---

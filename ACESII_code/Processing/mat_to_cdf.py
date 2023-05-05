@@ -40,14 +40,16 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0,1,2,3]
+wFiles = [0,1]
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
 outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
-rotateIntoRingCoreFrame = True
+rotateIntoRingCoreFrame = False
+flipYAxis = True
+
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -74,14 +76,19 @@ from copy import deepcopy
 
 # Program default: recognize Epoch variable, turn it into "support data". Turn other data into "data"
 # Below you can add additional specifications to known variables
-
+#
+# special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
+#                 'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
+#                 'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
+#                 'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
+#                 'Bx_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
+#                 'By_Model': {'UNITS': 'nT', 'LABLAXIS': 'By'},
+#                 'Bz_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bz'}
+#                 }
 special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
                 'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
                 'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
                 'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
-                'Bx_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
-                'By_Model': {'UNITS': 'nT', 'LABLAXIS': 'By'},
-                'Bz_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bz'}
                 }
 
 
@@ -118,7 +125,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     fileoutName = dataFile_name.replace(f'{inputrocketFolderPath}\\{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', "").replace('.mat','.cdf')
 
-    print(dataFile_name)
     for index, instr in enumerate(['RingCore','Tesseract']):
         if instr.lower() in dataFile_name.lower():
             wInstr = [index, instr]
@@ -201,28 +207,32 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # Real data
         Bmag = np.array(
             [
-              np.linalg.norm([data_dict['Bx'][0][i],data_dict['Bz'][0][i],data_dict['By'][0][i]])
+              np.linalg.norm([data_dict['Bx'][0][i],data_dict['By'][0][i],data_dict['Bz'][0][i]])
                 for i in range(len(data_dict['Bx'][0]))
             ])
 
         data_dict = {**data_dict,**{'Bmag':[Bmag,BmagAttrs]}}
 
         # Model data
-        Bmag_Model = np.array(
-            [
-                np.linalg.norm([data_dict['Bx_Model'][0][i], data_dict['Bz_Model'][0][i], data_dict['By_Model'][0][i]])
-                for i in range(len(data_dict['Bx_Model'][0]))
-            ])
-
-        BmagAttrs['LABLAXIS'] = 'Bmag_Model'
-        data_dict = {**data_dict, **{'Bmag_Model': [Bmag_Model, BmagAttrs]}}
+        # Bmag_Model = np.array(
+        #     [
+        #         np.linalg.norm([data_dict['Bx_Model'][0][i], data_dict['By_Model'][0][i], data_dict['Bz_Model'][0][i]])
+        #         for i in range(len(data_dict['Bx_Model'][0]))
+        # #     ])
+        #
+        # BmagAttrs['LABLAXIS'] = 'Bmag_Model'
+        # data_dict = {**data_dict, **{'Bmag_Model': [Bmag_Model, BmagAttrs]}}
 
         Done(start_time)
+
+        if flipYAxis:
+            data_dict['By'][0] = np.array([-1*data_dict['By'][0][i] for i in range(len(data_dict['By'][0]))])
 
         # --- --- --- --- --- ---
         # --- ROTATE THE DATA ---
         # --- --- --- --- --- ---
         if rotateIntoRingCoreFrame:
+
             # Robert put the mag data into the payload frame to make his life easier. I need to convert it back to it's original frame
             from ACESII_code.class_var_func import Rz
 
@@ -233,32 +243,23 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                  for i in range(len(data_dict['Bmag'][0]))]
             )
 
-            Bvec_Model = np.array([
-                    [data_dict['Bx_Model'][0][i],
-                     data_dict['By_Model'][0][i],
-                     data_dict['Bz_Model'][0][i]]
-                 for i in range(len(data_dict['Bmag_Model'][0]))]
-            )
-
-
-            # rotate the components back
+            # rotate the components back. The -1 is multiplied to account for the point of view perspective.
+            # I like to think in terms of rotating the axes themselves, with is the OPPOSITE angle change as the vector changing.
             Bcomps_rotated =np.array([
-                np.matmul(Rz(-90),Bvec[i]) for i in range(len(data_dict['Bmag'][0]))
+                np.matmul(Rz(-1*-90),Bvec[i]) for i in range(len(data_dict['Bmag'][0]))
                 ]
             )
 
-            Bcomps_rotated_Model = np.array([
-                np.matmul(Rz(-90), Bvec_Model[i]) for i in range(len(data_dict['Bmag_Model'][0]))
-            ]
-            )
+            # rename Bx,By,Bz to what they really are: B in the payload coordinates
+            data_dict['Bx_payload'] = data_dict.pop('Bx')
+            data_dict['By_payload'] = data_dict.pop('By')
+            data_dict['Bz_payload'] = data_dict.pop('Bz')
 
-            data_dict['Bx'][0] = np.array([Bcomps_rotated[i][0] for i in range(len(Bcomps_rotated))])
-            data_dict['By'][0] = np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))])
-            data_dict['Bz'][0] = np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))])
+            # store new "RingCore" B. The coordinates are now aligned to the RingCore instrument frame
+            data_dict = {**data_dict, **{'Bx': [np.array([Bcomps_rotated[i][0] for i in range(len(Bcomps_rotated))]), data_dict['Bx_payload'][1]]}}
+            data_dict = {**data_dict, **{'By': [np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))]), data_dict['By_payload'][1]]}}
+            data_dict = {**data_dict, **{'Bz': [np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))]), data_dict['Bz_payload'][1]]}}
 
-            data_dict['Bx_Model'][0] = np.array([Bcomps_rotated_Model[i][0] for i in range(len(Bcomps_rotated_Model))])
-            data_dict['By_Model'][0] = np.array([Bcomps_rotated_Model[i][1] for i in range(len(Bcomps_rotated_Model))])
-            data_dict['Bz_Model'][0] = np.array([Bcomps_rotated_Model[i][2] for i in range(len(Bcomps_rotated_Model))])
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -300,6 +301,8 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                         outputFile[varKey].attrs[attrKey] = varVal[0].min()
                     elif attrKey == 'VALIDMAX':
                         outputFile[varKey].attrs[attrKey] = varVal[0].max()
+                    elif attrKey == 'LABLAXIS':
+                        outputFile[varKey].attrs[attrKey] = varKey
                     elif attrVal != None:
                         outputFile[varKey].attrs[attrKey] = attrVal
 

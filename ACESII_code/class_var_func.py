@@ -166,6 +166,14 @@ def Ry(angle):
 def Rz(angle):
     angleRad = np.radians(angle)
     return np.array([[np.cos(angleRad),-np.sin(angleRad),0],[np.sin(angleRad),np.cos(angleRad),0],[0,0,1]])
+
+def Rotation3D(yaw,pitch,roll):
+    yawR = np.radians(yaw)
+    pitchR = np.radians(pitch)
+    rollR = np.radians(roll)
+    return np.array([[np.cos(yawR)*np.cos(pitchR), np.cos(yawR)*np.sin(pitchR)*np.sin(rollR) - np.sin(yawR)*np.cos(rollR), np.cos(yawR)*np.sin(pitchR)*np.cos(rollR) + np.sin(yawR)*np.sin(rollR) ], [np.sin(yawR)*np.cos(pitchR), np.sin(yawR)*np.sin(pitchR)*np.sin(rollR) + np.cos(yawR)*np.cos(rollR), np.sin(yawR)*np.sin(pitchR)*np.cos(rollR) - np.cos(yawR)*np.sin(rollR)], [-1*np.sin(pitchR), np.cos(pitchR)*np.sin(rollR), np.cos(pitchR)*np.cos(rollR)]])
+
+
 # ---------------------
 # ----- VARIABLES -----
 # ---------------------

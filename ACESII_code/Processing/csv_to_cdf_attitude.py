@@ -13,7 +13,7 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 
-wRocket = 0
+wRocket = 1
 # 0 --> ACESII High Flyer
 # 1 --> ACESII Low Flyer
 

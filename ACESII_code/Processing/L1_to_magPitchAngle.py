@@ -169,7 +169,6 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         # --- Define EEPAA Unit Vectors in Mag Frame ---
         ################################################
 
-
         # Define the SPHERICAL description of the unit vectors IN THE MAG FRAME
         if wInstr[0] in [0,2]: # EEPAA
             ThetaPolar = np.radians(90)
@@ -221,7 +220,7 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
         globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
-        outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod)
+        outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod,wInstr[1])
 
         Done(start_time)
 

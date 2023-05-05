@@ -1,7 +1,7 @@
 # --- plottingStyles.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Location to store the settings for the plots in ACESII_trajectory_plotting
-
+import numpy as np
 
 
 ###############################################################
@@ -250,7 +250,12 @@ class ESAmovie:
 
 
 
+class AttitudeMovie:
 
+    fps = 30
+
+    # Initial Condition data
+    launcherSettings = np.array([[1, 352.4, 78.3, 136.3], [1, 353.2, 76.2, 138]])  # vector mag, azimuth, elevation, altitutde (in ft)
 
 
 

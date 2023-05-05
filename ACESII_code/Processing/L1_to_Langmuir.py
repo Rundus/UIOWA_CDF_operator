@@ -35,7 +35,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # D:\Data\\ACESII\\science\\\low\ACESII_36364_langmuir_playback_BSS_Card0_processedtm_20221120T170824.cdf
 
@@ -66,16 +66,22 @@ downSample_RCeffect = True
 #################################
 # --- SWEPT PROBE CAL TOGGLES ---
 #################################
-sweptProbeCal = True
-applySweptCalCurve = True
+sweptProbeCal_Andoya = True
+applySweptCalCurve = False # False - data is in analog values, True - data is in current
 useSingleSweeptData = True # use data from a single good sweep or multiple sweeps and average. THIS GIVES BETTER DATA IF TRUE
-plotAllCalCurves = True
-plotmasterData = True
-plotFittedCurves = True
+plotAllCalCurves = False
+plotmasterData = False
+plotFittedCurves = False
 
 # the thresholds of the different regions for BOTH flyers
 threshAnalog = [[-3960, 1850], [-3900, 2000]]  # Break curve up first by analog value into 2 regions
 threshCurrent = [[-2, 1], [-5, 0]]  # separate data by current value, in NANOAMPS
+
+
+#################################
+# --- SWEPT PROBE CAL TOGGLES ---
+#################################
+sweptProbeCal_Iowa = True
 
 ####################################
 # --- SWEPT PROBE ROCKET TOGGLES ---
@@ -85,6 +91,8 @@ breakIntoCurves = True
 targetVoltage_min = -1 # only care about voltage sweeps above this voltage value. Nominally -1
 digitalVariance = 5 # how much the digitized step point can vary when looking for the top and bottom of curves. nominally = 5
 indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff needed between epoch points to identify particular sweeps
+
+
 
 #####################
 # --- DATA OUTPUT ---
@@ -377,11 +385,11 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             Done(start_time)
 
-        #################################
-        # --- Swept Probe Calibration ---
-        #################################
+        ###########################################
+        # --- Swept Probe Calibration at Andoya ---
+        ###########################################
 
-        if sweptProbeCal:
+        if sweptProbeCal_Andoya:
 
             prgMsg('Collecting Swept Calibration Data')
 
@@ -604,6 +612,246 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 else:
                     return linear(xVal, paramsMid[0], paramsMid[1])
 
+
+            Done(start_time)
+
+        ###########################################
+        # --- Swept Probe Calibration at Iowa ---
+        ###########################################
+
+        if sweptProbeCal_Iowa:
+
+            prgMsg('Collecting Swept Calibration Data')
+
+            if useSingleSweeptData:
+                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges_single_sweep[wflyer]
+            else:
+                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges[wflyer]
+
+            # --- --- --- --- --- --- --- --- --- ---
+            # --- COLLECT/PROCESS CALIBRATION DATA ---
+            # --- --- --- --- --- --- --- --- --- ---
+            calEpoch = np.array([pycdf.lib.datetime_to_tt2000(data_dict_cal['Epoch_ne_swept'][0][i]) for i in
+                                 range(len(data_dict_cal['Epoch_ne_swept'][0]))])
+
+            sweptCal_voltage = []  # voltage of the step
+            sweptCal_calCurrent = []  # corresponding current based on voltage
+            sweptCal_analog_current = []  # current determined from the analag calibration data
+            sweptCal_Epoch = []  # epoch values of the start/end of this cal range
+            for i in range(len(sweptCalRanges)):
+                # find the indicies of the calibration range
+                start = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][0])).argmin()
+                end = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][1])).argmin()
+
+                # calculate the analog current, voltage and calibration current
+                sweptCal_analog_current.append(np.array(data_dict_cal['ne_swept'][0][start:end]) - np.array(
+                    data_dict_cal['ni_swept'][0][start:end]))
+                sweptCal_Epoch.append(calEpoch[start:end])
+                resistance = rocketAttrs.LPswept_cal_resistances[i]
+                sweptCal_step = data_dict_cal['step'][0][start:end]
+                sweptCal_voltage.append(
+                    np.array([step_to_Voltage(sweptCal_step[i]) for i in range(len(sweptCal_step))]))
+                sweptCal_calCurrent.append(sweptCal_voltage[-1] / resistance)
+
+            Done(start_time)
+
+            # --- --- --- --- --- --- --- --- ---
+            # --- Remove outliers from data ---
+            # --- --- --- --- --- --- --- --- ---
+
+            # surprisingly, only the high flyer cal needed needs to be filtered for outliers
+            if wRocket == 4:
+                removeOutliers = True
+            elif wRocket == 5:
+                removeOutliers = False
+
+            if removeOutliers:
+                prgMsg('Removing Outliers')
+                threshold_percent = 0.05  # if the next point is >= 50% the the distance between max/min of the dataset, it is an outlier
+                repeat_process = 20  # how many times to repeat outlier search
+
+                for process in range(repeat_process):
+                    for i in range(len(sweptCalRanges)):
+                        maxV = sweptCal_analog_current[i].max()
+                        minV = sweptCal_analog_current[i].min()
+                        threshDistance = np.abs(maxV - minV) * threshold_percent
+
+                        # check every value and record the indices
+                        remove_indices = []
+
+                        for j in range(len(sweptCal_analog_current[i]) - 1):
+                            # take an average of data to see where I am:
+                            no_of_points = 10
+                            AVG = sum(
+                                [sweptCal_analog_current[i][j - k] for k in range(no_of_points)]) / no_of_points
+
+                            if AVG < -3400:  # apply a stricter threshold for things close to when the current is low
+                                if np.abs(sweptCal_analog_current[i][j + 1] - sweptCal_analog_current[i][
+                                    j]) >= threshDistance:
+                                    remove_indices.append(j + 1)
+                            elif np.abs(sweptCal_analog_current[i][
+                                            j + 1]) >= 4095:  # remove any points at absolute maximum
+                                remove_indices.append(j + 1)
+                            elif sweptCal_Epoch[i][j + 1] < 3178576.8709884263:
+                                remove_indices.append(j + 1)
+
+                        sweptCal_calCurrent[i] = np.delete(sweptCal_calCurrent[i], remove_indices, axis=0)
+                        sweptCal_voltage[i] = np.delete(sweptCal_voltage[i], remove_indices, axis=0)
+                        sweptCal_analog_current[i] = np.delete(sweptCal_analog_current[i], remove_indices, axis=0)
+                        sweptCal_Epoch[i] = np.delete(sweptCal_Epoch[i], remove_indices, axis=0)
+
+                Done(start_time)
+
+            # PLOT ALL THE RAW CAL CURVES
+            if plotAllCalCurves:
+                for i in range(1, 7):
+                    plt.scatter(sweptCal_analog_current[i], sweptCal_calCurrent[i],
+                                label=str(rocketAttrs.LPswept_cal_resistances[i]))
+
+                plt.legend()
+                plt.show()
+
+            #################################################
+            # --- Create MASTER calibration curve dataset ---
+            #################################################
+
+            prgMsg('Creating Master Dataset')
+
+            # Find where the min/max in the calibration current occurs
+            minCurrent_calCur = [sweptCal_calCurrent[i].min() for i in range(len(sweptCal_analog_current))]
+            maxCurrent_calCur = [sweptCal_calCurrent[i].max() for i in range(len(sweptCal_analog_current))]
+
+            # NOTE: We will not be including the "open" case during calibration.
+            sweptCal_master_analog_current_temp = [[[], []] for i in range(7)]
+            sweptCal_master_calCurrent_temp = [[[], []] for i in range(7)]
+
+            for i in range(1, len(sweptCal_analog_current)):  # loop through all curves EXCEPT the "open" case
+
+                # loop through all values in a sweep
+                for j in range(len(sweptCal_analog_current[i])):  # loop through all values within a curve
+                    value = sweptCal_calCurrent[i][j]
+
+                    if i == 1:  # special case for the final set of data. Collect all data here but break it in half
+                        if j <= int(len(sweptCal_analog_current[i]) / 2):
+                            sweptCal_master_calCurrent_temp[i][0].append(value)
+                            sweptCal_master_analog_current_temp[i][0].append(sweptCal_analog_current[i][j])
+                        elif j > int(len(sweptCal_analog_current[i]) / 2):
+                            sweptCal_master_calCurrent_temp[i][1].append(value)
+                            sweptCal_master_analog_current_temp[i][1].append(sweptCal_analog_current[i][j])
+                    else:
+                        # only collect data from a curve if you in the special range
+                        if (minCurrent_calCur[i] <= value < minCurrent_calCur[i - 1]):  # Minimum range
+                            sweptCal_master_calCurrent_temp[i][0].append(value)
+                            sweptCal_master_analog_current_temp[i][0].append(sweptCal_analog_current[i][j])
+
+                        elif (maxCurrent_calCur[i - 1] < value <= maxCurrent_calCur[i]):  # Maximum range
+                            sweptCal_master_calCurrent_temp[i][1].append(value)
+                            sweptCal_master_analog_current_temp[i][1].append(sweptCal_analog_current[i][j])
+
+            # PLOT THE MASTER DATA
+            if plotmasterData:
+                colors = ['brown', 'red', 'gold', 'orange', 'green', 'blue', 'purple']
+                for i in range(1, 7):
+                    for j in range(2):
+                        plt.scatter(sweptCal_master_analog_current_temp[i][j],
+                                    sweptCal_master_calCurrent_temp[i][j], color=colors[i],
+                                    label=f"{rocketAttrs.LPswept_cal_resistances[i] / (10 ** 6)} M")
+
+                # plt.plot(xData_fit, yData_fit )
+                plt.xlabel('$I_{analog}$')
+                plt.ylabel('$I_{cal}$ [nA]')
+                plt.xscale('symlog')
+                plt.show()
+
+            # Flatten the master data into one dataset
+            sortVals = [[6, 0], [5, 0], [4, 0], [3, 0], [2, 0], [1, 0], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
+                        [6, 1]]
+
+            sweptCal_master_analog_current = []
+            sweptCal_master_calCurrent = []
+
+            # Put the data into the master dataset in the order from lowest resistance to highest, then flip at middlepoint
+            for val in sortVals:
+                sweptCal_master_analog_current.append(sweptCal_master_analog_current_temp[val[0]][val[1]])
+                sweptCal_master_calCurrent.append(sweptCal_master_calCurrent_temp[val[0]][val[1]])
+
+            # Flatten all the data AND convert it to nanoAmperes
+            sweptCal_master_analog_current = np.array(
+                [val for sublist in sweptCal_master_analog_current for val in sublist])
+            sweptCal_master_calCurrent = np.array(
+                [val * unit_conversion for sublist in sweptCal_master_calCurrent for val in sublist])
+
+            Done(start_time)
+
+            ##############################
+            # --- FIT THE MASTER CURVE ---
+            ##############################
+
+            prgMsg('Calculating Calibration curve')
+
+            bottomData = [[], []]
+            middleData = [[], []]
+            topData = [[], []]
+
+            # Cut up the master data into pieces to fit curves to
+            for i in range(len(sweptCal_master_calCurrent)):
+                xVal = sweptCal_master_analog_current[i]
+                yVal = sweptCal_master_calCurrent[i]
+
+                # TOP DATA, analog >= 2000
+                if xVal >= threshAnalog[wRocket - 4][1]:
+                    if yVal >= threshCurrent[wRocket - 4][1]:  # TOP, analog 2000+
+                        topData[0].append(xVal)
+                        topData[1].append(yVal)
+                    elif yVal < threshCurrent[wRocket - 4][1]:  # Middle TOP, analog 2000+
+                        middleData[0].append(xVal)
+                        middleData[1].append(yVal)
+
+                # MIDDLE TOP, -4000 < analog < 2000
+                elif threshAnalog[wRocket - 4][0] < xVal < threshAnalog[wRocket - 4][1]:
+                    if yVal >= threshCurrent[wRocket - 4][
+                        0]:  # Middle BOTTOM, -4095 < analog < 0, close to 0 current
+                        middleData[0].append(xVal)
+                        middleData[1].append(yVal)
+                    elif yVal < threshCurrent[wRocket - 4][0]:  # BOTTOM, -4095 < analog < 0 and Negative current
+                        bottomData[0].append(xVal)
+                        bottomData[1].append(yVal)
+
+            N = 1000
+
+            # Middle data DOWN
+            paramsMid, covarianceMid = scipy.optimize.curve_fit(linear, middleData[0], middleData[1], maxfev=100000,
+                                                                p0=[1.5 / 6000, 0.5])
+            xData_mid = np.linspace(min(middleData[0]), max(middleData[0]), N)
+            fittedMidData = [linear(x, paramsMid[0], paramsMid[1]) for x in xData_mid]
+
+            if plotFittedCurves:
+                # --- PLOTTING ---
+                rounded = 5
+                fig, ax = plt.subplots(2, 1)
+                ax[0].set_title('$I_{analog}$ vs $I_{cal}$ fitted plots, y = mx+b ')
+
+                ax[0].scatter(middleData[0], middleData[1])
+                ax[0].plot(xData_mid, fittedMidData, color='red',
+                           label=f"m: {round(paramsMid[0], rounded)}   b: {round(paramsMid[1], rounded)}")
+                ax[0].legend()
+
+                ax[1].scatter(middleData[0], middleData[1])
+                ax[1].plot(xData_mid, fittedMidData, color='red',
+                           label=f"m: {round(paramsMid[0], rounded)}   b: {round(paramsMid[1], rounded)}")
+                ax[1].legend()
+                ax[1].set_xscale('symlog')
+
+                plt.tight_layout()
+                plt.show()
+
+            # Apply Calibration Curve
+            def sweptCal_Analog_to_Current(xVal):
+                # TOP DATA, -4000 <= analog <= 2000
+                if threshAnalog[wRocket - 4][1] <= xVal <= threshAnalog[wRocket - 4][1]:
+                    return linear(xVal, paramsMid[0], paramsMid[1])
+                else:
+                    return linear(xVal, paramsMid[0], paramsMid[1])
 
             Done(start_time)
 
@@ -841,6 +1089,9 @@ elif wRocket == 4:  # ACES II High
 elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
+
+
+
 
 if len(glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
