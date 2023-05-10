@@ -16,12 +16,14 @@ start_time = time.time()
 
 justPrintFileNames = False
 
-wRocket = 4 # 4 or 5 for high and low, respectively
+
+wRocket = 5 # 4 or 5 for high and low, respectively
 
 inputPath_modifier = "science\LP_calibration\sweptCals"
 outputPath_modifier = 'science\LP_calibration'
 modifier = ''
 
+# information to read the .csv files
 wRow_names = 0 ; wRow_startData = 1  # row index corresponding to the name of the variable # which row does the data begin
 getVars = [1,3,5,7] # column index corresponding to the desired variables to collect from each file. These should be 2 - DAC, 4 - P1, 6 - ni_stepped, 8- ne_stepped
 
@@ -29,12 +31,24 @@ getVars = [1,3,5,7] # column index corresponding to the desired variables to col
 plotIndividualCurveData = False
 
 # plot the overlay of all the individual curves
-plotCalCurveOverlay = False
+plotCalCurveOverlay = True
 
-# toggles for the final dataset curve
-AnalogRange = [-4294,3720] # choose the range of DAC values to accept in the final cal-curve dataset
+# plot the final calibration curve with the fits
+plotCalibrationCurveFitted = True
 
+# --- Andoya Calibration toggles ---
+useAndoyaData = False
+useSingleSweeptData = True
+slope = [0.004296482412060302, 0.004267676767676767]
+intercept = [- 4.72, -4.68]
 
+# --- Iowa fit toggles ---
+AnalogRange = [-2900, 3720] # choose the range of DAC values to accept in the final cal-curve dataset
+fitRangeY = [-2900, 1500]
+fitRangeX = [-0.15, 0.02]
+unitConv = 1E9
+
+# output the data
 outputData = False
 
 
@@ -50,15 +64,14 @@ from os import remove, path
 from ACESII_code.class_var_func import outputCDFdata
 from os.path import getsize
 from csv import reader
-from ACESII_code.data_paths import fliers, ACES_data_folder,ACES_csv_trajectories,TRICE_data_folder,ACES_L0_files,TRICE_L0_files
+from ACESII_code.data_paths import fliers, ACES_data_folder
 from ACESII_code.class_var_func import color, L2_TRICE_Quick
-from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
+from ACESII_code.missionAttributes import ACES_mission_dicts
 from copy import deepcopy
 setupPYCDF()
 from spacepy import pycdf
 from spacepy import coordinates as coord
 coord.DEFAULTS.set_values(use_irbem=False, itol=5)  # maximum separation, in seconds, for which the coordinate transformations will not be recalculated. To force all transformations to use an exact transform for the time, set ``itol`` to zero.
-from spacepy.time import Ticktock #used to determine the time I'm choosing the reference geomagentic field
 
 print(color.BOLD + color.CYAN + 'csv_to_cdf_LPcal.py' + color.END + color.END)
 
@@ -121,7 +134,6 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
 
             csvData = np.array(csvAllData[wRow_startData:], dtype='float64').transpose()
 
-
             # --- get v_stepped ---
             v_stepped = np.array(csvData[getVars[0]][:], dtype='float64')
             R = 4.99/(1.25 + 4.99)
@@ -142,7 +154,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
 
             if plotIndividualCurveData:
                 if i in range(len(inputFiles)):
-                    fig,ax = plt.subplots(2)
+                    fig, ax = plt.subplots(2)
                     ax[0].scatter(v_stepped, sweep)
                     ax[1].plot([j for j in range(len(sweep))], ni_stepped_digital,[j for j in range(len(sweep))], ne_stepped_digital)
                     plt.suptitle(filenameOnly)
@@ -153,6 +165,116 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             calCurveData_v_stepped.append(v_stepped_current)
 
             Done(start_time)
+
+
+
+
+        ###########################
+        ### GET ANDOYA CAL DATA ###
+        ###########################
+        if useAndoyaData:
+
+            prgMsg('Collecting Swept Calibration Data')
+            LangmuirSweptCalFiles = glob(f'{rocketFolderPath}\science\LP_calibration\{fliers[wRocket - 4]}\*_345deg_*')
+
+            # Collect the LP data except deltaNdivN into a data dict
+            data_dict_cal = {}
+            for file in LangmuirSweptCalFiles:
+                if 'deltaNdivN' not in file:
+                    with pycdf.CDF(file) as LangmuirSweptCalFiles:
+                        for key, val in LangmuirSweptCalFiles.items():
+                            if key not in data_dict_cal:
+                                data_dict_cal = {**data_dict_cal, **{key: [LangmuirSweptCalFiles[key][...], {key: val for key, val in LangmuirSweptCalFiles[key].attrs.items()}]}}
+
+            Done(start_time)
+
+            if useSingleSweeptData:
+                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges_single_sweep[wflyer]
+            else:
+                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges[wflyer]
+
+            # --- --- --- --- --- --- --- --- ---
+            # --- COLLECT/CALC CAL RANGE DATA ---
+            # --- --- --- --- --- --- --- --- ---
+            calEpoch = np.array([pycdf.lib.datetime_to_tt2000(data_dict_cal['Epoch_ne_swept'][0][i]) for i in range(len(data_dict_cal['Epoch_ne_swept'][0]))])
+
+            sweptCal_voltage = []  # voltage of the step
+            sweptCal_calCurrent = []  # corresponding current based on voltage
+            sweptCal_analog_current = []  # current determined from the analag calibration data
+            sweptCal_Epoch = []  # epoch values of the start/end of this cal range
+            for i in range(len(sweptCalRanges)):
+                # find the indicies of the calibration range
+                start = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][0])).argmin()
+                end = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][1])).argmin()
+
+                # calculate the analog current, voltage and calibration current
+                sweptCal_analog_current.append(np.array(data_dict_cal['ne_swept'][0][start:end]) - np.array(data_dict_cal['ni_swept'][0][start:end]))
+                sweptCal_Epoch.append(calEpoch[start:end])
+                resistance = rocketAttrs.LPswept_cal_resistances[i]
+                sweptCal_step = data_dict_cal['step'][0][start:end]
+
+                def step_to_Voltage(analog_voltage):
+                    return slope[wRocket - 4]*analog_voltage + intercept[wRocket - 4]
+
+                sweptCal_voltage.append(np.array([step_to_Voltage(sweptCal_step[i]) for i in range(len(sweptCal_step))]))
+                sweptCal_calCurrent.append(sweptCal_voltage[-1] / resistance)
+
+            # --- --- --- --- --- --- --- --- ---
+            # --- Remove outliers from data ---
+            # --- --- --- --- --- --- --- --- ---
+
+            # surprisingly, only the high flyer cal needed needs to be filtered for outliers
+            if wRocket == 4:
+                removeOutliers = True
+            elif wRocket == 5:
+                removeOutliers = False
+
+            if removeOutliers:
+                prgMsg('Removing Outliers')
+                threshold_percent = 0.05  # if the next point is >= 50% the the distance between max/min of the dataset, it is an outlier
+                repeat_process = 20  # how many times to repeat outlier search
+
+                for process in range(repeat_process):
+                    for i in range(len(sweptCalRanges)):
+                        maxV = sweptCal_analog_current[i].max()
+                        minV = sweptCal_analog_current[i].min()
+                        threshDistance = np.abs(maxV - minV) * threshold_percent
+
+                        # check every value and record the indices
+                        remove_indices = []
+
+                        for j in range(len(sweptCal_analog_current[i]) - 1):
+                            # take an average of data to see where I am:
+                            no_of_points = 10
+                            AVG = sum([sweptCal_analog_current[i][j - k] for k in range(no_of_points)]) / no_of_points
+
+                            if AVG < -3400:  # apply a stricter threshold for things close to when the current is low
+                                if np.abs(sweptCal_analog_current[i][j + 1] - sweptCal_analog_current[i][
+                                    j]) >= threshDistance:
+                                    remove_indices.append(j + 1)
+                            elif np.abs(sweptCal_analog_current[i][j + 1]) >= 4095:  # remove any points at absolute maximum
+                                remove_indices.append(j + 1)
+                            elif sweptCal_Epoch[i][j + 1] < 3178576.8709884263:
+                                remove_indices.append(j + 1)
+
+                        sweptCal_calCurrent[i] = np.delete(sweptCal_calCurrent[i], remove_indices, axis=0)
+                        sweptCal_voltage[i] = np.delete(sweptCal_voltage[i], remove_indices, axis=0)
+                        sweptCal_analog_current[i] = np.delete(sweptCal_analog_current[i], remove_indices, axis=0)
+                        sweptCal_Epoch[i] = np.delete(sweptCal_Epoch[i], remove_indices, axis=0)
+
+                Done(start_time)
+
+            # put data into plotting datastructures
+            for i in range(len(sweptCal_analog_current)):
+                name = str(rocketAttrs.LPswept_cal_resistances[i]) + '_Andoya'
+                Rnames.append(name)
+                calCurveData_Analog.append(sweptCal_analog_current[i])
+                calCurveData_v_stepped.append(sweptCal_calCurrent[i])
+
+
+        # --- --- --- --- --- --- --- --- --- --- -
+        # --- FILTER THE CALIBRATION CURVE DATA ---
+        # --- --- --- --- --- --- --- --- --- --- -
 
         if plotCalCurveOverlay:
             legend = []
@@ -167,11 +289,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             plt.legend(legend)
             plt.show()
 
-        # --- --- --- --- --- --- --- --- --- --- -
-        # --- FILTER THE CALIBRATION CURVE DATA ---
-        # --- --- --- --- --- --- --- --- --- --- -
 
-        # flatten the data
         calCurveData_Analog = np.array([item for sublist in calCurveData_Analog for item in sublist])
         calCurveData_v_stepped = np.array([item for sublist in calCurveData_v_stepped for item in sublist])
 
@@ -179,66 +297,57 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
         analogData_temp = []
         v_steppedData_temp = []
         for i in range(len(calCurveData_Analog)):
-            if (calCurveData_Analog[i] < AnalogRange[1]) and (calCurveData_Analog[i] > AnalogRange[0]) :
+            if (calCurveData_Analog[i] < AnalogRange[1]) and (calCurveData_Analog[i] > AnalogRange[0]):
                 analogData_temp.append(calCurveData_Analog[i])
                 v_steppedData_temp.append(calCurveData_v_stepped[i])
 
         # assign the data and also sort it so it's ascending
-        calCurveData_Analog = np.array([x for _, x in sorted(zip(v_steppedData_temp,analogData_temp))])
+        calCurveData_Analog = np.array([x for _, x in sorted(zip(v_steppedData_temp, analogData_temp))])
         calCurveData_v_stepped = np.array(sorted(v_steppedData_temp))
 
-
-        # --- --- --- --- --- --- ---
-        # --- FIT THE CAL CURVE ---
-        # --- --- --- --- --- --- ---
-        unit_convert = 1E9 # for easier fitting, switch to nA
+        # --- --- --- --- --- --- --- -
+        # --- ORGANIZE THE CAL DATA ---
+        # --- --- --- --- --- --- --- -
 
         yData = calCurveData_Analog
-        xData = calCurveData_v_stepped * unit_convert
+        xData = calCurveData_v_stepped * unitConv
 
-        # break data above and below a certain point
-        adjust = 10
-        breakpoint = 100
-        breakIndex = np.abs(yData - breakpoint).argmin()
-        rangeLow = np.abs(yData - AnalogRange[0]).argmin() ; rangeHigh = np.abs(yData - AnalogRange[1]).argmin()
-        yData_D = yData[rangeLow:breakIndex]; xData_D = xData[rangeLow:breakIndex]
-        yData_U = yData[breakIndex:rangeHigh]; xData_U = xData[breakIndex:rangeHigh]
+        yData_fit = [];
+        xData_fit = []
 
-        # UP
-        def upFunc(x, A, B, C):
-            return A*np.log(1*(x + B)) + C
+        for i in range(len(yData)):
+            if yData[i] <= fitRangeY[1] and yData[i] > fitRangeY[0]:
+                if xData[i] <= fitRangeX[1] and xData[i] > fitRangeX[0]:
+                    xData_fit.append(xData[i])
+                    yData_fit.append(yData[i])
 
-        parameters, covariance = curve_fit(upFunc, xData_U, yData_U, maxfev=100000)
+        # sort the data based on the xdata
+        yData_fit = np.array(yData_fit);
+        xData_fit = np.array(xData_fit)
 
-        xData_U_fit = np.linspace(xData_D.max(), xData[rangeLow:(breakIndex+adjust)],100000)
-        yData_U_fit = np.array([upFunc(x, parameters[0], parameters[1], parameters[2]) for x in xData_U_fit])
 
-        # DOWN
-        def downFunc(x, A, B, C):
-            return -1*A*np.log(-1*(x - B)) + C
+        #########################
+        ### FIT THE CAL CURVE ###
+        #########################
+        def fitFunc(x, A, B):
+            return A * x + B
 
-        parameters, covariance = curve_fit(downFunc, xData_D, yData_D, maxfev=10000)
+        # Sort the yData based on the xData
+        yData_fit = np.array([x for _, x in sorted(zip(xData_fit, yData_fit))])
+        xData_fit = np.array(sorted(xData_fit))
 
-        xData_D_fit = np.linspace(xData_D.min(), xData[breakIndex:(rangeHigh - adjust)], 100000)
-        yData_D_fit = np.array([downFunc(x, parameters[0], parameters[1], parameters[2]) for x in xData_D_fit])
+        parameters, covariance = curve_fit(fitFunc, xData_fit, yData_fit, maxfev=100000)
 
-        # plot the data
-        fig, ax = plt.subplots(2)
-        ax[0].scatter(xData_U, yData_U)
-        ax[1].scatter(xData_D, yData_D)
-        ax[0].plot(xData_U_fit, yData_U_fit, color='red')
-        ax[1].plot(xData_D_fit, yData_D_fit,color='red')
+        if plotCalibrationCurveFitted:
+            xData_fit = np.linspace(-1, 1, 1000)
+            yData_fit = np.array([fitFunc(x, parameters[0], parameters[1]) for x in xData_fit])
 
-        # plot the base data
-        plt.suptitle('I_analog vs I_stepped')
-        plt.show()
+            plt.scatter(xData, yData)
+            plt.plot(xData_fit, yData_fit, color='red')
+            plt.xlabel('Current [nA]')
+            plt.ylabel('Analog Val')
+            plt.show()
 
-        # overplot the two fits to check overlap
-        fig, ax = plt.subplots(1)
-        ax.scatter(xData, yData)
-        ax.plot(xData_U_fit, yData_U_fit,color='purple')
-        ax.plot(xData_D_fit, yData_D_fit, color='green')
-        plt.show()
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -246,13 +355,16 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
         if outputData:
             prgMsg('Creating output file')
 
+            # store the fit parameters
+            data_dict = {**data_dict, **{'fit_params': [parameters, exampleAttrs]}}
+
+            # store the error in the
+
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = "Langmuir_Probe"
             outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod,'LangmuirProbe')
 
             Done(start_time)
-
-
 
 # --- --- --- ---
 # --- EXECUTE ---
