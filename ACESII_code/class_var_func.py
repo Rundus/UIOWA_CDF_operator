@@ -105,9 +105,6 @@ def prgMsg(message):
 
 def Done(start_time):
     print(f'{color.GREEN}Done{color.END} at {color.YELLOW}{round(time.time() - start_time,1)} seconds {color.END}' )
-
-
-
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
@@ -173,6 +170,17 @@ def Rotation3D(yaw,pitch,roll):
     rollR = np.radians(roll)
     return np.array([[np.cos(yawR)*np.cos(pitchR), np.cos(yawR)*np.sin(pitchR)*np.sin(rollR) - np.sin(yawR)*np.cos(rollR), np.cos(yawR)*np.sin(pitchR)*np.cos(rollR) + np.sin(yawR)*np.sin(rollR) ], [np.sin(yawR)*np.cos(pitchR), np.sin(yawR)*np.sin(pitchR)*np.sin(rollR) + np.cos(yawR)*np.cos(rollR), np.sin(yawR)*np.sin(pitchR)*np.cos(rollR) - np.cos(yawR)*np.sin(rollR)], [-1*np.sin(pitchR), np.cos(pitchR)*np.sin(rollR), np.cos(pitchR)*np.cos(rollR)]])
 
+
+def calcChiSquare(yData, fitData, yData_errors, fitData_Errors, nu):
+    chiSum = []
+
+    for i in range(len(yData)):
+
+        if (yData_errors[i] + fitData_Errors[i]) != 0:
+
+            chiSum.append( ((yData[i] - fitData[i])**2) / (yData_errors[i] + fitData_Errors[i])  )
+
+    return (1/nu) * sum(chiSum)
 
 # ---------------------
 # ----- VARIABLES -----

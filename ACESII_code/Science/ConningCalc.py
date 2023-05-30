@@ -152,7 +152,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         b_norm = np.array([v/np.linalg.norm(v) for v in Bcomps])
 
         spinAxis_B_alignment = np.array(
-            [ np.arccos(np.dot(spin_axis,vec)) for vec in b_norm]
+            [180 - np.degrees(np.arccos(np.dot(spin_axis,vec))) for vec in b_norm]
         )
 
         # add variable to data dict

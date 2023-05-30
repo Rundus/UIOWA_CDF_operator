@@ -14,6 +14,9 @@ import itertools
 # --- --- --- --- ---
 
 import time
+
+import matplotlib.pyplot as plt
+
 from ACESII_code.class_var_func import Done, setupPYCDF
 
 start_time = time.time()
@@ -41,12 +44,15 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [6]
+wFiles = [0]
 wMagFile = [0]
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_mag = 'mag'
 outputPath_modifier = 'science\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 modifier = ''
+
+plot3DUnitVectors = False
+plotMagVector = False
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -77,6 +83,7 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
 
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
+
     inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*.cdf')
 
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
@@ -91,12 +98,13 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
     output_names_searchable = [ofile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(outputPath_modifier.lower() +'_', '').replace('_v00', '').replace('__', '_') for ofile in output_names]
 
     dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '')
-    fileoutName = dataFile_name.replace(inputPath_modifier.lower(), 'magPitch')
 
     # determine which instrument the file corresponds to:
     for index, instr in enumerate(['eepaa', 'leesa', 'iepaa', 'lp']):
         if instr in dataFile_name:
             wInstr = [index, instr]
+
+    fileoutName = f'ACESII_{rocketID}_l1_{wInstr[1]}_magPitch.cdf'
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
@@ -130,6 +138,54 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         Done(start_time)
 
+        ################################################
+        # --- Define EEPAA Unit Vectors in Mag Frame ---
+        ################################################
+
+        # Define the SPHERICAL description of the unit vectors IN THE MAG FRAME
+        if wInstr[0] in [0, 2]:  # EEPAA
+            ThetaPolar = np.radians(90)
+            unit_vect_temp = [[np.sin(ThetaPolar) * np.cos(np.radians(90 - ptch)),
+                               np.sin(ThetaPolar) * np.sin(np.radians(-90 - ptch)), np.cos(ThetaPolar)] for ptch in
+                              data_dict_esa['Pitch_Angle'][0]]
+            unit_vect = [np.matmul(Ry(-135), temp_vect) for temp_vect in unit_vect_temp]
+
+        elif wInstr[0] == 1:  # LEESA
+            ThetaPolar = np.radians(90)
+            unit_vect = np.array([[np.sin(ThetaPolar) * np.cos(np.radians(ptch - 90)),
+                                   np.sin(ThetaPolar) * np.sin(np.radians(ptch - 90)), np.cos(ThetaPolar)] for ptch in
+                                  data_dict_esa['Pitch_Angle'][0]])
+
+
+        # 3D plot of vectors to verify their orientation
+        if plot3DUnitVectors:
+            ax = plt.figure().add_subplot(projection='3d')
+            origin = [0, 0, 0]
+
+            for i, vec in enumerate(unit_vect):
+
+                if i == 1:
+                    ax.quiver(*origin, *vec, color='cyan',label='0deg')
+                elif i == 19:
+                    ax.quiver(*origin, *vec, color='purple',label='180deg')
+                else:
+                    ax.quiver(*origin, *vec)
+
+            # define the X,Y,Z mag axis
+            ax.quiver(*[0, 0, 0], *[1, 0, 0], color='red', label='x-axis')
+            ax.quiver(*[0, 0, 0], *[0, 1, 0], color='blue', label='y-axis')
+            ax.quiver(*[0, 0, 0], *[0, 0, 1], color='green', label='z-axis')
+
+            ax.set_title(wInstr[1])
+            ax.set_ylim(-1,1)
+            ax.set_xlim(-1,1)
+            ax.set_zlim(-1,1)
+            ax.set_xlabel('x')
+            ax.set_ylabel('y')
+            ax.set_zlabel('z')
+            plt.legend()
+            plt.show()
+
         ########################
         # --- DOWNSAMPLE MAG ---
         ########################
@@ -147,8 +203,8 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         esaLens = [len(data_dict_esa[wInstr[1]][0]),len(data_dict_esa[wInstr[1]][0][0]),len(data_dict_esa[wInstr[1]][0][0][0])]
         esaRanges = [range(esaLens[0]),range(esaLens[1]),range(esaLens[2])]
 
-        epochFullDataSet = np.zeros(shape=(esaLens[0],esaLens[2]))
-        magFullDataSet = np.zeros(shape=(esaLens[0],esaLens[2],3))
+        epochFullDataSet = np.zeros(shape=(esaLens[0], esaLens[2]))
+        magFullDataSet = np.zeros(shape=(esaLens[0], esaLens[2], 3))
 
         # populate epochFullDataSet
         for tme, engy in tqdm(itertools.product(*[esaRanges[0], esaRanges[2]])):
@@ -158,28 +214,66 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         # assign a magnetometer Bx,By,Bz to each tme and engy, don't need to do it for ptch since they're all sampled at the same time
         for tme in tqdm(esaRanges[0]):
-            magFullDataSet[tme] = [reOrg_magData[np.abs(data_dict_mag['Epoch'][0] - epochFullDataSet[tme][engy]).argmin()] for engy in esaRanges[2] ]
+
+            # find the closest value between the B-epoch and the assigned epoch value for the ESA data. Data is sorted from lowest energy value to highest
+            B_vectors = [reOrg_magData[np.abs(data_dict_mag['Epoch'][0] - epochFullDataSet[tme][engy]).argmin()] for engy in esaRanges[2] ]
+
+            # normalize all the vectors in B_vectors and reverse the order so it is highest energy first (matches the ESA data format)
+            magFullDataSet[tme] = np.array(list(reversed([vector/np.linalg.norm(vector) for vector in B_vectors])))
+
 
         # magData should look like: [ [[x,y,z],[x,y,z],...], [[x,y,z],[x,y,z],...], ...   ]
 
         Done(start_time)
 
+        # --- 3D plot of vectors to verify their orientation
+        wTimes = np.linspace(100, len(magFullDataSet), 30)
 
-        ################################################
-        # --- Define EEPAA Unit Vectors in Mag Frame ---
-        ################################################
+        if plotMagVector:
 
-        # Define the SPHERICAL description of the unit vectors IN THE MAG FRAME
-        if wInstr[0] in [0,2]: # EEPAA
-            ThetaPolar = np.radians(90)
-            unit_vect_temp = [ [np.sin(ThetaPolar)*np.cos(np.radians(-90 - ptch)),np.sin(ThetaPolar)*np.sin(np.radians(-90 - ptch)),np.cos(ThetaPolar)   ] for ptch in data_dict_esa['Pitch_Angle'][0]]
-            unit_vect = [np.matmul(Ry(45),temp_vect) for temp_vect in unit_vect_temp]
+            for j in range(len(wTimes)):
 
-        elif wInstr[0] == 1: # LEESA
-            ThetaPolar = np.radians(90)
-            unit_vect = np.array([[np.sin(ThetaPolar) * np.cos(np.radians(ptch - 90)),
-                                   np.sin(ThetaPolar) * np.sin(np.radians(ptch - 90)), np.cos(ThetaPolar)] for ptch in
-                                  data_dict_esa['Pitch_Angle'][0]])
+                bvec = magFullDataSet[int(wTimes[j])]
+
+                for k, val in enumerate(bvec):
+
+                    if k == 0:
+
+                        ax = plt.figure().add_subplot(projection='3d')
+                        origin = [0, 0, 0]
+                        zeroDegvec= origin
+
+                        for i, vec in enumerate(unit_vect):
+
+                            if i == 1:
+                                ax.quiver(*origin, *vec, color='cyan', label='$0^{\circ}$')
+                                zeroDegvec = vec
+                            elif i == 19:
+                                ax.quiver(*origin, *vec, color='purple', label='$180^{\circ}$')
+                            else:
+                                ax.quiver(*origin, *vec)
+
+                        # define the X,Y,Z mag axis
+                        ax.quiver(*origin, *[1, 0, 0], color='red',label='x-axis')
+                        ax.quiver(*origin, *[0, 1, 0], color='blue',label='y-axis')
+                        ax.quiver(*origin, *[0, 0, 1], color='green',label='z-axis')
+
+                        # angle between 0deg and B
+                        zeroDegDot = np.degrees(np.arccos(np.dot(val,zeroDegvec)))
+
+                        ax.quiver(*[0, 0, 0], *val, color='lightpink', label=fr'B, $n_{0} \dot B: {zeroDegDot}')
+
+                        ax.set_title(wInstr[1] + f'Time Index {int(wTimes[j])}, Energy Index {k}')
+                        ax.set_ylim(-1, 1)
+                        ax.set_xlim(-1, 1)
+                        ax.set_zlim(-1, 1)
+                        ax.set_xlabel('x')
+                        ax.set_ylabel('y')
+                        ax.set_zlabel('z')
+
+
+                        plt.legend()
+                        plt.show()
 
         ####################################
         # --- Calculate TRUE pitch angle ---
@@ -198,7 +292,6 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         # --- --- --- --- --- --- --- ---
         # --- PREPARE DATA FOR OUTPUT ---
         # --- --- --- --- --- --- --- ---
-
         data_dict = {}
         data_dict = {**data_dict, **{'Mag_Calculated_Pitch_Angle':
                                          [pitch_Angle_magCalc, {'LABLAXIS': 'Mag_Calculated_Pitch_Angle',
@@ -223,11 +316,6 @@ def L1_to_L1ESAmagCal(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod,wInstr[1])
 
         Done(start_time)
-
-
-
-
-
 
 
 # --- --- --- ---

@@ -48,8 +48,7 @@ outputPath_modifier = 'science\Langmuir'  # e.g. 'L2' or 'Langmuir'. It's the na
 
 # --- Fitting Toggles ---
 unitConv = 1E9  # converts from A to nA
-
-wSweeps = [100]  # [] --> all sweeps, [#1,#2,...] specific sweeps
+wSweeps = [100 + i for i in range(10)]  # [] --> all sweeps, [#1,#2,...] specific sweeps
 
 # bad data: High Flyer 36
 # auroral case: 260
@@ -57,11 +56,10 @@ wSweeps = [100]  # [] --> all sweeps, [#1,#2,...] specific sweeps
 # Exponential case: 40, 100, 70,90, 150
 # Linear Cases: 130
 
-rounding = 9  # rounding on the fit parameters
+
 
 # --- Data Plotting ---
-plotBestFit = True
-plotFitParamsOverTime = True
+plotEveryFitPerSweep = True
 
 # --- OutputData ---
 outputData = False
@@ -76,41 +74,34 @@ from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TR
 from ACESII_code.class_var_func import color, prgMsg, L2_ACES_Quick, q0, m_e, kB, IonMasses
 from glob import glob
 from os.path import getsize
+from decimal import Decimal
 from matplotlib import pyplot as plt
-
 setupPYCDF()
 from spacepy import pycdf
 from tqdm import tqdm
+from LP_gridSearch_toggles import Ti,rounding, Vsp_range,voltageStartPoint, transFitParameters,satFitParameters
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
-
 pycdf.lib.set_backward(False)
 
-#############################
-# --- GRID SEARCH TOGGLES ---
-#############################
-Ti = 0.2
-Vsp_range = np.linspace(0.8, 1.2, 10)
-voltageStartPoint = 0  # Only take data > than this voltage
+
 
 ##############################
 # --- FITTED CHI FUNCTIONS ---
 ##############################
 rocketAttrs, b, c = ACES_mission_dicts()
-
 e_coefficient = (((q0 ** 3) * (rocketAttrs.LP_probe_areas[0][0] ** (2))) / (8 * np.pi * m_e)) ** (1 / 2)
 i_coefficient = ((Ti * (q0 ** 3) * (rocketAttrs.LP_probe_areas[0][0] ** (2))) / (8 * np.pi * IonMasses[0])) ** (1 / 2)
 
-
 def transitionFunc(x, a0, a1, a2):
-    y = unitConv * (e_coefficient) * a0 * np.exp((x - a1) / a2)
+    y = (e_coefficient) * a0 * np.exp((x - a1) / a2)
     return y
-
-
 def saturationFunc(x, a0, a1, a2):
-    y = unitConv * ((e_coefficient) * a0 - ((a0 / (a2 ** (1 / 2))) * (i_coefficient) * np.exp(-1 * ((x - a1) / Ti))))
+    y = ((e_coefficient) * a0 - ((a0 / (a2 ** (1 / 2))) * (i_coefficient) * np.exp(-1 * ((x - a1) / Ti))))
     return y
 
-
+#######################
+# --- MAIN FUNCTION ---
+#######################
 def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -122,16 +113,11 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*langmuir*')
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*Temp&Density*')
 
-    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile
-                   in inputFiles]
-    output_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '') for ofile in
-                    outputFiles]
+    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
+    output_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '') for ofile in outputFiles]
 
-    input_names_searchable = [ifile.replace(inputPath_modifier.lower() + '_', '').replace('_v00', '') for ifile in
-                              input_names]
-    output_names_searchable = [
-        ofile.replace(outputPath_modifier.lower() + '_', '').replace('_v00', '').replace('__', '_') for ofile in
-        output_names]
+    input_names_searchable = [ifile.replace(inputPath_modifier.lower() + '_', '').replace('_v00', '') for ifile in input_names]
+    output_names_searchable = [ofile.replace(outputPath_modifier.lower() + '_', '').replace('_v00', '').replace('__', '_') for ofile in output_names]
 
     dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\',
                                               '')
@@ -152,12 +138,9 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         data_dict = {}
         with pycdf.CDF(inputFiles[wFile]) as inputDataFile:
             for key, val in inputDataFile.items():
-                data_dict = {**data_dict, **{
-                    key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
+                data_dict = {**data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
 
-        data_dict['Epoch_swept_Current'][0] = np.array(
-            [pycdf.lib.datetime_to_tt2000(data_dict['Epoch_swept_Current'][0][i]) for i in
-             (range(len(data_dict['Epoch_swept_Current'][0])))])
+        data_dict['Epoch_swept_Current'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_swept_Current'][0][i]) for i in (range(len(data_dict['Epoch_swept_Current'][0])))])
 
         Done(start_time)
 
@@ -174,8 +157,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         for i in (range(len(data_dict['Epoch_swept_Current'][0]) - 1)):
 
-            if np.abs((data_dict['Epoch_swept_Current'][0][i + 1] / 100000 - data_dict['Epoch_swept_Current'][0][
-                i] / 100000)) >= indvEpochThresh / 100000:
+            if np.abs((data_dict['Epoch_swept_Current'][0][i + 1] / 100000 - data_dict['Epoch_swept_Current'][0][i] / 100000)) >= indvEpochThresh / 100000:
 
                 if counter == 0:
                     sweepIndices.append([0, i])
@@ -216,14 +198,11 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         print(len(sweepIndices), qualityCounter)
 
-        sweepIndices = np.array(sweepIndices)
-        breakIndices = np.array(breakIndices)
+        sweepIndices, breakIndices = np.array(sweepIndices), np.array(breakIndices)
 
         # --- store the sweep data into a single data variables filled with individual sweeps---
         prgMsg('Reorganizing Data')
-        sweepsCurrent = []
-        sweepsVoltage = []
-        sweepsCurrent_epoch = []
+        sweepsCurrent, sweepsVoltage, sweepsCurrent_epoch = [], [], []
 
         for sweep in range(len(sweepIndices)):
             start = sweepIndices[sweep][0]
@@ -232,12 +211,12 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             # Get the data and sort it
             xData1 = np.array(data_dict['swept_Voltage'][0][start:breakPoint])
-            yData1 = np.array(data_dict['swept_Current'][0][start:breakPoint]) / unitConv
-            yData1 = np.array([x * unitConv for _, x in sorted(zip(xData1, yData1))])
+            yData1 = np.array(data_dict['swept_Current'][0][start:breakPoint])
+            yData1 = np.array([x for _, x in sorted(zip(xData1, yData1))])
             xData1 = np.array(sorted(xData1))
 
             xData2 = data_dict['swept_Voltage'][0][breakPoint:end]
-            yData2 = np.array(data_dict['swept_Current'][0][breakPoint:end]) / unitConv
+            yData2 = np.array(data_dict['swept_Current'][0][breakPoint:end])
 
             yData2 = np.array([x for _, x in sorted(zip(xData2, yData2))])
             xData2 = np.array(sorted(xData2))
@@ -262,187 +241,152 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         prgMsg('Performing Grid Search')
         print('\n')
 
+        # data that will be outputed
+        sweeps_Te = []
+        sweeps_Vsp = []
+        sweeps_n0 = []
+        sweeps_Epoch = []
+
+        error_ProbeVoltage = data_dict['errorInProbeVoltage'][0]
+        error_ProbeCurrent = data_dict['errorInCaldCurrent'][0]/unitConv
+
         # analyze the specific sweeps in wSweeps or do all of them
-        numDensity = [[], []]
-        electronTemp = [[], []]
-        plasmaPotential = [[], []]
-        parameterEpoch = [[], []]
-        chiSquares = [[], []]
         theseSweeps = [i for i in range(len(sweepsCurrent))] if wSweeps == [] else wSweeps
 
         # loop through all the sweeps
         for sweepNo in tqdm(theseSweeps):
-            xData = sweepsVoltage[sweepNo]
-            zeroPoint = np.abs(xData - voltageStartPoint).argmin()  # only consider data past Vprobe > 0
 
-            data = {
+            # for each sweep, store the results of the grid search. format: [transition,saturation]
+            gridSearchResults = {
+                'n0': [0, 0],
+                'Te': [0, 0],
+                'Vsp': [0, 0],
                 'timeStamp': pycdf.lib.tt2000_to_datetime(sweepsCurrent_epoch[sweepNo]).strftime("%H:%M:%S.%f"),
-                'Functions': [transitionFunc, saturationFunc],
-                'xData': [[], []],
-                'yData': [[], []],
-                'fitGuess': [[2.11E7, 1.5, 0.08296951], [2.11E7, 1.5, 0.2]],
-                'fitBounds': [([0, 0, 0], [np.Inf, 3, np.Inf]),
-                              ([0, 0, 0], [np.Inf, 3, np.Inf])],
-                'fitParams': [[], []],
-                'ChiSquare': [[], []]
+                'Epoch':sweepsCurrent_epoch[sweepNo],
+                'ChiSquare': [10000000000, 10000000000],
+                'transData' : [0,0],
+                'satData': [0,0],
+                'transParams' : [0],
+                'satParams' : [0],
+                'Ii0' : 0,
+                'wSweep' : sweepNo
             }
 
-            # --- LOOP THROUGH chi^2 VALUES ---
+            # reduce the x and y Data to only consider past Vprobe > 0V
+            zeroPoint = np.abs(sweepsVoltage[sweepNo] - voltageStartPoint).argmin()
+            xData, yData = sweepsVoltage[sweepNo][zeroPoint:], np.array(sweepsCurrent[sweepNo][zeroPoint:])/unitConv
+
+            #####################
+            # --- GRID SEARCH ---
+            #####################
+
+            bestChiChecker = 10000000000000000000000000000000
+
+            # --- LOOP THROUGH Vsp VALUES ---
             for i in range(len(Vsp_range)):
 
                 # Break data into Transition and Saturation
                 breakHere = np.abs(xData - Vsp_range[i]).argmin()
-                data['xData'][0].append(sweepsVoltage[sweepNo][zeroPoint:breakHere])
-                data['xData'][1].append(sweepsVoltage[sweepNo][breakHere:])
-                data['yData'][0].append(sweepsCurrent[sweepNo][zeroPoint:breakHere])
-                data['yData'][1].append(sweepsCurrent[sweepNo][breakHere:])
+                xDataTrans, yDataTrans = np.array(xData[:breakHere]), np.array(yData[:breakHere])
+                xDataSat, yDataSat = np.array(xData[breakHere:]), np.array(yData[breakHere:])
 
                 # Ion saturation Current
-                Ii0 = min(data['yData'][0][i])
-                data['yData'][0][i] = [y - Ii0 for y in data['yData'][0][i]]  # subtract Ii0 from transition data
+                Ii0 = min(yDataTrans)
+                yDataTrans = [y - Ii0 for y in yDataTrans]  # subtract Ii0 from transition data
 
-                # Fit the transition and saturation regions
-                for k in range(2):
-                    # Fit the data
-                    if k == 0:
-                        Params, cov = scipy.optimize.curve_fit(transitionFunc, data['xData'][0][i], data['yData'][0][i],
-                                                               maxfev=100000, bounds=data['fitBounds'][0],
-                                                               p0=data['fitGuess'][0])
-                    else:
-                        Params, cov = scipy.optimize.curve_fit(saturationFunc, data['xData'][1][i], data['yData'][1][i],
-                                                               maxfev=100000, bounds=data['fitBounds'][1],
-                                                               p0=data['fitGuess'][1])
+                # Fit the transition region and calculate ChiSquare
+                transParams, tCov = scipy.optimize.curve_fit(transitionFunc, xDataTrans, yDataTrans, **transFitParameters)
+                nu = len(xDataTrans) - 3
 
-                    data['fitParams'][k].append(Params)
+                ChiSquareTrans = sum(
+                    [
+                        (yDataTrans[i] - transitionFunc(xDataTrans[i], transParams[0], transParams[1], transParams[2])) ** 2 / (error_ProbeCurrent**2)
+                        for i in range(len(xDataTrans))
+                    ]) / nu
 
-                    # Calculate Chi^2
-                    nu = (len(data['xData'][k][i]) - 3)
-                    data['ChiSquare'][k].append((1 / nu) * sum([(data['yData'][k][i][j] - transitionFunc(
-                        data['xData'][k][i][j], Params[0], Params[1], Params[2])) ** 2 / (np.sqrt(
-                        np.abs(data['yData'][k][i][j]) + np.abs(data['xData'][k][i][j]))) for j in range(len(data['yData'][k][i]))]))
+                # Fit the saturation region and calculate ChiSquare
+                satParams, sCov = scipy.optimize.curve_fit(saturationFunc, xDataSat, yDataSat, **satFitParameters)
 
-                    # Reset transition data back
-                    data['yData'][k][i] = [y + Ii0 for y in data['yData'][k][i]] if k == 0 else data['yData'][k][i]  # subtract Ii0 from transition data
+                nu = len(xDataTrans) - 3
+                ChiSquareSat = sum([(yDataSat[i] - saturationFunc(xDataSat[i], satParams[0], satParams[1], satParams[2])) ** 2 / (error_ProbeCurrent ** 2) for i in range(len(xDataSat))])/nu
 
-            ###########################
-            # --- FIND THE BEST FIT ---
-            ###########################
+                # Reset transition data back
+                yDataTrans = [y + Ii0 for y in yDataTrans]  # subtract Ii0 from transition data
 
-            # --- BEST TRANSITION ---
-            minChi = 50
-            for i, val in enumerate(data['ChiSquare'][0]):
-                print(val)
-                if np.abs(val - 1) <= np.abs(minChi - 1):
-                    transData = [data['ChiSquare'][0][i], data['fitParams'][0][i], data['fitParams'][1][i], i, Vsp_range[i]]
 
-            # --- BEST SATURATION ---
-            minChi = 50
-            for i, val in enumerate(data['ChiSquare'][1]):
-                if np.abs(val - 1) <= np.abs(minChi - 1):
-                    satData = [data['ChiSquare'][1][i], data['fitParams'][0][i], data['fitParams'][1][i], i, Vsp_range[i]]
+                if (ChiSquareSat + ChiSquareTrans) <  bestChiChecker:
+                    gridSearchResults['n0'] = [transParams[0] / np.sqrt(transParams[2]), satParams[0] / np.sqrt(satParams[2])]
+                    gridSearchResults['Te'] = [transParams[2], satParams[2]]
+                    gridSearchResults['Vsp'] = [transParams[1], satParams[1]]
+                    gridSearchResults['ChiSquare'] = [ChiSquareTrans, ChiSquareSat]
+                    gridSearchResults['transData'] = [xDataTrans, yDataTrans]
+                    gridSearchResults['satData'] = [xDataSat, yDataSat]
+                    gridSearchResults['transParams'] = transParams
+                    gridSearchResults['satParams'] = satParams
+                    gridSearchResults['Ii0'] = Ii0
 
-            # Store/collect fit data
-            parameters = [transData[1], satData[2]]
-            chiSq = [transData[0], satData[0]]
-            for i in range(2):
-                params = parameters[i]
-                a0 = round(params[0], rounding)
-                a1 = round(params[1], rounding)
-                a2 = round(params[2], rounding)
-                n_0 = round(10 ** (-6) * (params[0] / np.sqrt(params[2])), rounding)
+                    # update the best Chi value
+                    bestChiChecker = ChiSquareSat + ChiSquareTrans
 
-                numDensity[i].append(n_0)
-                electronTemp[i].append(a2)
-                plasmaPotential[i].append(a1)
-                chiSquares[i].append(chiSq[i])
-                parameterEpoch[i].append(pycdf.lib.tt2000_to_datetime(sweepsCurrent_epoch[sweepNo]))
 
-            # PLOT THE BEST FITS OF BOTH CURVES
-            if plotBestFit:
-                datum = [transData, satData]
-                titles = ['transition', 'saturation']
 
-                for i, bestFitData in enumerate(datum):
-                    # --- PLOT BEST FIT ---
-                    fig, ax = plt.subplots(2)
-                    # transition plot
-                    ax[0].set_title(data[
-                                        'timeStamp'] + ' UTC\n' + f'{titles[i]} ' + '$\chi$' + f' : {bestFitData[0]}' + '\n $V_{sp}$: ' + f'{bestFitData[4]} V')
-                    ax[0].scatter(data['xData'][0][bestFitData[3]], data['yData'][0][bestFitData[3]])
-                    params = bestFitData[1]
-                    yData_fitted = [transitionFunc(x, params[0], params[1], params[2]) + Ii0 for x in
-                                    data['xData'][0][bestFitData[3]]]
-                    ax[0].plot(data['xData'][0][bestFitData[3]], yData_fitted)
+            # --- OUTPUT THE DATA TO THE FINAL STORAGE OBJECT ---
 
-                    a0 = round(params[0], rounding)
-                    a1 = round(params[1], rounding)
-                    a2 = round(params[2], rounding)
-                    n_0 = round(10 ** (-6) * (params[0] / np.sqrt(params[2])), rounding)
-                    ax[0].legend([
-                                     '$a_{0} = n_{0} T_{e[eV]}^{1/2}$: ' + f'{a0} \n' + '$a_{1} = V_{sp}$: ' + f'{a1}' + ' V' + '\n' + '$a_{2} = T_{e[eV]}$: ' + f'{a2}' + ' eV' + '\n' + '$T_{i[eV]}$= ' + f'{Ti}' + ' eV' + '\n' + '$n_{0} =$' + f'{n_0} ' + ' $cm^{-3}$' + ''])
-                    ax[0].set_xlabel('Probe Voltage [V]')
-                    ax[0].set_ylabel('Probe Current [nA]')
-                    ax[0].xaxis.set_major_locator(MultipleLocator(0.1))
+            if plotEveryFitPerSweep:
 
-                    # saturation plot
-                    ax[1].scatter(data['xData'][1][bestFitData[3]], data['yData'][1][bestFitData[3]])
-                    params = bestFitData[2]
-                    yData_fitted = [saturationFunc(x, params[0], params[1], params[2]) for x in
-                                    data['xData'][1][bestFitData[3]]]
-                    ax[1].plot(data['xData'][1][bestFitData[3]], yData_fitted)
-                    a0 = round(params[0], rounding)
-                    a1 = round(params[1], rounding)
-                    a2 = round(params[2], rounding)
-                    n_0 = round(10 ** (-6) * (params[0] / np.sqrt(params[2])), rounding)
-                    ax[1].legend([
-                                     '$a_{0} = n_{0} T_{e[eV]}^{1/2}$: ' + f'{a0} \n' + '$a_{1} = V_{sp}$: ' + f'{a1}' + ' V' + '\n' + '$a_{2} = T_{e[eV]}$: ' + f'{a2}' + ' eV' + '\n' + '$T_{i[eV]}$= ' + f'{Ti}' + ' eV' + '\n' + '$n_{0} =$' + f'{n_0} ' + ' $cm^{-3}$' + ''])
-                    ax[1].set_xlabel('Probe Voltage [V]')
-                    ax[1].set_ylabel('Probe Current [nA]')
-                    ax[1].xaxis.set_major_locator(MultipleLocator(0.1))
-                    plt.tight_layout()
-                    plt.show()
+                # --- plot test data ---
+                xDataTrans = gridSearchResults['transData'][0]
+                yDataTrans = gridSearchResults['transData'][1]
+                xDataSat = gridSearchResults['satData'][0]
+                yDataSat = gridSearchResults['satData'][1]
+                transParams = gridSearchResults['transParams']
+                satParams = gridSearchResults['satParams']
+                Ii0 = gridSearchResults['Ii0']
+                ChiSquareTrans = gridSearchResults['ChiSquare'][0]
+                ChiSquareSat = gridSearchResults['ChiSquare'][1]
 
-        # PLOT the fit data over the whole flight
-        if plotFitParamsOverTime:
+                xDataTest_trans = np.linspace(min(xDataTrans), max(xDataTrans))
+                xDataTest_sat = np.linspace(min(xDataSat), max(xDataSat))
+                yDataTest_trans = [transitionFunc(x, transParams[0], transParams[1], transParams[2]) + Ii0 for x in xDataTest_trans]
+                yDataTest_sat = [saturationFunc(x, satParams[0], satParams[1], satParams[2]) for x in xDataTest_sat]
 
-            titles = ['Transition', 'Saturation']
+                fig, ax = plt.subplots(2)
+                ax[0].scatter(xDataTrans, yDataTrans)
+                ax[0].plot(xDataTest_trans, yDataTest_trans, color='red')
+                ax[1].scatter(xDataSat, yDataSat)
+                ax[1].plot(xDataTest_sat, yDataTest_sat)
+                ax[0].set_title(r'$\chi_{\nu} ^2$ ' + f'{ChiSquareTrans}')
+                ax[1].set_title(r'$\chi_{\nu} ^2$ ' + f'{ChiSquareSat}')
+                ax[0].set_xlabel('Probe Voltage [V]')
+                ax[0].set_ylabel('Probe Current [A]')
+                ax[1].set_ylabel('Probe Current [A]')
+                ax[1].set_xlabel('Probe Voltage [V]')
+                plt.suptitle(str(gridSearchResults['wSweep']) + '. ' + gridSearchResults['timeStamp'])
+                plt.tight_layout()
+                a0 = [transParams[0], satParams[0]]
+                a1 = [transParams[1], satParams[1]]
+                a2 = [transParams[2], satParams[2]]
+                n_0 = [a0[0] / np.sqrt(a2[0]), a0[1] / np.sqrt(a2[1])]
 
-            # Separate Transition and Saturation Plots
-            for i in range(2):
-                fig, ax = plt.subplots(4, 1, sharex=True)
-                fig.set_size_inches(15, 15)
+                for i in range(2):
+                    ax[i].legend([
+                        '$a_{0} = n_{0} T_{e[eV]}^{1/2}$: ' + f'{a0[i]} \n' +
+                        '$a_{1} = V_{sp}$: ' + f'{a1[i]}' + ' V' + '\n' +
+                        '$a_{2} = T_{e[eV]}$: ' + f'{a2[i]}' + ' eV' + '\n' +
+                        '$T_{i[eV]}$= ' + f'{Ti}' + ' eV' + '\n' +
+                        '$n_{0} =$' + f'{"{:.2E}".format(Decimal(str(round((10 ** (-6)) * n_0[i], rounding))))} ' + ' $cm^{-3}$' + ''])
+                plt.show()
 
-                fig.suptitle(f'{titles[i]} BestFit Parameters \n ACESII {rocketID}')
-                ax[0].plot(parameterEpoch[i], chiSquares[i])
-                ax[0].set_ylabel('$\chi ^{2}$ ')
-                ax[1].plot(parameterEpoch[i], numDensity[i])
-                ax[1].set_ylabel('$n_{0}$ [cm$^{-3}$]')
-                ax[2].plot(parameterEpoch[i], electronTemp[i])
-                ax[2].set_ylabel('$T_{e}$ [eV]')
-                ax[3].plot(parameterEpoch[i], plasmaPotential[i])
-                ax[3].set_ylabel('$V_{sp}$ [V]')
-                plt.savefig(
-                    rf'D:\Data\ACESII\science\Langmuir\plots\{fliers[wRocket - 4]}\LP_Parameters_{fliers[wRocket - 4]}Flyer_{titles[i]}.png')
+            # determine which data should be output'd
+            outputThis = 0 if (gridSearchResults['ChiSquare'][0] > gridSearchResults['ChiSquare'][1]) else 1
+            outputThis = 1
 
-            # Overlay Transition and Saturation Data
-            fig, ax = plt.subplots(4, 1, sharex=True)
-            fig.set_size_inches(15, 15)
-            for i in range(2):
-                fig.suptitle(f'{titles[i]} BestFit Parameters \n ACESII {rocketID}')
-                ax[0].plot(parameterEpoch[i], chiSquares[i])
-                ax[0].set_ylabel('$\chi ^{2}$ ')
-                ax[1].plot(parameterEpoch[i], numDensity[i])
-                ax[1].set_ylabel('$n_{0}$ [cm$^{-3}$]')
-                ax[2].plot(parameterEpoch[i], electronTemp[i])
-                ax[2].set_ylabel('$T_{e}$ [eV]')
-                ax[3].plot(parameterEpoch[i], plasmaPotential[i])
-                ax[3].set_ylabel('$V_{sp}$ [V]')
+            # output the data to the final data storage variables
+            sweeps_Epoch.append(gridSearchResults['Epoch'])
+            sweeps_Vsp.append(gridSearchResults['Vsp'][outputThis])
+            sweeps_Te.append(gridSearchResults['Te'][outputThis])
+            sweeps_n0.append(gridSearchResults['n0'][outputThis])
 
-            for i in range(4):
-                ax[i].legend(titles)
-
-            plt.savefig(
-                rf'D:\Data\ACESII\science\Langmuir\plots\{fliers[wRocket - 4]}\LP_Parameters_{fliers[wRocket - 4]}Flyer_OVERLAY.png')
 
         #####################
         # --- OUTPUT DATA ---
@@ -452,6 +396,63 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             # --- WRITE OUT THE DATA ---
             # --- --- --- --- --- --- ---
             prgMsg('Creating output file')
+
+
+            # remove unwanted data from output file
+            sweeps_Epoch = np.array(sweeps_Epoch)
+            sweeps_Vsp = np.array(sweeps_Vsp)
+            sweeps_n0 = np.array(sweeps_n0)
+            sweeps_Te = np.array(sweeps_Te)
+
+            data_dict = {**data_dict, **{'sweeps_Epoch': [sweeps_Epoch, {'LABLAXIS': 'sweeps_Epoch',
+                                                                                      'DEPEND_0': 'sweeps_Epoch',
+                                                                                      'DEPEND_1': None,
+                                                                                      'DEPEND_2': None,
+                                                                                      'FILLVAL': -9223372036854775808,
+                                                                                      'FORMAT': 'E12.2', 'UNITS': 'ns',
+                                                                                      'VALIDMIN': sweeps_Epoch.min(),
+                                                                                      'VALIDMAX': sweeps_Epoch.max(),
+                                                                                      'VAR_TYPE': 'support_data',
+                                                                                      'MONOTON': 'INCREASE',
+                                                                                      'TIME_BASE': 'J2000',
+                                                                                      'TIME_SCALE': 'Terrestrial Time',
+                                                                                      'REFERENCE_POSITION': 'Rotating Earth Geoid',
+                                                                                      'SCALETYP': 'linear'}]}}
+
+            data_dict = {**data_dict, **{'Vsp': [sweeps_Vsp, {'LABLAXIS': 'Vsp',
+                                                                               'DEPEND_0': 'sweeps_Epoch',
+                                                                               'DEPEND_1': None,
+                                                                               'DEPEND_2': None,
+                                                                               'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                               'UNITS': 'Volts',
+                                                                               'VALIDMIN': sweeps_Vsp.min(),
+                                                                               'VALIDMAX': sweeps_Vsp.max(),
+                                                                               'VAR_TYPE': 'data',
+                                                                               'SCALETYP': 'linear'}]}}
+
+            data_dict = {**data_dict, **{'n0': [sweeps_n0, {'LABLAXIS': 'n0',
+                                                                     'DEPEND_0': 'sweeps_Epoch',
+                                                                     'DEPEND_1': None,
+                                                                     'DEPEND_2': None,
+                                                                     'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                     'UNITS': 'cm!U-3',
+                                                                     'VALIDMIN': sweeps_n0.min(),
+                                                                     'VALIDMAX': sweeps_n0.max(),
+                                                                     'VAR_TYPE': 'data',
+                                                                     'SCALETYP': 'linear'}]}}
+
+            data_dict = {**data_dict, **{'Te': [sweeps_Te, {'LABLAXIS': 'Te',
+                                                                    'DEPEND_0': 'sweeps_Epoch',
+                                                                    'DEPEND_1': None,
+                                                                    'DEPEND_2': None,
+                                                                    'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                    'UNITS': 'eV',
+                                                                    'VALIDMIN': sweeps_Te.min(),
+                                                                    'VALIDMAX': sweeps_Te.max(),
+                                                                    'VAR_TYPE': 'data',
+                                                                    'SCALETYP': 'linear'}]}}
+
+            del data_dict['swept_Current'],data_dict['swept_Voltage'],data_dict['errorInProbeVoltage'],data_dict['errorInCaldCurrent'],data_dict['Epoch_step'],data_dict['step_Voltage']
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 

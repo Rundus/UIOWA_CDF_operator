@@ -28,7 +28,7 @@ wRow_names = 0 ; wRow_startData = 1  # row index corresponding to the name of th
 getVars = [1,3,5,7] # column index corresponding to the desired variables to collect from each file. These should be 2 - DAC, 4 - P1, 6 - ni_stepped, 8- ne_stepped
 
 # plot each individual curve
-plotIndividualCurveData = False
+plotIndividualCurveData = True
 
 # plot the overlay of all the individual curves
 plotCalCurveOverlay = True
@@ -44,8 +44,8 @@ intercept = [- 4.72, -4.68]
 
 # --- Iowa fit toggles ---
 AnalogRange = [-2900, 3720] # choose the range of DAC values to accept in the final cal-curve dataset
-fitRangeY = [-2900, 1500]
-fitRangeX = [-0.15, 0.02]
+fitRangeY = [-3000, 2200]
+fitRangeX = [-0.15, 0.1]
 unitConv = 1E9
 
 # output the data
@@ -342,10 +342,33 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             xData_fit = np.linspace(-1, 1, 1000)
             yData_fit = np.array([fitFunc(x, parameters[0], parameters[1]) for x in xData_fit])
 
+            # fit a curve that represents the electron saturation. Use this to determine where saturation begins
+            # find the index range for xdata between 1 to 5nA
+            lowIndex = np.abs(xData - 1).argmin()
+            highIndex = np.abs(xData - 5).argmin()
+
+
+            xData_sat = xData[lowIndex:highIndex]
+            yData_sat = yData[lowIndex:highIndex]
+
+            # fit some linear line to this saturation region fit
+            satParams, cov = curve_fit(fitFunc,xData_sat,yData_sat,maxfev=100000)
+            N = 100
+            xData_temp_sat = np.linspace(-2,5,N)
+            yData_temp_sat = np.array([fitFunc(x,satParams[0],satParams[1]) for x in xData_temp_sat])
+            plt.plot(xData_temp_sat,yData_temp_sat,color='purple',label='Saturation Region')
+
             plt.scatter(xData, yData)
-            plt.plot(xData_fit, yData_fit, color='red')
+            plt.plot(xData_fit, yData_fit, color='red', label=f'm: {parameters[0]} \n b: {parameters[1]}')
             plt.xlabel('Current [nA]')
             plt.ylabel('Analog Val')
+            plt.ylim(-4500,4500)
+            plt.xlim(-0.4,4)
+            plt.hlines(fitRangeY[0],xmin=fitRangeX[0],xmax=fitRangeX[1],color='green',label='Data used for cal fit')
+            plt.hlines(fitRangeY[1],xmin=fitRangeX[0],xmax=fitRangeX[1],color='green')
+            plt.vlines(fitRangeX[0],ymin=fitRangeY[0],ymax=fitRangeY[1],color='green')
+            plt.vlines(fitRangeX[1],ymin=fitRangeY[0],ymax=fitRangeY[1],color='green')
+            plt.legend()
             plt.show()
 
 

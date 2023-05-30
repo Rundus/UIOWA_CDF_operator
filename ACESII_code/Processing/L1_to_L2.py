@@ -38,20 +38,15 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0,1,7]
+wFiles = [0]
 
-useMagCalData = True
-if useMagCalData:
-    inputPath_modifier = 'L1_mag_cal'  # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-    outputPath_modifier = 'L2_mag_cal'  # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
-else:
-    inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-    outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -149,8 +144,13 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             # --- PROCESS ESA DATA ---
             for tme, ptch, engy in tqdm(itertools.product(*ranges)):
                 deltaT = (count_interval[tme] * 10 ** (-6)) - (counts[tme][ptch][engy] * rocketAttrs.deadtime[wflyer])
-                diffNFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (Energies[engy] * geo_factor[ptch] * deltaT))
-                diffEFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (geo_factor[ptch] * deltaT))
+
+                if counts[tme][ptch][engy] == rocketAttrs.epoch_fillVal:
+                    diffNFlux[tme][ptch][engy] = rocketAttrs.epoch_fillVal
+                    diffEFlux[tme][ptch][engy] = rocketAttrs.epoch_fillVal
+                else:
+                    diffNFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (Energies[engy] * geo_factor[ptch] * deltaT))
+                    diffEFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (geo_factor[ptch] * deltaT))
 
             del data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]]
             outputData = True
@@ -175,7 +175,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                              [diffNFlux, {'LABLAXIS': 'Differential_Number_Flux',
                                                        'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
                                                        'DEPEND_2': 'Energy',
-                                                       'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                       'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                        'UNITS': 'cm!U-2!N str!U-1!N s!U-1!N eV!U-1!N',
                                                        'VALIDMIN': diffNFlux.min(), 'VALIDMAX': diffNFlux.max(),
                                                        'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
@@ -184,7 +184,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                              [diffEFlux, {'LABLAXIS': 'Differential_Energy_Flux',
                                                           'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
                                                           'DEPEND_2': 'Energy',
-                                                          'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                          'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                           'UNITS': 'cm!U-2!N str!U-1!N s!U-1!N eV/eV',
                                                           'VALIDMIN': diffEFlux.min(), 'VALIDMAX': diffEFlux.max(),
                                                           'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}

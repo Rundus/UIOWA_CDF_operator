@@ -1,14 +1,15 @@
 # # --- scratchPaper.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
-from ACESII_code.class_var_func import setupPYCDF
-setupPYCDF()
 
 
-input = r'C:\Users\cfeltman\Desktop\sweptCals_Monday\LP_1p000k.csv'
-import spacepy.pycdf as cdf
+test = [0,11231,2,5,1,23,1,3,12,3]
 
-# Load the CSV file
-data = cdf.from_csv('data.csv')
+preparestring = '[-10]'
 
-print(data)
+pads = ['-10','0','10','110']
+
+for thing in test:
+    preparestring = preparestring + f'{thing:8}'
+
+print(preparestring)

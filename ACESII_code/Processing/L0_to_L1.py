@@ -11,7 +11,7 @@
 #  It takes 360,280 and 360 words for the eepaa, iepaa, and leesa to complete a sweep respectively,
 #  which means for each major frame eepaa,iepaa,leesa complete 7 sweeps with 10 words left over
 
-
+# I have chosen to timestamp an energy sweep at the beginning of the Sweep instead of the end
 
 # --- bookkeeping ---
 # !/usr/bin/env python

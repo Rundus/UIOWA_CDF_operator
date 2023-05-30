@@ -19,16 +19,18 @@ from os import path
 # --- USER SPECIFIC DATA ---
 # --- --- --- --- --- --- ---
 
+user = 'cfelt'
+
 if path.exists(r'D:\Data'):
     PATH_TO_DATA_FOLDER = r'D:\Data\\' # External Hard Drive
-    SYSTEM_PATH = 'C:\\Users\\cfeltman\\PycharmProjects\\UIOWA_CDF_operator\\ACESII_code'
+    SYSTEM_PATH = f'C:\\Users\\{user}\\PycharmProjects\\UIOWA_CDF_operator\\ACESII_code'
 else: # Local Disk space
-    PATH_TO_DATA_FOLDER = r'C:\Users\cfeltman\PycharmProjects\UIOWA_CDF_operator\Data\\'
-    SYSTEM_PATH = 'C:\\Users\\cfeltman\\PycharmProjects\\UIOWA_CDF_operator\\ACESII_code'
+    PATH_TO_DATA_FOLDER = r'C:\Data\\'
+    SYSTEM_PATH = f'C:\\Users\\{user}\\PycharmProjects\\UIOWA_CDF_operator\\ACESII_code'
 
 HOMEDRIVE = 'C:'
 HOMEPATH = 'C:\\'
-CDF_LIB = r"C:/Users/cfeltman/PycharmProjects/UIOWA_CDF_operator/CDF/lib" # location to directory that contains the dllcdf.dll needed for pycdf the library
+CDF_LIB = rf"C:/Users/{user}/PycharmProjects/UIOWA_CDF_operator/CDF/lib" # location to directory that contains the dllcdf.dll needed for pycdf the library
 fliers = ['high','low']
 
 

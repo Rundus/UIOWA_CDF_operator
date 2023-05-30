@@ -48,6 +48,11 @@ no_of_splits = 2 # 0, 1 or 2
 split_value = 3 # If no_of_splits == 1: calibrated curve data is split in TWO, starting at the <--- split_value, If no_of_splits == 2: calibrated curve data is split in THREE, starting at the <--- splice value, then +1 to +2
 splice_value = 2
 rounding = 20 # displays the error parameters up to this many decimal points
+plotFixedCalCurve = False
+
+# determining n_i from Ion saturation
+Ti_assumed = 0.1 # assuming an ion temperature of 0.1eV
+
 
 ##################################
 # --- SWEPT TO VOLTAGE TOGGLES ---
@@ -55,7 +60,7 @@ rounding = 20 # displays the error parameters up to this many decimal points
 # Does a little analysis on the "step" variable to determine the average values of the steps.
 # Needed to calculate from "Step" variable to voltage
 # MUST BE ==TRUE WHEN SWEPT PROBE ==TRUE
-stepToVoltage = True
+stepToVoltage = False
 
 # the capacitive effect between the probe and plasma cause an RC decay on the data.
 # This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
@@ -64,10 +69,13 @@ downSample_RCeffect = True
 #########################
 # --- SWEPT PROBE CAL ---
 #########################
-sweptProbeData = True # use the swept Probe data to convert analog values to current
+sweptProbeData = False # use the swept Probe data to convert analog values to current
 sweptProbeCal = True # uses Iowa Calibration Data. Andoya data is shi-...not good.
 applySweptCalCurve = True # False - data is in analog values, True - data is in current
 calAnalogBreakPoint = 1521.4 # analog value used to swap calibration curves for the Iowa Recalibration
+inputCalFile_Iowa = 'C:\Data\ACESII\science\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
+
+useNanoAmps = True
 
 # --- break into curves toggles ---
 breakIntoCurves = True
@@ -85,15 +93,13 @@ outputData = True
 # --- IMPORTS ---
 # --- --- --- ---
 import numpy as np
-import os
 import matplotlib.pyplot as plt
 import scipy
-
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
 from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, L2_ACES_Quick,L2_TRICE_Quick, prgMsg
+from ACESII_code.class_var_func import color, L2_ACES_Quick,L2_TRICE_Quick, prgMsg, kB,IonMasses,q0,cm_to_m, outputCDFdata
 from glob import glob
 from os.path import getsize
 setupPYCDF()
@@ -118,7 +124,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     rocketID = rocketAttrs.rocketID[wflyer]
     globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'Langmuir'
-    L2ModelData = L2_ACES_Quick(wflyer)
+    outputModelData = L2_TRICE_Quick(wflyer)
 
     # Set the paths for the file names
     L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*_lp_*')
@@ -130,7 +136,10 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     L1_names_searchable = [ifile.replace('ACESII_', '').replace('36359_', '').replace('36364_', '').replace('l1_', '').replace('_v00', '') for ifile in L1_names]
 
     dataFile_name = L1_names_searchable[0].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '').replace('lp_','').replace('ni_','').replace('ne_swept_','').replace('step_','').replace('ni_swept_','').replace('deltaNdivN_','')
-    fileoutName = rf'ACESII_{rocketAttrs.rocketID[wRocket-4]}_langmuir_{dataFile_name}'
+
+    fileoutName = rf'ACESII_{rocketAttrs.rocketID[wRocket-4]}_l2_langmuir'
+
+    wInstr = [0,'LangmuirProbe']
 
     if justPrintFileNames:
             for i, file in enumerate(L1Files):
@@ -167,7 +176,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         #####################
 
         if fixedProbeCal:
-            plotFixedCalCurve = False
+
 
             prgMsg('Converting fixed probe to Voltage')
             fixedCalResistances = rocketAttrs.LPFixed_calResistances[wRocket - 4]
@@ -266,8 +275,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 if np.abs(data)>=5000:
                     ni[i] = -1e30
 
-
-            data_dict = {**data_dict, **{'fixed_ni': [ni, {'LABLAXIS': 'ni',
+            data_dict = {**data_dict, **{'fixed_current': [ni, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
                                                             'DEPEND_1': None,
                                                             'DEPEND_2': None,
@@ -278,6 +286,46 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                             'VALIDMAX': ni.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
             data_dict['fixed_Epoch'] = data_dict.pop('Epoch_ni') # rename to fixed
+
+            ##################################################################
+            # --- Calculate the plasma density from Ion Saturation Current ---
+            ##################################################################
+            vth_i = np.sqrt((8*Ti_assumed * q0  )/(IonMasses[0]*np.pi))
+
+            ni_density = np.array([  (4*(current)) / ((cm_to_m**3) * unit_conversion*q0 * vth_i * rocketAttrs.LP_probe_areas[0][0]) for current in ni])
+
+            # quality assurance check
+            for i,val in enumerate(ni_density):
+
+                if np.abs(val) > 1E20:
+                    ni_density[i] = rocketAttrs.epoch_fillVal
+
+
+
+            data_dict = {**data_dict, **{'fixed_ni_density': [ni_density, {'LABLAXIS': 'plasma density',
+                                                                'DEPEND_0': 'fixed_Epoch',
+                                                                'DEPEND_1': None,
+                                                                'DEPEND_2': None,
+                                                                'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                'FORMAT': 'E12.2',
+                                                                'UNITS': 'cm!U-3!',
+                                                                'VALIDMIN': ni_density.min(),
+                                                                'VALIDMAX': ni_density.max(),
+                                                                'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+
+
+            ni_density_filtered = scipy.signal.savgol_filter(ni_density, window_length=10000, polyorder=2, mode='nearest')
+            data_dict = {**data_dict, **{'fixed_ni_density_smoothed': [ni_density_filtered, {'LABLAXIS': 'plasma density_smoothed',
+                                                                           'DEPEND_0': 'fixed_Epoch',
+                                                                           'DEPEND_1': None,
+                                                                           'DEPEND_2': None,
+                                                                           'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                           'FORMAT': 'E12.2',
+                                                                           'UNITS': 'cm!U-3!',
+                                                                           'VALIDMIN': ni_density.min(),
+                                                                           'VALIDMAX': ni_density.max(),
+                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+
             Done(start_time)
 
         #########################
@@ -325,7 +373,6 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 for thing in removekeys:
                     counted_reduced.pop(thing,None)
 
-
             ###############################################
             # --- REMOVE RC EFFECT BY /10  DOWNSAMPLING ---
             ###############################################
@@ -358,10 +405,18 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             slope = (voltageRange[1] - voltageRange[0]) / (finalStep_digital - initialStep_digital)
             intercept = voltageRange[0]
 
-            print(slope,intercept)
-
-            def step_to_Voltage(analog_voltage):
-                return slope*analog_voltage + intercept
+            # determine the instrument error
+            errorInProbeVoltage = np.array([slope/2])
+            data_dict = {**data_dict, **{'errorInProbeVoltage': [errorInProbeVoltage, {'LABLAXIS': 'errorInProbeVoltage',
+                                                                               'DEPEND_0': None,
+                                                                               'DEPEND_1': None,
+                                                                               'DEPEND_2': None,
+                                                                               'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                               'UNITS': 'Volts',
+                                                                               'VALIDMIN': errorInProbeVoltage.min(),
+                                                                               'VALIDMAX': errorInProbeVoltage.max(),
+                                                                               'VAR_TYPE': 'support_data',
+                                                                               'SCALETYP': 'linear'}]}}
 
             stepVoltage = np.array([slope*data_dict['step'][0][i] + intercept if data_dict['step'][0][i] not in [-1,65535] else data_dict['step'][0][i] for i in range(len(data_dict['step'][0]))])
             data_dict = {**data_dict, **{'step_Voltage': [stepVoltage, {'LABLAXIS': 'step Voltage', 'DEPEND_0': 'Epoch_step', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1e30, 'FORMAT': 'E12.2', 'UNITS': 'Volts', 'VALIDMIN': stepVoltage.min(), 'VALIDMAX': stepVoltage.max(), 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
@@ -376,9 +431,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             prgMsg('Collecting Swept Calibration Fit Data')
 
-
             # get the fit parameters from "csv_to_cdf_LPcal.py"
-            inputCalFile_Iowa = 'D:\Data\ACESII\science\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
             data_dict_iowaCal = {}
             with pycdf.CDF(inputCalFile_Iowa) as LangmuirSweptCalFile:
                 for key, val in LangmuirSweptCalFile.items():
@@ -390,6 +443,19 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             def sweptCal_Analog_to_Current(analogVal):
                 return fitFunc(analogVal, data_dict_iowaCal['fit_params'][0][0], data_dict_iowaCal['fit_params'][0][1])
 
+            # determine the instrument error
+            errorInCaldCurrent = np.array([data_dict_iowaCal['fit_params'][0][0] / 2])
+            data_dict = {**data_dict,
+                         **{'errorInCaldCurrent': [errorInCaldCurrent, {'LABLAXIS': 'errorInCaldCurrent',
+                                                                          'DEPEND_0': None,
+                                                                          'DEPEND_1': None,
+                                                                          'DEPEND_2': None,
+                                                                          'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                          'UNITS': 'Volts',
+                                                                          'VALIDMIN': errorInCaldCurrent.min(),
+                                                                          'VALIDMAX': errorInCaldCurrent.max(),
+                                                                          'VAR_TYPE': 'support_data',
+                                                                          'SCALETYP': 'linear'}]}}
             Done(start_time)
 
         #####################
@@ -518,6 +584,16 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
 
             units = 'nA' if applySweptCalCurve else 'Analog'
+            if applySweptCalCurve:
+                if useNanoAmps:
+                    units = 'nA'
+                    sweptCurrent = np.array(sweptCurrent)
+                else:
+                    units = 'Amps'
+                    sweptCurrent = np.array(sweptCurrent) / unit_conversion
+            else:
+                units = 'Analog'
+
 
             data_dict = {**data_dict, **{'swept_Current': [sweptCurrent, {'LABLAXIS': 'swept_Current',
                                                             'DEPEND_0': 'Epoch_swept_Current',
@@ -546,6 +622,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                                           'VALIDMAX': step_sweptVoltage.max(),
                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
+
+
             Done(start_time)
 
         # --- --- --- --- --- --- ---
@@ -568,41 +646,13 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict['Epoch_Fixed_Boom_Monitor'] = data_dict.pop('Epoch_monitor_2')
 
             prgMsg('Creating output file')
-            outputPath = f'{outputFolderPath}\\' + f'{fliers[wRocket-4]}\{fileoutName}'
 
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
+            outputPath = f'{outputFolderPath}\\' + f'{fliers[wRocket - 4]}\{fileoutName}'
 
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as LangmuirFile:
-                LangmuirFile.readonly(False)
+            globalAttrsMod['Descriptor'] = wInstr[1]
+            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
 
-                # --- write out global attributes ---
-                inputGlobDic = L2ModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key in globalAttrsMod:
-                        LangmuirFile.attrs[key] = globalAttrsMod[key]
-                    else:
-                        LangmuirFile.attrs[key] = val
-
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict.items():
-                    if 'Epoch' in varKey: # epoch data
-                        LangmuirFile.new(varKey, data=varVal[0], type=33)
-                    else: # other data
-                        LangmuirFile.new(varKey, data=varVal[0],type=pycdf.const.CDF_REAL8)
-
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            LangmuirFile[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            LangmuirFile[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            LangmuirFile[varKey].attrs[attrKey] = attrVal
-
-                Done(start_time)
+            Done(start_time)
 
 
 # --- --- --- ---
