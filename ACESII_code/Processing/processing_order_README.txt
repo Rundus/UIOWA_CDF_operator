@@ -15,3 +15,6 @@ The order that files must be executed
 [4] L1_&_Traject_to_Traject_ILatILong.py
 [5] L1_to_L2.py
 [6] L2_to_DistFunc.py
+
+
+....lol this document really needs to be updated

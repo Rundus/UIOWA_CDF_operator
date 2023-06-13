@@ -40,16 +40,16 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [1]
 
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_magPitch = 'science\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-outputPath_modifier = 'science\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+inputPath_modifier_magPitch = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 modifier = ''
 
 # --- Primary Function TOGGLES ---
@@ -60,7 +60,7 @@ AnalyzeTruePitchAngle = False # set to False to perform magCalibration
 degWidth = 5 # controls the size of the acceptance range for re-bining
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
-outputPath_modifier_chiCal = 'science/ESA_ChiSquare_calibration'
+outputPath_modifier_chiCal = 'calibration/ESA_ChiSquare_calibration'
 
 # --- Output Data TOGGLES ---
 outputData = True

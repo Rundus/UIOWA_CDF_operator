@@ -40,11 +40,14 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2]
+wFiles = [1,2]
 
 modifier = ''
 inputPath_modifier = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'science/Magnetometer_filtered' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+
+# if using ENU coordniates
+useENUcoordinates = False
 
 ##################
 # FILTER TOGGLES #
@@ -55,10 +58,10 @@ dataSampleFreq = 128 # sample rate of the data
 
 # Plot the filtered data
 plotFilteredData = False
-plotFreqSpectrogram = True
+plotFreqSpectrogram = False
 
 # output the data
-outputData = False
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -146,7 +149,10 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
 
         # format: [Bx,By,Bz]
-        magAxes = ['Bx','By','Bz']
+        if useENUcoordinates:
+            magAxes = ['B_east', 'B_north', 'B_up']
+        else:
+            magAxes = ['Bx','By','Bz']
         conditionedData = np.array([butter_highpass_filter(data_dict[axes][0], cutoff_Freq, dataSampleFreq, filtOrder) for axes in magAxes])
         time = data_dict['Epoch'][0]
 

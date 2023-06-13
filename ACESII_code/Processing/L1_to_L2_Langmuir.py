@@ -1,4 +1,4 @@
-#--- L1_to_Langmuir.py ---
+#--- L1_to_L2_Langmuir.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Convert the engineering Langmuir data to scientifically useful units.
 # Also renames "Boom_Monitor_1/2" --> "Fixed_Boom_Monitor_1/2" etc
@@ -60,20 +60,22 @@ Ti_assumed = 0.1 # assuming an ion temperature of 0.1eV
 # Does a little analysis on the "step" variable to determine the average values of the steps.
 # Needed to calculate from "Step" variable to voltage
 # MUST BE ==TRUE WHEN SWEPT PROBE ==TRUE
-stepToVoltage = False
+stepToVoltage = True
 
 # the capacitive effect between the probe and plasma cause an RC decay on the data.
 # This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
 downSample_RCeffect = True
+keepThisManyPoints = 1
 
 #########################
 # --- SWEPT PROBE CAL ---
 #########################
-sweptProbeData = False # use the swept Probe data to convert analog values to current
+sweptProbeData = True # use the swept Probe data to convert analog values to current
 sweptProbeCal = True # uses Iowa Calibration Data. Andoya data is shi-...not good.
-applySweptCalCurve = True # False - data is in analog values, True - data is in current
+applySweptCalCurve = False # False - data is in analog values, True - data is in current
 calAnalogBreakPoint = 1521.4 # analog value used to swap calibration curves for the Iowa Recalibration
-inputCalFile_Iowa = 'C:\Data\ACESII\science\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
+from ACESII_code.data_paths import ACES_data_folder
+inputCalFile_Iowa = f'{ACES_data_folder}\calibration\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
 
 useNanoAmps = True
 
@@ -129,7 +131,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     # Set the paths for the file names
     L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*_lp_*')
     LangmuirFiles = glob(f'{outputFolderPath}\{fliers[wflyer]}\*_langmuir_*')
-    LangmuirSweptCalFiles = glob(f'{rocketFolderPath}\science\LP_calibration\{fliers[wflyer]}\*_345deg_*')
+    LangmuirSweptCalFiles = glob(f'{rocketFolderPath}\calibration\LP_calibration\{fliers[wflyer]}\*_345deg_*')
 
     L1_names = [ifile.replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '') for ifile in L1Files]
 
@@ -137,7 +139,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
     dataFile_name = L1_names_searchable[0].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '').replace('lp_','').replace('ni_','').replace('ne_swept_','').replace('step_','').replace('ni_swept_','').replace('deltaNdivN_','')
 
-    fileoutName = rf'ACESII_{rocketAttrs.rocketID[wRocket-4]}_l2_langmuir'
+    fileoutName = rf'ACESII_{rocketAttrs.rocketID[wRocket-4]}_l2_langmuir' + '.cdf'
 
     wInstr = [0,'LangmuirProbe']
 
@@ -174,15 +176,18 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         #####################
         # --- Fixed Probe ---
         #####################
+        # description: Loads in the fixed calibrated data (provided by scott, found in missionAttributes.py).
+        # Depending on the toggles set above, it fits curves to "no_of_Splits" + 1 separate curves
+        # using scipy.optimize.curve_fit.
 
         if fixedProbeCal:
-
-
             prgMsg('Converting fixed probe to Voltage')
             fixedCalResistances = rocketAttrs.LPFixed_calResistances[wRocket - 4]
             probeBias = rocketAttrs.LPFixedProbeBias[wRocket - 4]
             calibrationCurrents = []
             digital_vals = []
+
+            # convert calibration data to current (in nanoamps)
             for key, val in fixedCalResistances.items():
                 digital_vals.append(val)
                 if key == 'Open':
@@ -218,6 +223,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 testData = [np.linspace(0, 4095, 4096)]
                 fit_params = []
 
+            # Plot all the different calibration lines and display their information
             for k in range(no_of_loops):
                 parameters, covariance = scipy.optimize.curve_fit(calFunction_fixed, digital_vals[k],calibrationCurrents[k],maxfev=100000)
                 fit_params.append(parameters)
@@ -244,9 +250,12 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
                     print('FIT PARAMETERS for A*(x**(B)) - C', parameters, '\n')
 
+            # put the labels on the plot after plotting several lines
             if plotFixedCalCurve:
-                plt.xlabel('Digital')
-                plt.ylabel(f'Current [nA])')
+                plt.xlabel('ADC Analog Value')
+                plt.ylabel(f'Current [nA]')
+                plt.suptitle('FIXED LP\n'
+                             'Calculated Current vs Recorded Analog Value')
                 plt.show()
 
             # Apply the calibration function curve
@@ -273,7 +282,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             for i,data in enumerate(ni):
                 if np.abs(data)>=5000:
-                    ni[i] = -1e30
+                    ni[i] = rocketAttrs.epoch_fillVal
 
             data_dict = {**data_dict, **{'fixed_current': [ni, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
@@ -290,17 +299,15 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             ##################################################################
             # --- Calculate the plasma density from Ion Saturation Current ---
             ##################################################################
-            vth_i = np.sqrt((8*Ti_assumed * q0  )/(IonMasses[0]*np.pi))
 
+            # using the fixed LP data (now calibrated), determine n_i from the basic ion saturation current equation
+            vth_i = np.sqrt((8*Ti_assumed * q0  )/(IonMasses[0]*np.pi))
             ni_density = np.array([  (4*(current)) / ((cm_to_m**3) * unit_conversion*q0 * vth_i * rocketAttrs.LP_probe_areas[0][0]) for current in ni])
 
             # quality assurance check
             for i,val in enumerate(ni_density):
-
                 if np.abs(val) > 1E20:
                     ni_density[i] = rocketAttrs.epoch_fillVal
-
-
 
             data_dict = {**data_dict, **{'fixed_ni_density': [ni_density, {'LABLAXIS': 'plasma density',
                                                                 'DEPEND_0': 'fixed_Epoch',
@@ -321,7 +328,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                                            'DEPEND_2': None,
                                                                            'FILLVAL': rocketAttrs.epoch_fillVal,
                                                                            'FORMAT': 'E12.2',
-                                                                           'UNITS': 'cm!U-3!',
+                                                                           'UNITS': ''
+                                                                                    '',
                                                                            'VALIDMIN': ni_density.min(),
                                                                            'VALIDMAX': ni_density.max(),
                                                                            'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
@@ -331,6 +339,9 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         #########################
         # --- STEP to Voltage ---
         #########################
+        # description: The swept LP "step" variable contains analog values that of 100 steps (101 values in total) for values up and down
+        # determining a nominal voltage to assign each of these values will indicate what voltage was applied
+        # to the swept langmuir probes.
 
         if stepToVoltage:
 
@@ -376,6 +387,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             ###############################################
             # --- REMOVE RC EFFECT BY /10  DOWNSAMPLING ---
             ###############################################
+            # description: There is an RC decay that appears on the lower applied voltage values of the LP char. curves
+            # downsample the data to only the "end" of the RC decay so as to remove it's appearance in the data
             if downSample_RCeffect:
 
                 # Find where the bottom of the first sweep occurs:
@@ -387,11 +400,13 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 n_i_swept_Div10, n_e_Swept_Div10, sweptStep_Div10, Epoch_sweptCurrent_Div10 = [], [], [], []
 
                 # Downsample the data
-                for i in range(0, len(sweptStep)-10, 10):
-                    n_i_swept_Div10.append(n_i_swept[i+9])
-                    n_e_Swept_Div10.append(n_e_swept[i+9])
-                    sweptStep_Div10.append(sweptStep[i+9])
-                    Epoch_sweptCurrent_Div10.append(Epoch_sweptCurrent[i+9])
+                for i in range(0, len(sweptStep)-10, 10): #each step contains 10 points
+
+                    for j in range(keepThisManyPoints):
+                        n_i_swept_Div10.append(n_i_swept[i + (9 - (keepThisManyPoints-1) + j)])
+                        n_e_Swept_Div10.append(n_e_swept[i + 9 - (keepThisManyPoints-1) + j])
+                        sweptStep_Div10.append(sweptStep[i + 9 - (keepThisManyPoints-1) + j])
+                        Epoch_sweptCurrent_Div10.append(Epoch_sweptCurrent[i + 9 - (keepThisManyPoints-1) + j])
 
                 data_dict['ni_swept'][0] = np.array(n_i_swept_Div10)
                 data_dict['ne_swept'][0] = np.array(n_e_Swept_Div10)
@@ -399,24 +414,12 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 data_dict['Epoch_step'][0] = np.array(Epoch_sweptCurrent_Div10)
 
             # --- linear conversion ---
+            # description: linearly convert the "Step" variable to voltage using a linear fit (since we know the min/max) of the applied LP
             voltageRange = rocketAttrs.LPswept_voltage_range[wRocket - 4]
             finalStep_digital = max(counted_reduced)
             initialStep_digital = min(counted_reduced)
             slope = (voltageRange[1] - voltageRange[0]) / (finalStep_digital - initialStep_digital)
             intercept = voltageRange[0]
-
-            # determine the instrument error
-            errorInProbeVoltage = np.array([slope/2])
-            data_dict = {**data_dict, **{'errorInProbeVoltage': [errorInProbeVoltage, {'LABLAXIS': 'errorInProbeVoltage',
-                                                                               'DEPEND_0': None,
-                                                                               'DEPEND_1': None,
-                                                                               'DEPEND_2': None,
-                                                                               'FILLVAL': -1e30, 'FORMAT': 'E12.2',
-                                                                               'UNITS': 'Volts',
-                                                                               'VALIDMIN': errorInProbeVoltage.min(),
-                                                                               'VALIDMAX': errorInProbeVoltage.max(),
-                                                                               'VAR_TYPE': 'support_data',
-                                                                               'SCALETYP': 'linear'}]}}
 
             stepVoltage = np.array([slope*data_dict['step'][0][i] + intercept if data_dict['step'][0][i] not in [-1,65535] else data_dict['step'][0][i] for i in range(len(data_dict['step'][0]))])
             data_dict = {**data_dict, **{'step_Voltage': [stepVoltage, {'LABLAXIS': 'step Voltage', 'DEPEND_0': 'Epoch_step', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1e30, 'FORMAT': 'E12.2', 'UNITS': 'Volts', 'VALIDMIN': stepVoltage.min(), 'VALIDMAX': stepVoltage.max(), 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
@@ -426,6 +429,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         ###########################################
         # --- Swept Probe Calibration at Iowa ---
         ###########################################
+
+        # description: Produces the function that will be used to calibrate the Swept Langmuir Probe
 
         if sweptProbeCal:
 
@@ -438,24 +443,18 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     if key not in data_dict_iowaCal:
                         data_dict_iowaCal = {**data_dict_iowaCal, **{key: [LangmuirSweptCalFile[key][...], {key: val for key, val in LangmuirSweptCalFile[key].attrs.items()}]}}
 
-            def fitFunc(x, A, B):
-                return A * x + B
-            def sweptCal_Analog_to_Current(analogVal):
-                return fitFunc(analogVal, data_dict_iowaCal['fit_params'][0][0], data_dict_iowaCal['fit_params'][0][1])
+            def linear(x, A, B):
+                y = m*x + b
+                return y
 
-            # determine the instrument error
-            errorInCaldCurrent = np.array([data_dict_iowaCal['fit_params'][0][0] / 2])
-            data_dict = {**data_dict,
-                         **{'errorInCaldCurrent': [errorInCaldCurrent, {'LABLAXIS': 'errorInCaldCurrent',
-                                                                          'DEPEND_0': None,
-                                                                          'DEPEND_1': None,
-                                                                          'DEPEND_2': None,
-                                                                          'FILLVAL': -1e30, 'FORMAT': 'E12.2',
-                                                                          'UNITS': 'Volts',
-                                                                          'VALIDMIN': errorInCaldCurrent.min(),
-                                                                          'VALIDMAX': errorInCaldCurrent.max(),
-                                                                          'VAR_TYPE': 'support_data',
-                                                                          'SCALETYP': 'linear'}]}}
+            def expo(x, A, B, C, D):
+                y = A * np.exp((x - B) / C) + D
+                return y
+
+            def sweptCal_Analog_to_Current(analogVal):
+                if (analogVal >= -4200) and (analogVal <= 4200):
+                    return fitFunc(analogVal, data_dict_iowaCal['fit_params'][0][0], data_dict_iowaCal['fit_params'][0][1])
+
             Done(start_time)
 
         #####################
@@ -524,7 +523,6 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     if downSample_RCeffect:
                         # Take the top value of "step" and split the curve based on that
                         middleIndex = np.array(indvStep).argmax()
-
                     else:
                         # take the top 9 values of 'indvCurernt' and split the curve at the middle value
                         countedIndicies = sorted(range(len(indvCurrent)), key=lambda i: indvCurrent[i])[-9:]
@@ -561,7 +559,6 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     for thing in sweptStep_New[i]:
                         step_sweptVoltage.append(thing)
 
-
                 sweptCurrent = np.array(sweptCurrent)
                 Epoch_sweptCurrent = np.array(Epoch_sweptCurrent)
                 step_sweptVoltage = np.array(step_sweptVoltage)
@@ -582,7 +579,6 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 else:
                     sweptCurrent = sweptCurrent_temp
 
-
             units = 'nA' if applySweptCalCurve else 'Analog'
             if applySweptCalCurve:
                 if useNanoAmps:
@@ -594,36 +590,31 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             else:
                 units = 'Analog'
 
-
             data_dict = {**data_dict, **{'swept_Current': [sweptCurrent, {'LABLAXIS': 'swept_Current',
                                                             'DEPEND_0': 'Epoch_swept_Current',
                                                             'DEPEND_1': None,
                                                             'DEPEND_2': None,
-                                                            'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                             'UNITS': units,
                                                             'VALIDMIN': sweptCurrent.min(),
                                                             'VALIDMAX': sweptCurrent.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
             data_dict = {**data_dict, **{'Epoch_swept_Current': [Epoch_sweptCurrent, {'LABLAXIS':'Epoch_swept_Current',
                                                                     'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None,
-                                                                    'FILLVAL': -9223372036854775808, 'FORMAT': 'E12.2', 'UNITS': 'ns',
+                                                                    'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'ns',
                                                                     'VALIDMIN': Epoch_sweptCurrent.min(), 'VALIDMAX': Epoch_sweptCurrent.max(), 'VAR_TYPE': 'support_data',
                                                                     'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000',
                                                                     'TIME_SCALE': 'Terrestrial Time','REFERENCE_POSITION': 'Rotating Earth Geoid',
                                                                     'SCALETYP': 'linear'}]}}
-
             data_dict = {**data_dict, **{'swept_Voltage': [step_sweptVoltage, {'LABLAXIS': 'swept_Voltage',
                                                                           'DEPEND_0': 'Epoch_swept_Current',
                                                                           'DEPEND_1': None,
                                                                           'DEPEND_2': None,
-                                                                          'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                                          'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                                           'UNITS': 'Volts',
                                                                           'VALIDMIN': step_sweptVoltage.min(),
                                                                           'VALIDMAX': step_sweptVoltage.max(),
                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
-
-
-
             Done(start_time)
 
         # --- --- --- --- --- --- ---
@@ -658,27 +649,13 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if wRocket == 0:  # ACES II Integration High
-    rocketFolderPath = Integration_data_folder
-    wflyer = 0
-elif wRocket == 1: # ACES II Integration Low
-    rocketFolderPath = Integration_data_folder
-    wflyer = 1
-elif wRocket == 2:  # TRICE II High
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 0
-elif wRocket == 3: # TRICE II Low
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 1
-elif wRocket == 4:  # ACES II High
+
+if wRocket == 4:  # ACES II High
     rocketFolderPath = ACES_data_folder
     wflyer = 0
 elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
-
-
-
 
 if len(glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)

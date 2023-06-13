@@ -12,7 +12,8 @@ __version__ = "1.0.0"
 import numpy as np,time
 from ACESII_code import data_paths
 from cdflib import cdfread
-from os import environ,path,remove
+import os
+from os import environ,remove
 def setupPYCDF():
     environ['HOMEDRIVE'] = data_paths.HOMEDRIVE
     environ['HOMEPATH'] = data_paths.HOMEPATH
@@ -108,6 +109,12 @@ def Done(start_time):
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
+def loadDictFromFile(inputFilePath,data_dict):
+    with pycdf.CDF(inputFilePath) as inputDataFile:
+        for key, val in inputDataFile.items():
+            data_dict = {**data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
+    return data_dict
+
 def loadCDFdata(inputFiles,wFile):
     data_dict = {}
     with pycdf.CDF(inputFiles[wFile]) as dataFile:
@@ -117,7 +124,7 @@ def loadCDFdata(inputFiles,wFile):
 def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 
     # --- delete output file if it already exists ---
-    if path.exists(outputPath):
+    if os.path.exists(outputPath):
         remove(outputPath)
 
     # --- open the output file ---
@@ -190,6 +197,7 @@ q0 = 1.602176565 * 10**(-19)
 kB = 1.380649 * 10**(-23)
 cm_to_m = 100
 IonMasses = [1.67 * 10**(-27)] # proton
+ep0 = 8.8541878128E-12 # permittivity of free space
 
 
 # --- Model Data ---

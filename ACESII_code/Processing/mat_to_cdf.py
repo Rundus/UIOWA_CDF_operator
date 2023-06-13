@@ -40,7 +40,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0,1,2,3,4,5]
+wFiles = [1, 2, 4, 5]
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
@@ -48,8 +48,8 @@ outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broa
 
 
 rotateIntoRingCoreFrame = False
-flipYAxis = True
-
+flipYAxis = False
+useENUcoordinates = False
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -85,6 +85,8 @@ from copy import deepcopy
 #                 'By_Model': {'UNITS': 'nT', 'LABLAXIS': 'By'},
 #                 'Bz_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bz'}
 #                 }
+
+
 special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
                 'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
                 'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
@@ -259,6 +261,14 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict = {**data_dict, **{'Bx': [np.array([Bcomps_rotated[i][0] for i in range(len(Bcomps_rotated))]), data_dict['Bx_payload'][1]]}}
             data_dict = {**data_dict, **{'By': [np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))]), data_dict['By_payload'][1]]}}
             data_dict = {**data_dict, **{'Bz': [np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))]), data_dict['Bz_payload'][1]]}}
+
+        if useENUcoordinates:
+            data_dict['Bx'][1]['LABLAXIS'] = 'B_east'
+            data_dict['B_east'] = data_dict.pop('Bx')
+            data_dict['By'][1]['LABLAXIS'] = 'B_north'
+            data_dict['B_north'] = data_dict.pop('By')
+            data_dict['Bz'][1]['LABLAXIS'] = 'B_up'
+            data_dict['B_up'] = data_dict.pop('Bz')
 
 
         # --- --- --- --- --- --- ---

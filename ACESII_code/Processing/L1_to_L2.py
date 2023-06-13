@@ -22,8 +22,6 @@ from ACESII_code.class_var_func import Done, setupPYCDF
 start_time = time.time()
 # --- --- --- --- ---
 
-
-
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
@@ -43,10 +41,13 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [0,2]
 
 inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+
+# output the data
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -64,7 +65,6 @@ from os.path import getsize
 setupPYCDF()
 from spacepy import pycdf
 pycdf.lib.set_backward(False)
-
 
 def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -100,7 +100,6 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         if instr in dataFile_name:
             wInstr = [index,instr]
 
-
     if justPrintFileNames:
             for i, file in enumerate(L1Files):
                 anws = ["yes" if L1_names_searchable[i].replace('.cdf', "") in L2_names_searchable else "no"]
@@ -116,7 +115,6 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         with pycdf.CDF(L1Files[wFile]) as L0DataFile:
             for key, val in L0DataFile.items():
                 data_dict = {**data_dict, **{key : [L0DataFile[key][...] , {key:val for key,val in L0DataFile[key].attrs.items()  }  ]  }  }
-
 
         Done(start_time)
 
@@ -140,7 +138,6 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             count_interval = [917 for i in range(len(data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]][0]))]
             geo_factor = rocketAttrs.geometric_factor[wInstr[0]]
 
-
             # --- PROCESS ESA DATA ---
             for tme, ptch, engy in tqdm(itertools.product(*ranges)):
                 deltaT = (count_interval[tme] * 10 ** (-6)) - (counts[tme][ptch][engy] * rocketAttrs.deadtime[wflyer])
@@ -153,12 +150,10 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                     diffEFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (geo_factor[ptch] * deltaT))
 
             del data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]]
-            outputData = True
 
         # --- PROCESS LP DATA ---
         elif wInstr[0] in [3]:
             print('potato')
-            outputData = False
 
         Done(start_time)
 

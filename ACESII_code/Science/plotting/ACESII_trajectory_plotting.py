@@ -30,8 +30,8 @@ wPitches_overlay = [1, 10, 19] # 0deg, 90deg, 180deg
 wInstr_overlay = 'eepaa'
 
 # --- ESA Movie ---
-plotESAmovie = False
-frame_skips = 1 # 1 is no skip i.e. all frames used, 5 is use only every 5th frame, 10 etc...
+plotESAmovie = True
+frame_skips = 2 # 1 is no skip i.e. all frames used, 5 is use only every 5th frame, 10 etc...
 wInstr_movie = 'eepaa'
 plotSpecificLocations = False
 specific_locations = [6000 + i for i in range(0,100)]
@@ -47,7 +47,7 @@ connectingLines = True
 
 
 # --- Plot Attitude solution movie ---
-plotAttitudeMovie = True
+plotAttitudeMovie = False
 wFlyer = 4
 
 # --- --- --- ---
@@ -63,7 +63,7 @@ from glob import glob
 from scipy.interpolate import LinearNDInterpolator
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from ACESII_code.data_paths import fliers, ACES_data_folder
-from ACESII_code.class_var_func import color, Rotation3D
+from ACESII_code.class_var_func import color, Rotation3D,loadDictFromFile
 from ACESII_code.missionAttributes import ACES_mission_dicts
 setupPYCDF()
 from spacepy import pycdf
@@ -112,13 +112,13 @@ def ACESIIplotting():
                           'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
         # L2 ESA data
         FolderPath = f'{ACES_data_folder}L2\\'
-        dataPath_L2ESA = {'eepaa': [glob(FolderPath + rf'{fliers[0]}\\*eepaa_*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_*')],
+        dataPath_L2ESA = {'eepaa': [glob(FolderPath + rf'{fliers[0]}\\*eepaa_fullCal*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_fullCal*')],
                           'iepaa': [glob(FolderPath + rf'{fliers[0]}\\*iepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
                           'leesa': [glob(FolderPath + rf'{fliers[0]}\\*leesa*'), glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
 
         # Distribution Function Data
         FolderPath = f'{ACES_data_folder}\science\DistFunc\\'
-        dataPath_Dist = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa*')],
+        dataPath_Dist = {'eepaa':[glob(FolderPath + rf'{fliers[0]}\\*eepaa_fullCal*'), glob(FolderPath + rf'{fliers[1]}\\\\*eepaa_fullCal*')],
                           'iepaa':[glob(FolderPath + rf'{fliers[0]}\\*iepaa*'),glob(FolderPath + rf'{fliers[1]}\\\\*iepaa*')],
                           'leesa':[glob(FolderPath + rf'{fliers[0]}\\*leesa*'),glob(FolderPath + rf'{fliers[1]}\\\\*leesa*')]}
 
@@ -129,11 +129,7 @@ def ACESIIplotting():
 
         for i in range(len(dataPath_traj)):
             data_dict_traj = {}
-            with pycdf.CDF(dataPath_traj[i][0]) as trajFile:
-                print(dataPath_traj[i][0])
-                for key, val in trajFile.items():
-                    data_dict_traj = {**data_dict_traj, **{key: [trajFile[key][...], {key: val for key, val in trajFile[key].attrs.items()}]}}
-
+            data_dict_traj = loadDictFromFile(dataPath_traj[i][0],data_dict_traj)
             data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in range(len(data_dict_traj['Epoch_esa'][0]))])
             data_dicts_traj.append(data_dict_traj)
 
@@ -171,11 +167,9 @@ def ACESIIplotting():
             target_in_Epoch = [pycdf.lib.tt2000_to_datetime(data_dicts_traj[i]['Epoch_esa'][0][index]) for index in timeTargetsIndices[i]]
             timeTargetsEpoch.append([targetTime.strftime("%H:%M:%S") for targetTime in target_in_Epoch])
 
-        timeTargetsData = {'Epoch': [
-                [pycdf.lib.tt2000_to_datetime(data_dicts_traj[0]['Epoch'][0][index]).time().strftime("%H:%M:%S") for
-                 index in timeTargetsIndices[0]],
-                [pycdf.lib.tt2000_to_datetime(data_dicts_traj[1]['Epoch'][0][index]).time().strftime("%H:%M:%S") for
-                 index in timeTargetsIndices[1]]],
+        timeTargetsData = {
+            'Epoch': [[pycdf.lib.tt2000_to_datetime(data_dicts_traj[0]['Epoch_esa'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[0]],
+                      [pycdf.lib.tt2000_to_datetime(data_dicts_traj[1]['Epoch_esa'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[1]]],
             'geoAlt': [[data_dicts_traj[0]['geoAlt'][0][index] for index in timeTargetsIndices[0]],
                        [data_dicts_traj[1]['geoAlt'][0][index] for index in timeTargetsIndices[1]]],
             'geoLat': [[data_dicts_traj[0]['geoLat'][0][index] for index in timeTargetsIndices[0]],
@@ -930,9 +924,10 @@ def ACESIIplotting():
             locations = [i for i in range(0, int(len(EpochData_dates[0])), frame_skips)]  # NEEDS TO BE THE HIGH FLYER LENGTH
 
         anim = animation.FuncAnimation(fig=fig, func=animatePlot, interval= 1000/ESAmovie.fps, frames=locations)
-        anim.save(f'D:\Data\ACESII\\trajectories\\trajectory_plots\\ACESII_{wInstr_movie}.mp4')
+        anim.save(f'C:\Data\ACESII\\trajectories\\trajectory_plots\\ACESII_{wInstr_movie}.mp4')
 
         Done(start_time)
+
 
     if plotAttitudeMovie:
 

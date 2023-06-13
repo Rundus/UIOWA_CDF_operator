@@ -48,7 +48,7 @@ wFiles = [0]
 wMagFile = [0]
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_mag = 'mag'
-outputPath_modifier = 'science\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+outputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 modifier = ''
 
 plot3DUnitVectors = False

@@ -36,7 +36,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
@@ -47,7 +47,7 @@ wFiles = []
 # Number of points to interpolate between coordinate values in the velocity space coordinate change
 N = 500
 fillvalue = 0 # value to place
-EngyRange = [0,48] # nominally [12,42]. Reduces the energy range to interpolate over since we don't really reach the higher energies ever
+EngyRange = [12, 40] # nominally [12,40]. Reduces the energy range to interpolate over since we don't really reach the higher energies ever
 
 pitchBound = [-10,10] # boundaries of pitch angle for acceptence to calculate J_parallel
 energyBound = 7 # same as above but energy. In eV. Nominally 7eV

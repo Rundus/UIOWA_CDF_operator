@@ -1,6 +1,7 @@
 # --- template.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION:
+# DESCRIPTION: determine the coning angle for each payload
+# throughout flight
 
 
 

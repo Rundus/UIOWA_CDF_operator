@@ -39,21 +39,21 @@ justPrintChiFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
 wFiles = [0]
 
-inputPath_modifier = 'science\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_chiSquare = 'science\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_chiSquare = 'calibration\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 modifier = ''
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
 viewPadPairData_numOfPairs = False
-plotPadPairData = True
+plotPadPairData = False
 outlierThresh = 30 # determine threshold to remove datapoints that are considered outliers
 
 
@@ -69,7 +69,6 @@ ChiOrder =[
 
 # --- Output Data TOGGLES ---
 outputData = True
-
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
