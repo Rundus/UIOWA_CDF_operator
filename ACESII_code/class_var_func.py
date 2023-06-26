@@ -115,12 +115,6 @@ def loadDictFromFile(inputFilePath,data_dict):
             data_dict = {**data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
     return data_dict
 
-def loadCDFdata(inputFiles,wFile):
-    data_dict = {}
-    with pycdf.CDF(inputFiles[wFile]) as dataFile:
-        for key, val in dataFile.items():
-            data_dict = {**data_dict, **{key: [dataFile[key][...], {key: val for key, val in dataFile[key].attrs.items()}]}}
-    return data_dict
 def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 
     # --- delete output file if it already exists ---

@@ -46,9 +46,8 @@ normalizeToThermal = True # normalize ESA plots to the electron thermal velocity
 connectingLines = True
 
 
-# --- Plot Attitude solution movie ---
-plotAttitudeMovie = False
-wFlyer = 4
+# --- Plot the all sky data ---
+plotAllSkyData = True
 
 # --- --- --- ---
 # --- import ---
@@ -63,7 +62,7 @@ from glob import glob
 from scipy.interpolate import LinearNDInterpolator
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from ACESII_code.data_paths import fliers, ACES_data_folder
-from ACESII_code.class_var_func import color, Rotation3D,loadDictFromFile
+from ACESII_code.class_var_func import color, Rotation3D, loadDictFromFile
 from ACESII_code.missionAttributes import ACES_mission_dicts
 setupPYCDF()
 from spacepy import pycdf
@@ -99,7 +98,7 @@ def ACESIIplotting():
 
     rocketAttrs,b,c = ACES_mission_dicts()
 
-    if plotAttitudeMovie == False:
+    if plotAllSkyData == False:
         # Trajectory Data
         trajFolderPath = f'{ACES_data_folder}trajectories\\'
         dataPath_traj = [glob(trajFolderPath + rf'{fliers[0]}\\*_ILat_ILong*'),
@@ -929,16 +928,11 @@ def ACESIIplotting():
         Done(start_time)
 
 
-    if plotAttitudeMovie:
-
-        return rocketAttrs,data_dicts_attitude
-
-
 
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if not plotAttitudeMovie:
+if not plotAllSkyData:
     ACESIIplotting()
 else:
 

@@ -47,13 +47,13 @@ inputPath_modifier = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader inp
 outputPath_modifier = 'science/Magnetometer_filtered' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # if using ENU coordniates
-useENUcoordinates = False
+useENUcoordinates = True
 
 ##################
 # FILTER TOGGLES #
 ##################
 filtOrder = 5 # order of filter
-cutoff_Freq = 3 # cut off frequency where gain has reached -3dB
+cutoff_Freq = 2 # cut off frequency where gain has reached -3dB
 dataSampleFreq = 128 # sample rate of the data
 
 # Plot the filtered data
@@ -108,9 +108,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             wInstr = [index, instr, descriptiorNam[index]]
             break
 
-
-
-    fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_{cutoff_Freq}Hz_HighPass.cdf'
+    fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_HighPass.cdf'
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):

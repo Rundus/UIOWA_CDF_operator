@@ -48,7 +48,7 @@ no_of_splits = 2 # 0, 1 or 2
 split_value = 3 # If no_of_splits == 1: calibrated curve data is split in TWO, starting at the <--- split_value, If no_of_splits == 2: calibrated curve data is split in THREE, starting at the <--- splice value, then +1 to +2
 splice_value = 2
 rounding = 20 # displays the error parameters up to this many decimal points
-plotFixedCalCurve = False
+plotFixedCalCurve = True
 
 # determining n_i from Ion saturation
 Ti_assumed = 0.1 # assuming an ion temperature of 0.1eV
@@ -64,7 +64,7 @@ stepToVoltage = True
 
 # the capacitive effect between the probe and plasma cause an RC decay on the data.
 # This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
-downSample_RCeffect = True
+downSample_RCeffect = False
 keepThisManyPoints = 1
 
 #########################
@@ -73,18 +73,15 @@ keepThisManyPoints = 1
 sweptProbeData = True # use the swept Probe data to convert analog values to current
 sweptProbeCal = True # uses Iowa Calibration Data. Andoya data is shi-...not good.
 applySweptCalCurve = False # False - data is in analog values, True - data is in current
-calAnalogBreakPoint = 1521.4 # analog value used to swap calibration curves for the Iowa Recalibration
 from ACESII_code.data_paths import ACES_data_folder
 inputCalFile_Iowa = f'{ACES_data_folder}\calibration\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
-
 useNanoAmps = True
 
 # --- break into curves toggles ---
 breakIntoCurves = True
-targetVoltage_min = -1 # only care about voltage sweeps above this voltage value. Nominally -1
+targetVoltage_min = -4 # only care about voltage sweeps above this voltage value. Nominally -1
 digitalVariance = 5 # how much the digitized step point can vary when looking for the top and bottom of curves. nominally = 5
 indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff needed between epoch points to identify particular sweeps
-
 
 #####################
 # --- DATA OUTPUT ---
@@ -230,7 +227,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
                 if plotFixedCalCurve:
                     linData = [calFunction_fixed(testData[k][i],parameters[0],parameters[1],parameters[2]) for i in range(len(testData[k]))]
-                    plt.scatter(digital_vals[k], calibrationCurrents[k])
+                    plt.scatter(digital_vals[k], -1*calibrationCurrents[k])
+                    plt.yscale('log')
                     plt.plot(testData[k],linData)
 
                 # Quantify Fit errors
@@ -278,7 +276,6 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                         ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[1][0],fit_params[1][1],fit_params[1][2])
                     elif data_dict['ni'][0][j] > max(digital_vals[1]):
                         ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j], fit_params[2][0], fit_params[2][1], fit_params[2][2])
-
 
             for i,data in enumerate(ni):
                 if np.abs(data)>=5000:
@@ -444,16 +441,28 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                         data_dict_iowaCal = {**data_dict_iowaCal, **{key: [LangmuirSweptCalFile[key][...], {key: val for key, val in LangmuirSweptCalFile[key].attrs.items()}]}}
 
             def linear(x, A, B):
-                y = m*x + b
+                y = A*x + B
                 return y
 
             def expo(x, A, B, C, D):
                 y = A * np.exp((x - B) / C) + D
                 return y
 
+            # get the fit function range
+            fitRegions = data_dict_iowaCal['fitRegions'][0]
+            fit_params = data_dict_iowaCal['fit_params'][0]
+
+            # def sweptCal_Analog_to_Current(analogVal):
+            #     if (analogVal >= fitRegions[0]) and (analogVal <= fitRegions[1]): # middle
+            #         return linear(analogVal,fit_params[1][0],fit_params[1][1])
+            #     elif (analogVal > fitRegions[1]): # upper
+            #         return expo(analogVal,fit_params[2][0],fit_params[2][1],fit_params[2][2],fit_params[2][3])
+            #     elif (analogVal < fitRegions[0]): # lower
+            #         return expo(analogVal,fit_params[0][0],fit_params[0][1],fit_params[0][2],fit_params[0][3])
+
             def sweptCal_Analog_to_Current(analogVal):
-                if (analogVal >= -4200) and (analogVal <= 4200):
-                    return fitFunc(analogVal, data_dict_iowaCal['fit_params'][0][0], data_dict_iowaCal['fit_params'][0][1])
+                return linear(analogVal,fit_params[1][0],fit_params[1][1])
+
 
             Done(start_time)
 

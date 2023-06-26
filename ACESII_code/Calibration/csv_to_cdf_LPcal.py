@@ -42,7 +42,7 @@ AverageCalCurves = False # The point of averaging is to remove the assumed 60Hz 
 plotAverageCalCurves = True
 
 # plot the final calibration curve with the fits
-plotCalibrationCurveFitted = False
+plotCalibrationCurveFitted = True
 
 # --- Andoya Calibration toggles ---
 useAndoyaData = False
@@ -55,22 +55,21 @@ intercept = [- 4.72, -4.68]
 # high flyer analog range [-4061,2824]
 
 # LINEAR - MIDDLE
-fitRangeYMid = [-0.2, 0.4]
-fitRangeXMid = [-3000, 1400]
+fitRangeYMid = [-1, 1]
+fitRangeXMid = [-4200, 2000]
 
 # EXPO - UPPER
-fitRangeXUp = [1400, 3000]
-fitRangeYUp = [0.4, 50] # in nanoamps
+fitRangeXUp = [4000, 5000] # nominally [1400,3000]
+
 
 # EXPO - LOWER
-fitRangeXDown = [-4070, -3000]
-fitRangeYDown = [-50, -0.2] # in nanoamps
+fitRangeXDown = [-5000, -4500] # nominally [-4070,-3000]
 
 unitConv = 1E9
 
 
 # output the data
-outputData = True
+outputData = False
 
 
 
@@ -419,47 +418,43 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             y = A*np.exp((x-B)/C) + D
             return y
 
-        # Middle
-        paramsMid, cov = curve_fit(linear, xData_fit_Mid, yData_fit_Mid, maxfev=100000)
+        def poly(x,A,B,C,D,E):
+            y = A*((B)**(C*(x-D))) - A*((B)**(-1*C*(x-D))) + E
+            return y
 
-        # Upper
-        paramsUp, cov = curve_fit(expo,xData_fit_Up,yData_fit_Up,maxfev=100000, p0= [0.06,1800,160,0.2747],bounds=([0,1000,50,0.27],[10,10000,500,0.28]))
 
-        # Lower
-        startVal = linear(fitRangeXMid[0], paramsMid[0], paramsMid[1])
-        paramsDown,cov = curve_fit(expo,xData_fit_Down,yData_fit_Down,maxfev=100000,p0= [-0.1,-3750,-200,startVal],bounds=([-10,-5000,-500,startVal*1.01],[0,0,0,startVal*0.99]))
+        xData_fit_Mid = xData_fit_Mid
+        yData_fit_Mid = yData_fit_Mid
+        paramsMid, cov = curve_fit(poly, xData_fit_Mid, yData_fit_Mid, maxfev=1000000)
+
 
         if plotCalibrationCurveFitted:
 
-            fig,ax = plt.subplots()
+            fig, ax = plt.subplots()
 
-            # Middle
+            # Middle Down
             xData = np.linspace(fitRangeXMid[0], fitRangeXMid[1], 1000)
-            yData = np.array([linear(x, paramsMid[0], paramsMid[1]) for x in xData])
-            ax.plot(xData,yData,color='red')
+            yData = np.array(poly(xData, *paramsMid))
+            ax.plot(xData, yData, color='red')
 
             plt.hlines(fitRangeYMid[0], xmin=fitRangeXMid[0], xmax=fitRangeXMid[1], color='green', label='Data used for cal fit')
             plt.hlines(fitRangeYMid[1], xmin=fitRangeXMid[0], xmax=fitRangeXMid[1], color='green')
             plt.vlines(fitRangeXMid[0], ymin=fitRangeYMid[0], ymax=fitRangeYMid[1], color='green')
             plt.vlines(fitRangeXMid[1], ymin=fitRangeYMid[0], ymax=fitRangeYMid[1], color='green')
 
-            # Upper
-            xData = np.linspace(fitRangeXUp[0], fitRangeXUp[1], 100)
-            yData = np.array([expo(x, paramsUp[0], paramsUp[1], paramsUp[2],paramsUp[3]) for x in xData])
-            ax.plot(xData, yData, color='purple')
-
-            # Down
-            xData = np.linspace(fitRangeXDown[0], fitRangeXDown[1], 100)
-            yData = np.array([expo(x, paramsDown[0], paramsDown[1], paramsDown[2],paramsDown[3]) for x in xData])
-            ax.plot(xData, yData, color='black')
-
             # extra
             ax.scatter(calCurveData_Analog,calCurveData_Current)
             ax.set_ylabel('Current [nA]')
             ax.set_xlabel('Analog Val')
             ax.set_xlim(-4500, 4000)
-            plt.legend([f'Up: [{paramsUp[0]},{paramsUp[1]},{paramsUp[2]},{paramsUp[3]}]\n'
-                        f'Down: [{paramsDown[0]},{paramsDown[1]},{paramsDown[2]},{paramsDown[3]}]\n'])
+            plt.legend([f'Func: A*B^(C*(x-D)) - A*B^(-C*(x-D)) + E\n'
+                        f'A: {paramsMid[0]}\n'
+                        f'B: {paramsMid[1]}\n'
+                        f'C: {paramsMid[2]}\n'
+                        f'D: {paramsMid[3]}\n'
+                        f'E: {paramsMid[4]}\n'])
+            plt.suptitle('V/R resistor Current vs Analog Circuit Response\n'
+                         f'Analog Fit Range: [{fitRangeXMid[0]},{fitRangeXMid[1]}] ')
             plt.show()
 
 
@@ -478,15 +473,6 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             if analogBins[i][1] <= fitRangeXMid[0]:
                 analogBins_current.append([expo(bin[0],paramsDown[0],paramsDown[1],paramsDown[2],paramsDown[3]),expo(bin[1],paramsDown[0],paramsDown[1],paramsDown[2],paramsDown[3])])
 
-            # middle
-            elif analogBins[i][0] > fitRangeXMid[0] and analogBins[i][1] <= fitRangeXMid[1]:
-                analogBins_current.append([linear(bin[0], paramsMid[0], paramsMid[1]),
-                                           linear(bin[1], paramsMid[0], paramsMid[1])])
-            # upper
-            elif analogBins[i][0] > fitRangeXMid[1]:
-                analogBins_current.append([expo(bin[0], paramsUp[0], paramsUp[1], paramsUp[2], paramsUp[3]),
-                                           expo(bin[1], paramsUp[0], paramsUp[1], paramsUp[2], paramsUp[3])])
-
 
         analogBins_current= np.array(analogBins_current)
 
@@ -498,7 +484,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             prgMsg('Creating output file')
 
             # store the fit parameters
-            fit_params = np.array([[paramsDown,[paramsMid[0],paramsMid[1],0,0],paramsUp]])
+            fit_params = np.array([paramsDown,[paramsMid[0],paramsMid[1],0,0],paramsUp])
             data_dict = {**data_dict,
                          **{'fit_params': [fit_params, {'LABLAXIS': 'fit_params',
                                                               'DEPEND_0': None,
@@ -549,9 +535,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                                                        'SCALETYP': 'linear'}]}}
 
             # store the regions where the different fits apply
-            fitRegions = np.array([[fitRangeXDown, fitRangeYDown],
-                           [fitRangeXMid, fitRangeXMid],
-                           [fitRangeXUp, fitRangeYUp]])
+            fitRegions = np.array(fitRangeXMid)
             data_dict = {**data_dict,
                          **{'fitRegions': [fitRegions, {'LABLAXIS': 'fitRegions',
                                                                        'DEPEND_0': None,

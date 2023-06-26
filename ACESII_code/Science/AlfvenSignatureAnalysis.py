@@ -53,21 +53,17 @@ inputPath_modifier_trajectory = 'trajectories'
 outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # Subtracting Inverted V
-removeInvertedV = False # Tries to remove InvertedV from the data
-maskVal = 10
-strengthModifier = 1
+removeInvertedV = True # Tries to remove InvertedV from the data
+
 
 
 # PLOTTING THE DATA
-plotAlfvenRegion = True
+plotAlfvenRegion = True # plots the specific wPitch esa data
 wPitch = 2
-epochRange = [[17,24,56],[17,25,9]] # UTC Ranges for plot Epoch. Format: [hour, minute,second]
+epochRange = [[17, 24, 56], [17, 25, 9]] # UTC Ranges for plot Epoch. Format: [hour, minute,second]
 vExtremes = [1, 50] #colorbar limits
-yLimits = [8,1050] # limits of y-axis in eV
+yLimits = [20, 1050] # limits of y-axis in eV
 
-# plot all the mark for the signatures: [name label, dispersion time, lattitude thickness, Energy range]
-markUpPlot = True
-plotVlines = False # shows the ranges that define the regions to characterize the alfven signatures
 
 # NEXT THING
 outputData = False
@@ -83,7 +79,7 @@ from matplotlib import figure
 from tqdm import tqdm
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
 from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg,outputCDFdata,L1_TRICE_Quick,L2_TRICE_Quick
+from ACESII_code.class_var_func import color, prgMsg,outputCDFdata,L1_TRICE_Quick,L2_TRICE_Quick,loadDictFromFile
 from glob import glob
 from os.path import getsize
 
@@ -93,7 +89,7 @@ from spacepy import pycdf
 pycdf.lib.set_backward(False)
 
 
-def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -123,7 +119,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             descriptiorNam = ['EEPAA', 'LEESA', 'IEPAA', 'Langmuir_Probe']
             wInstr = [index, instr, descriptiorNam[index]]
 
-
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
             anws = ["yes" if input_names_searchable[i].replace('.cdf', "") in output_names_searchable else "no"]
@@ -135,24 +130,14 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         # --- get the data from the ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = {}
-        with pycdf.CDF(inputFiles[wFile]) as inputDataFile:
-            for key, val in inputDataFile.items():
-                data_dict = {**data_dict, **{key : [inputDataFile[key][...] , {key:val for key,val in inputDataFile[key].attrs.items()  }  ]  }  }
-
+        data_dict = loadDictFromFile(inputFiles[wFile],{})
         data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in (range(len(data_dict['Epoch_esa'][0])))])
-
         Done(start_time)
 
         # --- get data from Trajectory Files ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_traj = {}
-        with pycdf.CDF(inputFiles_trajectory[0]) as inputDataFile:
-            for key, val in inputDataFile.items():
-                data_dict_traj = {**data_dict_traj, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
-
+        data_dict_traj = loadDictFromFile(inputFiles_trajectory[0], {})
         data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
-
         Done(start_time)
 
         ############################
@@ -161,10 +146,8 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # Reduce Epoch to only the interested alfven signature range
         targetTimes = [pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, epochRange[0][0], epochRange[0][1], epochRange[0][2], 000000)),
                        pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, epochRange[1][0], epochRange[1][1], epochRange[1][2], 000000))]
-
-        Epoch = data_dict['Epoch_esa'][0]
-        limitIndexes = [np.abs(Epoch - targetTimes[0]).argmin(), np.abs(Epoch - targetTimes[1]).argmin()]
-        Epoch_reduced = np.array([Epoch[i] for i in range(limitIndexes[0], limitIndexes[1])])  # give reduced epoch in datetimes
+        limitIndexes = [np.abs(data_dict['Epoch_esa'][0] - targetTimes[0]).argmin(), np.abs(data_dict['Epoch_esa'][0] - targetTimes[1]).argmin()]
+        Epoch_reduced = np.array([data_dict['Epoch_esa'][0][i] for i in range(limitIndexes[0], limitIndexes[1])])  # give reduced epoch in datetimes
 
         # Reduce esaData to only one pitch angle
         esaData = copy.deepcopy(data_dict[wInstr[1]][0][limitIndexes[0]:limitIndexes[1]])
@@ -176,51 +159,71 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         ############################
         # --- REMOVED INVERTED V ---
         ############################
+        # desciption: the goal is to get an isolated dataset of just the alfven signatures, so we must remove the inverted V.
+        # To remove the inverted V singatures from the alfven region, we need to follow this process
+        # [1] Apply a counts mask of <10 counts to all the data in the region. Helps remove jitter/noise
+        # [2] Create another mask which weights the contribution of higher pitch angles more than
+        # lower pitch angles. Only allow energies >85.91eV into this new mask
+        # [3] find some way to remove the stray contributions of alfven signatures. Perhaps zero them out
+
+
         if removeInvertedV:
 
-            # get an average value for the ESA
             prgMsg('Removing Inverted V')
 
-            # get the initial esaData we're interested in
-            esaData_raw = np.array([esaData[i][wPitch][:] for i in range(len(esaData))])
+            # get the data
+            esaDataCopy = copy.deepcopy(np.array([esaData[i] for i in range(len(esaData))]))
+            esaDataMask = copy.deepcopy(np.array([esaData[i] for i in range(len(esaData))]))
+
+            # --- apply a simple counts mask ---
+            maskVal = 8
+
+            # create the mask
+            ranges = [range(len(esaDataCopy)), range(len(esaDataCopy[0]))]
+            for tme, engy in itertools.product(*ranges):
+                if esaDataMask[tme][engy] - maskVal < 0:
+                    esaDataMask[tme][engy] = 0
+                else:
+                    esaDataMask[tme][engy] = (esaDataMask[tme][engy] - maskVal)
+
+
+            # apply a nearest neighbor filter
+            # description: looks at each datapoint and finds points that have 0's on either side of a value and sets that value to 0
+            for tme in range(1,len(esaDataCopy)-1):
+                for engy in range(len(esaDataCopy[0])):
+                    if esaDataMask[tme+1][engy] == 0 and esaDataMask[tme-1][engy] == 0:
+                        esaDataMask[tme][engy] = 0
+
+            esaDataMask = np.array(esaDataMask)
+
+            # plot the mask
+            fig, ax = plt.subplots()
+            ax.set_ylim(yLimits[0], yLimits[1])
+            cmap = ax.pcolormesh(Epoch_reduced, Energy, esaDataMask.transpose(), cmap='turbo',vmin=vExtremes[0],vmax=vExtremes[1])
+            plt.colorbar(cmap)
+            plt.show()
+
+            # apply the mask
+            for tme, ptch in itertools.product(*ranges):
+                if (esaDataCopy[tme][ptch] - esaDataMask[tme][ptch]) < 0:
+                    esaDataCopy[tme][ptch] = 0
+                else:
+                    esaDataCopy[tme][ptch] = esaDataCopy[tme][ptch] - esaDataMask[tme][ptch]
+
+
+
+            esaData = esaDataCopy
+            Done(start_time)
+
+
+        else:
             esaData = np.array([esaData[i][wPitch][:] for i in range(len(esaData))])
 
 
-            # Apply a counts mask
-            for tme in range(len(esaData)):
-                for engy in range(len(esaData[0])):
-                    val = esaData[tme][engy] - maskVal
-
-                    if val <= 0:
-                        esaData[tme][engy] = 0
-                    else:
-                        esaData[tme][engy] = val
 
 
-            # look for values that have no counts +/- 1 tme step away from them. Remove these points
-            esaData_temp = esaData
-
-            for tme in range(2,len(esaData) -2):
-                for engy in range(len(esaData[0])):
-                    if esaData_temp[tme - 1][engy] == 0 and esaData_temp[tme+1][engy] == 0:
-                        esaData[tme][engy] = 0
-
-                    if (esaData_temp[tme - 1][engy] == 0 and esaData_temp[tme - 2][engy] == 0) or (esaData_temp[tme + 1][engy] == 0 and esaData_temp[tme + 2][engy] == 0):
-                        esaData[tme][engy] = 0
 
 
-            esaData_masked = esaData_raw
-
-            # remove the mask we created
-            for tme in range(len(esaData)):
-                for engy in range(len(esaData[0])):
-                    val = esaData_raw[tme][engy] - strengthModifier*esaData[tme][engy]
-                    if val <= 0:
-                        esaData_masked[tme][engy] = 0
-                    else:
-                        esaData_masked[tme][engy] = val
-
-            Done(start_time)
 
         #######################
         # --- PLOT THE DATA ---
@@ -228,139 +231,41 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         if plotAlfvenRegion:
 
             prgMsg('Plotting Alfven Signature Region')
-            if removeInvertedV:
-                fig, ax = plt.subplots(2, sharex=True)
 
-                cmap = ax[0].pcolormesh(Epoch_reduced, Energy, esaData.transpose(), vmin=vExtremes[0], vmax=vExtremes[1], cmap="turbo")
-                cmap = ax[1].pcolormesh(Epoch_reduced, Energy, esaData_masked.transpose(), vmin=vExtremes[0], vmax=vExtremes[1], cmap="turbo")
+            fig, ax = plt.subplots()
 
-            else:
-                fig, ax = plt.subplots()
+            # colormap
+            cmap = ax.pcolormesh(Epoch_reduced, Energy, esaData.transpose(), vmin=vExtremes[0], vmax=vExtremes[1], cmap="turbo")
 
-                # colormap
-                esaData = np.array([esaData[tme][wPitch] for tme in range(len(esaData))])
-                cmap = ax.pcolormesh(Epoch_reduced, Energy, esaData.transpose(), vmin=vExtremes[0], vmax=vExtremes[1], cmap="turbo")
+            ax.set_ylim(yLimits[0], yLimits[1])
 
+            cbar = plt.colorbar(cmap)
+            cbar.minorticks_on()
+            cbar.set_label('Counts')
 
-            # limits
-            if removeInvertedV:
-                for i in range(2):
-                    ax[i].set_ylim(yLimits[0], yLimits[1])
+            # labels
+            ax.set_ylabel('Energy [eV]')
+            ax.set_xlabel('Epoch')
+            ax.set_title(f'ACESII {rocketAttrs.rocketID[wRocket - 4]} \n {wInstr[1].upper()} \n Pitch {Pitch[wPitch]}$^\circ$')
 
-                    # labels
-                    ax[i].set_ylabel('Energy [eV]')
+            # yticks
+            spacing = 20
+            Epoch_tick_locations = Epoch_reduced[::spacing]
+            Epoch_datetime = np.array([pycdf.lib.tt2000_to_datetime(Epoch_tick_locations[i]).strftime("%M:%S") for i in range(len(Epoch_tick_locations))])
+            ax.set_xticks(Epoch_tick_locations) #WHERE the ticks are place
+            ax.set_xticklabels(Epoch_datetime)
 
-                    cbar = plt.colorbar(cmap, ax = ax[i])
-                    cbar.minorticks_on()
-                    cbar.set_label('Counts')
-
-                    if i == 0:
-                        ax[i].set_title(f'ACESII {rocketAttrs.rocketID[wRocket - 4]} \n {wInstr[1].upper()} \n Pitch {Pitch[wPitch]}$^\circ$')
-                    elif i == 1:
-                        ax[i].set_xlabel('Epoch')
-            else:
-
-                ax.set_ylim(yLimits[0], yLimits[1])
-
-                cbar = plt.colorbar(cmap)
-                cbar.minorticks_on()
-                cbar.set_label('Counts')
-
-                # labels
-                ax.set_ylabel('Energy [eV]')
-                ax.set_xlabel('Epoch')
-                ax.set_title(f'ACESII {rocketAttrs.rocketID[wRocket - 4]} \n {wInstr[1].upper()} \n Pitch {Pitch[wPitch]}$^\circ$')
-
-                # yticks
-                spacing = 20
-                Epoch_tick_locations = Epoch_reduced[::spacing]
-                Epoch_datetime = np.array([pycdf.lib.tt2000_to_datetime(Epoch_tick_locations[i]).strftime("%M:%S") for i in range(len(Epoch_tick_locations))])
-                ax.set_xticks(Epoch_tick_locations) #WHERE the ticks are place
-                ax.set_xticklabels(Epoch_datetime)
-
-                #xticks
-                spaceing = 100
-                ax.set_yticks([i for i in range(0,yLimits[1],spaceing)])
-
-                if markUpPlot:
-
-                    # --- mark up Plot ---
-
-                    # POSITION OF THE VERTICAL LINES
-                    findTimes = [
-                        [[17, 24, 56, 000000], [17, 24, 57, 600000]], # s0
-                        [[17, 24, 57, 825000], [17, 24, 59, 100000]], # s1
-                        [[17, 24, 59, 000000], [17, 24, 59, 968000]], # s2
-                        [[17, 25, 00, 65], [17, 25, 00, 674000]],  # s3
-                        [[17, 25, 00, 550000], [17, 25, 1, 360000]],  # s4
-                        [[17, 25, 4, 6], [17, 25, 6, 571000]],  # s5
-                        [[17, 25, 6, 810000], [17, 25, 7, 441000]],  # s6
-                        [[17, 25, 7, 706000], [17, 25, 8, 306000]],  # s7
-                        [[17, 25, 8, 554700], [17, 25, 8, 961000]]  # s8
-                    ]
-
-                    foundTimes = [ [pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, findTimes[i][0][0], findTimes[i][0][1], findTimes[i][0][2], findTimes[i][0][3])),
-                                    pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, findTimes[i][1][0], findTimes[i][1][1], findTimes[i][1][2], findTimes[i][1][3]))]
-                                   for i in range(len(findTimes))]
+            #xticks
+            spaceing = 100
+            ax.set_yticks([i for i in range(0,yLimits[1],spaceing)])
 
 
-                    # HEIGHT OF THE VERTICAL LINES
-                    # the values in ymin/ymax are percentages of the full screen
-                    specialMods = [[0, 1, 0, 1],  # s0
-                                   [0, 1, 400/yLimits[1], 1],  #s1
-                                   [0, 350.56/yLimits[1], 0, 1], #s2
-                                   [0, 1, 0, 1],  # s3
-                                   [0, 1, 0, 1],  # s4
-                                   [0, 1, 0, 1],  # s5 (weird area)
-                                   [0, 1, 0, 1],  # s6
-                                   [0, 1, 0, 1],  # s7
-                                   [0, 1, 0, 1]  # s8
-                                   ]
-                    if plotVlines:
-                        for i in range(len(findTimes)):
-                            ax.axvline(x=foundTimes[i][0], ymin=specialMods[i][0], ymax=specialMods[i][1], color='green', linewidth=2)
-                            ax.axvline(x=foundTimes[i][1], ymin=specialMods[i][2], ymax=specialMods[i][3], color='red', linewidth=2)
-
-                    # ENERGY AND LABEL OF SIGNATURES
-                    # plot text: [Label, deltaT,deltaE, width]
-                    signatureLabels = [f's{i}' for i in range(len(findTimes))]
-
-                    signatureEnergies = [int(256.48-8.24), # s0
-                                         int(187.64-8.24), # s1
-                                         int(219.38 - 8.24), # s2
-                                         int(560.2 - 8.24), # s3
-                                         int(765.7 - 8.24), # s4
-                                         int(8.24 - 8.24), # s5 (weird area)
-                                         int(479.16 - 8.24), # s6
-                                         int(187.64 - 8.24), # s7
-                                         int(100.44 - 8.24)  # s8
-                                         ]
 
 
-                    for i in range(len(findTimes)):
-                        labelVpos = [0.25 * yLimits[1],  # s0
-                                     0.25 * yLimits[1],  # s1
-                                     0.25 * yLimits[1],  # s2
-                                     0.5 * yLimits[1],  # s3
-                                     0.6 * yLimits[1],  # s4
-                                     0.5 * yLimits[1],  # s5 (weird area)
-                                     0.4 * yLimits[1],  # s6
-                                     0.2 * yLimits[1],  # s7
-                                     0.15 * yLimits[1]  # s8
-                                     ]
-                        if plotVlines:
-                            deltaMod = 2
-                        else:
-                            deltaMod = 4
-                        deltaT = (foundTimes[i][1] - foundTimes[i][0]) # convert to seconds
-                        ax.text((foundTimes[i][0] + deltaT/deltaMod), labelVpos[i],
-                                f'{signatureLabels[i]} \n'
-                                f'$\Delta$t={round(deltaT/1E9,2)}s\n'
-                                f'$\Delta$E={signatureEnergies[i]}eV',
-                                color='white',ha='center',fontsize=8 )
 
-            plt.show()
-            Done(start_time)
+
+
+
 
 
         # --- --- --- --- --- --- ---
@@ -376,22 +281,12 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             Done(start_time)
 
 
+
+
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if wRocket == 0:  # ACES II Integration High
-    rocketFolderPath = Integration_data_folder
-    wflyer = 0
-elif wRocket == 1: # ACES II Integration Low
-    rocketFolderPath = Integration_data_folder
-    wflyer = 1
-elif wRocket == 2:  # TRICE II High
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 0
-elif wRocket == 3: # TRICE II Low
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 1
-elif wRocket == 4:  # ACES II High
+if wRocket == 4:  # ACES II High
     rocketFolderPath = ACES_data_folder
     wflyer = 0
 elif wRocket == 5: # ACES II Low
@@ -402,10 +297,10 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        main(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        AlfvenSignatureAnalysis(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
     elif not wFiles:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
-            main(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
+            AlfvenSignatureAnalysis(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
         for filesNo in wFiles:
-            main(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+            AlfvenSignatureAnalysis(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
