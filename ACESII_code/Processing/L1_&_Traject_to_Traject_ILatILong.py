@@ -159,13 +159,13 @@ def Trajectory_to_ESA_ILatILong(wInstr, rocketFolderPath):
         ################################
         prgMsg('Getting IGRF Field')
         # -- Output order forpyIGRF.igrf_value ---
-        # Declination (+ E | - W)
-        # Inclination (+ D | - U), should be ~78deg for what we're doing
-        # Horizontal Intensity
-        # North Comp (+ N | - S)
-        # East Comp (+ E | - W)
-        # Vertical Comp (+ D | - U)
-        # Total Field
+        # [0] Declination (+ E | - W)
+        # [1] Inclination (+ D | - U), should be ~78deg for what we're doing
+        # [2] Horizontal Intensity
+        # [3] North Comp (+ N | - S)
+        # [4] East Comp (+ E | - W)
+        # [5] Vertical Comp (+ D | - U)
+        # [6] Total Field
 
         IGRF = [[],[]]
         date = 2022 + 323 / 365  # Corresponds to 11/20/2022

@@ -3,6 +3,8 @@
 # # DESCRIPTION: script for general tinkering
 
 
-a, = [0,]
+a = [1,2,3,4]
 
-print(a)
+print(sum(a)/len(a))
+print(round(sum(a)/len(a)))
+print(int(sum(a)/len(a)))

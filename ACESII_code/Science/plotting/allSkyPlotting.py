@@ -59,7 +59,7 @@ specificLocations = [i*10 for i in range(int(12371/10))]
 
 # plot frame skips
 doFrameSkips = True
-frame_skips = 750 # how many Epoch_esa frames to skip
+frame_skips = 1000 # how many Epoch_esa frames to skip
 
 # Kenton wanted just the low flyer for a plot, so here's a toggle to do that
 useOnlyLowFlyer = False
@@ -146,10 +146,10 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
         prgMsg(f'Loading ACESII RingCore data')
         data_dicts_geoMag = []
         for i in range(2):
-            data_dict_geoMag = loadDictFromFile(inputFilesMagGeo[i],{})
+            data_dict_geoMag = loadDictFromFile(inputFilesMagGeo[i], {})
             data_dict_geoMag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_geoMag['Epoch'][0][i]) for i in range(len(data_dict_geoMag['Epoch'][0]))])
             data_dicts_geoMag.append(data_dict_geoMag)
-
+        Done(start_time)
 
         # --- COLLECT IMAGE FILES AND TIMESTAMPS ---
 
@@ -187,19 +187,6 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
         geoAlt = [data_dicts_traj[0]['geoAlt'][0], data_dicts_traj[1]['geoAlt'][0]]
         geoLat = [data_dicts_traj[0]['geoLat'][0], data_dicts_traj[1]['geoLat'][0]]
         geoLong = [data_dicts_traj[0]['geoLong'][0], data_dicts_traj[1]['geoLong'][0]]
-        geoILat = [data_dicts_traj[0]['geoILat'][0], data_dicts_traj[1]['geoILat'][0]]
-        geoILong = [data_dicts_traj[0]['geoILong'][0], data_dicts_traj[1]['geoILong'][0]]
-
-
-
-        # downsample the RingCore mag data to match the rocket data
-        prgMsg('Downsampling B-Field')
-        # create an array of indicies, format [[],[]]
-        alignedMagIndicies = np.array([[np.abs(data_dicts_geoMag[i]['Epoch'][0] - EpochRocket[i][j]).argmin() for j in range(len(EpochRocket[i]))] for i in range(2)], dtype='object')
-
-        # use those indices to downsample B_enu into format [[  [E,N,U],[E,N,U]....  ],[...]]
-        B_ENU = np.array([[[data_dicts_geoMag[i]['B_east'][0][j], data_dicts_geoMag[i]['B_north'][0][j], data_dicts_geoMag[i]['B_up'][0][j]] for j in range(len(alignedMagIndicies[i]))] for i in range(2)], dtype='object')
-        Done(start_time)
 
         prgMsg('Collecting and processing/cleaning Image data')
 
@@ -279,18 +266,12 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
         no_of_points_start = int((EpochRocket[1][0] - EpochRocket[0][0]) / (rocketAttrs.MinorFrameTime))
         newAlt = [geoAlt[1][0] for i in range(no_of_points_start)]
         newLat = [geoLat[1][0] for i in range(no_of_points_start)]
-        newILat = [geoILat[1][0] for i in range(no_of_points_start)]
         newLong = [geoLong[1][0] for i in range(no_of_points_start)]
-        newILong = [geoILong[1][0] for i in range(no_of_points_start)]
-        newB_ENU = [B_ENU[1][0] for i in range(no_of_points_start)]
 
         for i in range(len(geoAlt[1])):
             newAlt.append(geoAlt[1][i])
             newLat.append(geoLat[1][i])
             newLong.append(geoLong[1][i])
-            newB_ENU.append(B_ENU[1][i])
-            newILat.append(geoILat[1][i])
-            newILong.append(geoILong[1][i])
 
         # --- Append the ending values ---
         remainingIndicies = highFlyerSize - (lowFlyerSize + no_of_points_start)
@@ -299,43 +280,58 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             newAlt.append(geoAlt[1][-1])
             newLat.append(geoLat[1][-1])
             newLong.append(geoLong[1][-1])
-            newB_ENU.append(B_ENU[1][-1])
-            newILat.append(geoILat[1][-1])
-            newILong.append(geoILong[1][-1])
 
+        geoAlt[1], geoLat[1], geoLong[1] = np.array(newAlt), np.array(newLat), np.array(newLong)
 
-        geoAlt[1], geoLat[1], geoLong[1], B_ENU[1],geoILat[1],geoILong[1] = np.array(newAlt), np.array(newLat), np.array(newLong), np.array(newB_ENU),np.array(newILat),np.array(newILong)
+        ############################################
+        # --- calculate the ILat/ILong variables ---
+        ############################################
 
-        # calculate the B-projection for the Alt vs Lat plot.
-        # output is a set of x,y points for each flyer. Format: [[x, geolat] [100, geoAlt]]
-        projectB = [[], []]
+        prgMsg('Calculating ILat/ILong')
+
+        # -- Output order forpyIGRF.igrf_value ---
+        # [0] Declination (+ E | - W)
+        # [1] Inclination (+ D | - U)
+        # [2] Horizontal Intensity
+        # [3] North Comp (+ N | - S)
+        # [4] East Comp (+ E | - W)
+        # [5] Vertical Comp (+ D | - U)
+        # [6] Total Field
+
+        # re-create the geoILat,geoIlong data
+        geoILat = []
+        geoILong = []
 
         lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
+        def long_to_meter(lat):
+            return 111.319488 * math.cos(lat * math.pi / 180)
 
-        if useRealMagData:
-            for i in range(2):
-                for j in range(len(B_ENU[i])):
+        date = 2022 + 323 / 365  # Corresponds to 11/20/2022
+        for i in range(2):
+            projectedLong = []
+            projectedLat = []
+            for tme in range(len(geoAlt[i])):
+                B = pyIGRF.igrf_value(geoLat[i][tme], geoLong[i][tme], geoAlt[i][tme], date)
+                projectedLat.append(geoLat[i][tme]+((geoAlt[i][tme] - projectionAltitude)*np.abs(B[3]/B[5]))/lat_to_meter)
+                projectedLong.append(geoLong[i][tme] + ((geoAlt[i][tme] - projectionAltitude) * np.abs(B[4] / B[5])) / long_to_meter(geoLong[i][tme]))
 
-                    projectB[i].append(
-                        [
-                            [geoLat[i][j] + (geoAlt[i][j]-projectionAltitude)*np.abs(B_ENU[i][j][1]/B_ENU[i][j][2])/lat_to_meter, geoLat[i][j]], [projectionAltitude, geoAlt[i][j]] # determine the project latitude by triangulization: x = geoAlt * |B_North/B_up|
-                        ]
-                    )
-        else:
+            geoILat.append(projectedLat)
+            geoILong.append(projectedLong)
 
-            for i in range(2):
-                for j in range(len(EpochRocket[0])):
-                    B = pyIGRF.igrf_value(geoLat[i][j], geoLong[i][j], geoAlt[i][j], 2022)
-                    B_east = B[3]
-                    B_north = B[4]
-                    B_up = B[5]
-                    projectB[i].append(
-                        [
-                            [geoLat[i][j] + (geoAlt[i][j] - projectionAltitude) * np.abs(B_north / B_up) / lat_to_meter, geoLat[i][j]], [projectionAltitude, geoAlt[i][j]]
-                            # determine the project latitude by triangulization: x+x0 = geoAlt * |B_North/B_up|/lat_to_meters + geoLat
-                        ]
-                    )
+        geoILat = np.array(geoILat)
+        geoILong = np.array(geoILong)
+        Done(start_time)
 
+        # output is a set of x,y points for each flyer to plot these on the AltvsLat Plot. Format: [[x, geolat] [100, geoAlt]]
+        projectB = [[], []]
+
+        for i in range(2):
+            for j in range(len(geoAlt[i])):
+                projectB[i].append(
+                    [
+                        [geoILat[i][j], geoLat[i][j]], [projectionAltitude, geoAlt[i][j]]
+                    ]
+                )
 
         ###########################
         # --- PLOT ALLSKY MOVIE ---
@@ -347,8 +343,10 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             ##########################################
 
             # --- determine the timestamps for each photo and rocket data ---
-            Epoch_AllSky_tt2000 = [[pycdf.lib.datetime_to_tt2000(time) for time in Epoch_AllSky[0]],
-                                   [pycdf.lib.datetime_to_tt2000(time) for time in Epoch_AllSky[1]]]
+            # Note: The image timestamps are taken at the beginning of the image's collection period (30seconds),
+            # so we will adjust the time tag to be the middle of the integration period by adding 15seconds
+            Epoch_AllSky_tt2000 = [[pycdf.lib.datetime_to_tt2000(time)+15E9 for time in Epoch_AllSky[0]],
+                                   [pycdf.lib.datetime_to_tt2000(time)+15E9 for time in Epoch_AllSky[1]]]
 
             # for each image timestamp, find the index of the closest Epoch_esa in the High flyer's epoch
             imageIndiciesToRocket = [[], []]
@@ -369,7 +367,7 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
                             imgIndicies[i].append(j)
 
                     elif j == len(imageIndiciesToRocket[i])-1: # if you're at the last image index
-                        for k in range( len(EpochRocket[0]) - imageIndiciesToRocket[i][j] ):
+                        for k in range(len(EpochRocket[0]) - imageIndiciesToRocket[i][j]):
                             imgIndicies[i].append(j)
 
                     else:
@@ -379,35 +377,6 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             imgIndicies = np.array(imgIndicies)
             EpochMovie = np.array([ pycdf.lib.tt2000_to_datetime(EpochRocket[0][i]) for i in range(len(EpochRocket[0])) ])
 
-            ###############################
-            # --- EXTEND LOW FLYER DATA ---
-            ###############################
-
-            # --- extend Low Flyer Rocket data to be the same length as High flyer in the beginning and end ---
-            highFlyerSize, lowFlyerSize = len(geoAlt[0]), len(geoAlt[1])
-
-            # --- Append start Values to  ---
-            no_of_points_start = int((EpochRocket[1][0] - EpochRocket[0][0]) / (rocketAttrs.MinorFrameTime))
-            newAlt = [geoAlt[1][0] for i in range(no_of_points_start)]
-            newLat = [geoLat[1][0] for i in range(no_of_points_start)]
-            newLong = [geoLong[1][0] for i in range(no_of_points_start)]
-
-
-            for i in range(len(geoAlt[1])):
-                newAlt.append(geoAlt[1][i])
-                newLat.append(geoLat[1][i])
-                newLong.append(geoLong[1][i])
-
-            # --- Append the ending values ---
-            remainingIndicies = highFlyerSize - (lowFlyerSize + no_of_points_start)
-
-            for i in range(remainingIndicies):
-                newAlt.append(geoAlt[1][-1])
-                newLat.append(geoLat[1][-1])
-                newLong.append(geoLong[1][-1])
-
-            geoAlt[1], geoLat[1], geoLong[1] = np.array(newAlt), np.array(newLat), np.array(newLong)
-
             ##########################
             # --- INITIALIZE PLOTS ---
             ##########################
@@ -415,8 +384,8 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
 
             # --- prepare map information ---
             projPC = ccrs.PlateCarree()  # MUST be kept on the set_extent, crs =, command AND pcolormesh transform command
-            lonW =8
-            lonE = 22
+            lonW = 12
+            lonE = 18
             latS = 68
             latN = 74.5
             cLat = (latN + latS) / 2
@@ -479,7 +448,7 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             gl5577.ylabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
             ax5577.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
             ax5577.coastlines(resolution=res, color='white', alpha=0.8)  # adds coastlines with resolution
-            ax5577.set_aspect(0.7)
+            ax5577.set_aspect(0.3)
 
             # 6300A
             ax6300.set_title('630.0 nm - 250km', fontsize=30)
@@ -488,7 +457,7 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             gl6300.ylabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
             ax6300.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
             ax6300.coastlines(resolution=res, color='white', alpha=0.8)  # adds coastlines with resolution
-            ax6300.set_aspect(0.7)
+            ax6300.set_aspect(0.3)
 
             # --- initialize the All Sky Image ---
             cbarVmin = 0
@@ -585,8 +554,6 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
                                       f'{round(geoAlt[1][0], altrounding)} km', ha=text_alignment[1],
                                       **textUTC_style_alt[1])
 
-
-
             # --- intialize Trajectory ILat vs Ilong projection ---
             if not removeLatLongPlot:
 
@@ -598,16 +565,6 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
                 IlatILong_marker_high = axLatLong.scatter(geoILong[0][0], geoILat[0][0], color=HighFlyerProjectionColor, marker='x',linewidth=10) if not useOnlyLowFlyer else [0,]
                 IlatILong_marker_low = axLatLong.scatter(geoILong[1][0], geoILat[1][0], color=LowFlyerProjectionColor, marker='x',linewidth=10)
 
-                # text labels
-                # IlatILong_text_high = axLatLong.text(geoILong[0][0] - textOffset_latlong[0][0],
-                #                                            geoILat[0][0] - textOffset_latlong[0][1],
-                #                                            f'({round(geoILong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[0][0], altrounding)}' + '$^{\circ}$)',
-                #                                            ha=text_alignment[0], **textUTC_style_project_lat[0])
-                # IlatILong_text_low = axLatLong.text(geoILong[1][0] - textOffset_latlong[1][0],
-                #                                           geoILat[1][0] - textOffset_latlong[1][1],
-                #                                           f'({round(geoILong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[1][0], altrounding)}' + '$^{\circ}$)',
-                #                                           ha=text_alignment[1], **textUTC_style_project_lat[1])
-
                 IlatILong_text_high = axLatLong.text(14.65,
                                                      70.2,
                                                      f'({round(geoILong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[0][0], altrounding)}' + '$^{\circ}$)',
@@ -618,8 +575,8 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
                                                     ha='center', **textUTC_style_project_lat[1])
 
                 # --- initialize Longitude vs Latitude Plot ---
-                axLatLong.set_xlim(12.5, 17.5)
-                axLatLong.set_ylim(69, 74)
+                axLatLong.set_xlim(13, 17)
+                axLatLong.set_ylim(68.5, 74.5)
                 axLatLong.set_ylabel('Geo Lat', fontsize=30)
                 axLatLong.set_xlabel('Geo Long', fontsize=30)
                 axLatLong.tick_params(axis='x', which='both', labelsize=25)
@@ -632,16 +589,6 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
                 # marker
                 latLong_marker_high = axLatLong.scatter(geoLong[0][0], geoLat[0][0], color=HighFlyerColor, marker='x', linewidth=LatvsLongLineWidth) if not useOnlyLowFlyer else [0,]
                 latLong_marker_low = axLatLong.scatter(geoLong[1][0], geoLat[1][0], color=LowFlyerColor, marker='x', linewidth=LatvsLongLineWidth)
-
-                # text labels
-                # latLong_text_high = axLatLong.text(geoLong[0][0] - textOffset_latlong[0][0],
-                #                                    geoLat[0][0] - textOffset_latlong[0][1],
-                #                                    f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)',
-                #                                    ha=text_alignment[0], **textUTC_style_lat[0])
-                # latLong_text_low = axLatLong.text(geoLong[1][0] - textOffset_latlong[1][0],
-                #                                   geoLat[1][0] - textOffset_latlong[1][1],
-                #                                   f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)',
-                #                                   ha=text_alignment[1], **textUTC_style_lat[1])
 
                 latLong_text_high = axLatLong.text(14.65,
                                                    69.5,
@@ -657,10 +604,10 @@ def allSkyIDL_to_py(wSite, justPrintSiteNames, rocketFolderPath):
             else:
                 # plot the lat/long coordinates that update on the 5577 graph
 
-                IlatILong_text_low = ax5577.text(8.4, 73.25, f'({round(geoILong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
-                IlatILong_text_high = ax5577.text(8.5, 73, f'({round(geoILong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
-                latLong_text_low = ax5577.text(8.6, 72.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
-                latLong_text_high = ax5577.text(8.7, 72.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
+                IlatILong_text_low = ax5577.text(12, 73.25, f'({round(geoILong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
+                IlatILong_text_high = ax5577.text(12.05, 73, f'({round(geoILong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoILat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
+                latLong_text_low = ax5577.text(12.1, 72.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
+                latLong_text_high = ax5577.text(12.15, 72.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
 
                 ax5577.legend(loc='upper left',prop={'size': 14})
 

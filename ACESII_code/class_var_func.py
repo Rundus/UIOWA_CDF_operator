@@ -186,12 +186,15 @@ def calcChiSquare(yData, fitData, yData_errors, fitData_Errors, nu):
 # ---------------------
 # ----- VARIABLES -----
 # ---------------------
+Re = 6357 # radius of earth in meter
 m_e = 9.11 * 10**(-31)
 q0 = 1.602176565 * 10**(-19)
 kB = 1.380649 * 10**(-23)
 cm_to_m = 100
 IonMasses = [1.67 * 10**(-27)] # proton
 ep0 = 8.8541878128E-12 # permittivity of free space
+u0 = 4*np.pi*(10**(-7))
+lightSpeed = 299792458
 
 
 # --- Model Data ---
