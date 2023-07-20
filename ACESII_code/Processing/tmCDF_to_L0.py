@@ -9,10 +9,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-import os.path
-import time
-from ACESII_code.class_var_func import Done, prgMsg,setupPYCDF
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -48,18 +45,9 @@ justgetMAGdata = False # Only get the MAG data
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder,fliers
-from ACESII_code.class_var_func import color, L0_TRICE_Quick
-from glob import glob
-from os.path import getsize
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+
 
 def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
@@ -267,7 +255,6 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                     data_dicts[j]['28V_Monitor'][0] = [tmCDF_mf[iv][141 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 33]
                     data_dicts[j]['EXP_Current'][0] = [tmCDF_mf[iv][121 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) % 4 == 2]
                 elif j == 3:
-
                     data_dicts[j]['Boom_Monitor_1'][0] = [tmCDF_mf[iv][148 - 1] >> 6 for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
                     data_dicts[j]['Epoch_monitor_1'][0] = [tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1) == 3]
 

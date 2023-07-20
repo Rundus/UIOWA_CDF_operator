@@ -113,6 +113,7 @@ def ACES_mission_dicts():
         'LP_words': [15, 29, 46, 66, 90, 104, 117, 133, 145],
         'LP_Variables': ["deltaNdivN","step", "ne_swept", "ni_swept","ni"],
         'MinorFrameTime': 250000,
+        'Count_Interval': 917, # measured in ns
         'LPSamplePeriod': 31250,
         'LPFixedProbeBias':[-5.05,-4.96],
         'LPFixed_calResistances':[ {'Open':165,500000000:2170,250000000:2308,100000000:2540,50000000:2710,10000000:3122,5000000:3299},

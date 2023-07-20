@@ -8,17 +8,18 @@
 # NOTE: I have aligned the sector counts to start on an sfid 0 and end with an sfid 39 BUT
 #  that doesn't mean I've started my energy sweeps at the beginning. It takes 4 minorframes
 #  to complete 1 energy record and there are 49 + 1 retrace energy records per instrument sweep.
-#  It takes 360,280 and 360 words for the eepaa, iepaa, and leesa to complete a sweep respectively,
-#  which means for each major frame eepaa,iepaa,leesa complete 7 sweeps with 10 words left over
+#  It takes 360, 280 and 360 words for the eepaa, iepaa, and leesa to complete a sweep,
+#  which means for each major frame eepaa, iepaa, leesa complete 7 sweeps with 10 words left over
 
 # I have chosen to timestamp an energy sweep at the beginning of the Sweep instead of the end
-
 
 # There are several energy steps that are likely unusable, they are:
 # 21.05,   18.01,   15.40,   13.17,   11.27,    9.64,    8.24,  7.05
 # These channels exhibit a "mirroring" effect that suggests these channels
 # were not at their assigned voltage during a sweep. Best seen by looking
 # at the alfven signature in the HF data
+
+# remember that we don't want the retrace value in our subsets
 
 
 # --- bookkeeping ---
@@ -27,13 +28,10 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import gc
-# --- --- --- --- ---
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
+
 start_time = time.time()
 # --- --- --- --- ---
-
 
 
 # --- --- --- ---
@@ -55,14 +53,14 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [0, 1]
 
-# EEPAA: how many energy values not to keep, starting from the lowest values
-energy_adjust = 8 # == 8 for EEPAA, ==0 else
+# EEPAA: how many energy values not to keep, starting from the lowest values e.g. adjusts = 8 --> remove the bottom 8 values
+energy_adjusts = [8, 0, 0] #  [EEPAA,IEPAA,LEESA]
 
 # Truncates all data to everything past 17:20:00 or whatever you wish
 truncateData = True
-targetTruncDate, targetTruncTime  = [2022, 11, 20], [17, 20, 0, 0]
+targetTruncDate, targetTruncTime = [2022, 11, 20], [17, 20, 0, 0]
 
 # output the data
 outputData = True
@@ -70,38 +68,21 @@ outputData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-import datetime as dt
-
-from copy import deepcopy
 from gc import collect
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, L1_TRICE_Quick, prgMsg
-from glob import glob
-from os.path import getsize
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+
 
 def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
-
     if wRocket in [0,1,4,5]:
-
         # --- ACES II Flight/Integration Data ---
         rocketAttrs,b,c = ACES_mission_dicts()
         globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
         globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L1'
         L1ModelData = L1_TRICE_Quick(wflyer)
 
-
     elif wRocket in [2, 3]:
-
         # --- TRICE II ---
         globalAttrsMod = {}
         rocketAttrs,b,c = TRICE_mission_dicts()
@@ -130,7 +111,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
     if justPrintFileNames:
         for i, file in enumerate(L0Files):
             anws = ["yes" if L0_names_searchable[i] in L1_names_searchable else "no"]
-            print('[{:.0f}] {:70s}{:5.1f} MB   Made L1: {:3s} '.format(i, L0_names_searchable[i], round(getsize(file) / (10 ** 6), 1), anws[0]))
+            print('[{:.0f}] {:70s}{:5.1f} MB'.format(i, L0_names_searchable[i], round(getsize(file) / (10 ** 6), 1)))
     else:
         print('\n')
         print(color.UNDERLINE + f'Converting to L1 data for {dataFile_name}' + color.END)
@@ -138,10 +119,9 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
         # --- get the data from the tmCDF file ---
         prgMsg('Loading data from L0Files')
-        data_dict = {}
-        with pycdf.CDF(L0Files[wFile]) as L0DataFile:
-            for key, val in L0DataFile.items():
-                data_dict = {**data_dict, **{key: [L0DataFile[key][...], {key:val for key, val in L0DataFile[key].attrs.items()  }  ]  }  }
+
+        data_dict = loadDictFromFile(L0Files[wFile],{})
+
         Done(start_time)
 
 
@@ -159,11 +139,10 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             data_dict = {**data_dict, **{'Energy':           [[0], {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'eV', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'log', 'LABLAXIS': 'Energy'}]}}
             data_dict = {**data_dict, **{'geometric_factor': [[0], {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'cm!U2!N str ev ev!U-1!N', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}]}}
             data_dict = {**data_dict, **{'Epoch_esa':        [[],  {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}]}}
-            data_dict['Pitch_Angle'] = [[0], {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808, 'FORMAT': 'E12.2', 'UNITS': 'deg', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear', 'LABLAXIS': 'Pitch_Angle'}]
+            data_dict['Pitch_Angle'] = [[0], {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'deg', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear', 'LABLAXIS': 'Pitch_Angle'}]
             data_dict['28V_Monitor'][1]['DEPEND_0'] = 'Epoch_monitors'
             data_dict['Boom_Monitor'][1]['DEPEND_0'] = 'Epoch_monitors'
             sectorCounts = data_dict['Sector_Counts'][0]
-
 
             if wInstr[1] == 'eepaa': # EEPAA
                 data_dict['Pitch_Angle'][0] =np.array(rocketAttrs.Instr_sector_to_pitch[0])
@@ -180,14 +159,13 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                 data_dict['geometric_factor'][0] = np.array(rocketAttrs.geometric_factor[1])
 
             elif wInstr[1] == 'iepaa': # IEPAA
-                data_dict['Pitch_Angle'][0] = np.array(rocketAttrs.Instr_sector_to_pitch[2])
+                data_dict['Pitch_Angle'][0] = np.array(rocketAttrs.Instr_sector_to_pitch[2][::-1])
                 pitches = data_dict['Pitch_Angle'][0]
                 data_dict['Energy'][0] = np.array(rocketAttrs.Instr_Energy[2])
                 Energy = data_dict['Energy'][0]
                 data_dict['geometric_factor'][0] = np.array(rocketAttrs.geometric_factor[2])
 
             # --- PROCESS ESA DATA ---
-
             sweepLength = len(data_dict['Energy'][0]) + 1 # must be a total of 50 values in a sweep
 
             # --- find index locations of the start and end point of the sweeps ---
@@ -201,30 +179,44 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             # --- PLACE THE OUTPUT DATA ---
             counts = np.zeros(shape=(no_of_sweeps, len(pitches), len(data_dict['Energy'][0]) ))
 
+            # loop through all the sweeps to cover the entire sector variable
             for i in tqdm(range(no_of_sweeps)):
 
-                # downsample the ESA's epoch so it starts at the beginning of each sweep
+                # --- downsample the ESA's epoch so it starts at the beginning of each sweep ---
+                # NOTE: the sweeps for all instruments are low Energy to High Energy
                 data_dict['Epoch_esa'][0].append(epoch_reduced[i*sweepLength])
 
-                # take subset of sector counts and epoch data with all pitch angles
+                # --- take subset of sector counts and epoch data. This will include all pitch angles ---
+                # NOTE: subSet is [[E_1 for all pitches], [E_2 for all pitches], ... [E_49 for all pitches]  ]
                 subSet = sectorCounts_reduced[i * sweepLength: (1 + i) * sweepLength]
 
-                for j in (range(len(pitches))): # place the sector count data
+                # --- place the sector count data ---
+                for j in (range(len(pitches))):
+
+                    # We don't want the retrace value, so we can ignore the first value in the subSet
                     sweep = [int(subSet[k][j]) for k in (range(sweepLength)) if k not in [1]]
+                    counts[i][j] = sweep[::-1] # Invert the order so that highest energies are first. This is for convention
 
-                    sweep.insert(len(sweep)-1, sweep.pop(0)) # move the index 0 value to where the highest
-
-                    counts[i][j] = sweep[::-1] # Invert the order to match the energy to the sweep no.
-
-            data_dict['Epoch_esa'][0] = np.array(data_dict['Epoch_esa'][0])
-
+            # the iepaa had the sector number inverse to the pitch angle i.e. sector1 --> 180deg, sector 2 --> 150 deg, etc.
+            # This is opposite to the eepaa and leesa. Here we correct it by reversing the order of the pitch.
+            if wInstr[1] =='iepaa':
+                counts = [counts[tme][::-1] for tme in range(len(counts))]
 
             # Adjust data if energy_adjust != 0:
+            if wInstr[1] =='eepaa':
+                energy_adjust = energy_adjusts[0]
+            elif wInstr[1] =='iepaa':
+                energy_adjust = energy_adjusts[1]
+            elif wInstr[1] =='leesa':
+                energy_adjust = energy_adjusts[2]
+            else:
+                energy_adjust = 0
+
             if energy_adjust != 0:
                 prgMsg('Adjusting Energy')
                 data_dict['Energy'][0] = np.array(Energy[0:-energy_adjust]) # reduce the energy
 
-                countsNew = [[[0 for i in range(len(data_dict['Energy'][0]))] for ptch in range(len(pitches))] for tme in range(len(counts))  ]
+                countsNew = [[[0 for i in range(len(data_dict['Energy'][0]))] for ptch in range(len(pitches))] for tme in range(len(counts))]
 
                 counts = list(counts) # convert counts into a dynamic variable
                 for tme in range(len(counts)):
@@ -233,9 +225,10 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                 counts = np.array(countsNew)
                 Done(start_time)
+            else:
+                counts = np.array(counts)
 
-
-
+            data_dict['Epoch_esa'][0] = np.array(data_dict['Epoch_esa'][0])
             data_dict = {**data_dict, **{rocketAttrs.InstrNames_LC[wInstr[0]]:
                                              [counts, {'LABLAXIS': rocketAttrs.InstrNames_LC[wInstr[0]],
                                                        'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
@@ -245,8 +238,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                                                        'VALIDMAX': rocketAttrs.esaMaxCounts, 'VAR_TYPE': 'data',
                                                        'SCALETYP': 'linear'}]}}
 
-            del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'],data_dict['major_frame_counter']
-
+            del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'], data_dict['major_frame_counter']
 
             if truncateData:
 
@@ -261,9 +253,9 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                 Epoch_esa_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_esa'][0]]).argmin()
                 Epoch_monitors_targetIndex = np.array([np.abs(pycdf.lib.datetime_to_tt2000(time) - targetDateTime_TT2000) for time in data_dict['Epoch_monitors'][0]]).argmin()
 
-                noReduction = ['geometric_factor','Energy','Pitch_Angle','Sector_Number']
+                noReduction = ['geometric_factor', 'Energy', 'Pitch_Angle', 'Sector_Number']
                 needsReduction_esa = [rocketAttrs.InstrNames_LC[wInstr[0]], 'Epoch_esa']
-                needsReduction_monitors = ['28V_Monitor','Boom_Monitor','Epoch_monitors']
+                needsReduction_monitors = ['28V_Monitor', 'Boom_Monitor', 'Epoch_monitors']
 
                 for key, val in data_dict.items():
                     if key in needsReduction_esa: # counts data
@@ -273,7 +265,6 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                     elif key not in noReduction: # Everything else
                         data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
 
-
             # --- --- --- --- --- --- --- ---
             # --- WRITE OUT THE ESA DATA ---
             # --- --- --- --- --- --- --- ---
@@ -282,41 +273,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                 outputPath = f'{rocketFolderPath}L1\{fliers[wflyer]}\\{fileoutName}'
 
-                # --- delete output file if it already exists ---
-                if os.path.exists(outputPath):
-                    os.remove(outputPath)
-
-                # --- open the output file ---
-                with pycdf.CDF(outputPath, '') as L1File:
-                    L1File.readonly(False)
-
-                    # --- write out global attributes ---
-                    inputGlobDic = L1ModelData.cdfFile.globalattsget()
-                    for key, val in inputGlobDic.items():
-                        if key == 'Descriptor':
-                            globalAttrsMod[key] = rocketAttrs.InstrNames_Full[wInstr[0]]
-                        if key in globalAttrsMod:
-                            L1File.attrs[key] = globalAttrsMod[key]
-                        else:
-                            L1File.attrs[key] = val
-
-                    # --- WRITE OUT DATA ---
-                    for varKey, varVal in data_dict.items():
-                        if varKey in ['Epoch', 'Epoch_monitors', 'Epoch_esa']:  # epoch data
-                            L1File.new(varKey, data=varVal[0], type=33)
-                        elif varKey == wInstr[1]:  # instrument data
-                            L1File.new(varKey, data=varVal[0])
-                        else:  # support data
-                            L1File.new(varKey, data=varVal[0])
-
-                        # --- Write out the attributes and variable info ---
-                        for attrKey, attrVal in data_dict[varKey][1].items():
-                            if attrKey == 'VALIDMIN':
-                                L1File[varKey].attrs[attrKey] = varVal[0].min()
-                            elif attrKey == 'VALIDMAX':
-                                L1File[varKey].attrs[attrKey] = varVal[0].max()
-                            elif attrVal != None:
-                                L1File[varKey].attrs[attrKey] = attrVal
+                outputCDFdata(outputPath, data_dict, L1ModelData, globalAttrsMod, wInstr[1])
 
             Done(start_time)
 
@@ -377,7 +334,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                     # deltaNdivN takes the first 8 values
                     data_dict[rocketAttrs.LP_Variables[0]][0].append(L0ChannelCounts[j][0:8])
 
-                    if L0epoch[j] != -9223372036854775808:
+                    if L0epoch[j] != rocketAttrs.epoch_fillVal:
 
                         # assign epoch values for each point with a sample rate of 35.25kHz
                         data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([(L0epoch[j] - minorFrameTime) + l * samplePeriod for l in range(8)])
@@ -440,7 +397,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                             data_dict_writeOut = {**data_dict_writeOut, **{key:val}}
 
                     del data_dict_copy
-                    gc.collect()
+                    collect()
 
                     # Convert everything to numpy array
                     for key, val in data_dict_writeOut.items():
@@ -487,18 +444,6 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                                     outputFile[varKey].attrs[attrKey] = attrVal
 
                 Done(start_time)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- --- --- ---

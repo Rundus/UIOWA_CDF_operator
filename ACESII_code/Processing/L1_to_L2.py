@@ -13,11 +13,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-# --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -36,12 +32,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0,2]
+wFiles = [1, 2, 3]
 
 inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
@@ -52,19 +48,9 @@ outputData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, L2_TRICE_Quick, prgMsg
-from glob import glob
-from os.path import getsize
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+
 
 def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -134,8 +120,11 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             Energies = data_dict['Energy'][0]
             counts = data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]][0]
+
+            # TODO: NEED COUNT INTERVAL HERE
             count_interval = data_dict['Count_Interval'][0]
             count_interval = [917 for i in range(len(data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]][0]))]
+
             geo_factor = rocketAttrs.geometric_factor[wInstr[0]]
 
             # --- PROCESS ESA DATA ---
@@ -150,10 +139,6 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                     diffEFlux[tme][ptch][engy] = int((counts[tme][ptch][engy]) / (geo_factor[ptch] * deltaT))
 
             del data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]]
-
-        # --- PROCESS LP DATA ---
-        elif wInstr[0] in [3]:
-            print('potato')
 
         Done(start_time)
 
@@ -184,50 +169,8 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                                           'VALIDMIN': diffEFlux.min(), 'VALIDMAX': diffEFlux.max(),
                                                           'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
 
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
-
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as L2File:
-                L2File.readonly(False)
-
-                # --- write out global attributes ---
-                inputGlobDic = L2ModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key == 'Descriptor':
-                        globalAttrsMod[key] = rocketAttrs.InstrNames_Full[wInstr[0]]
-                    if key in globalAttrsMod:
-                        L2File.attrs[key] = globalAttrsMod[key]
-                    else:
-                        L2File.attrs[key] = val
-
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict.items():
-                    if 'Epoch' in varKey: # epoch data
-                        L2File.new(varKey, data=varVal[0], type=33)
-                    else: # other data
-                        L2File.new(varKey, data=varVal[0],type=pycdf.const.CDF_REAL8)
-
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            L2File[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            L2File[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            L2File[varKey].attrs[attrKey] = attrVal
-
+            outputCDFdata(outputPath, data_dict, L2ModelData, globalAttrsMod, wInstr[1])
             Done(start_time)
-
-
-
-
-
-
-
-
-
 
 # --- --- --- ---
 # --- EXECUTE ---

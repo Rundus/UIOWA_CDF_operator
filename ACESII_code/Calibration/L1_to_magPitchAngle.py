@@ -11,6 +11,9 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import matplotlib.pyplot as plt
+
 # --- --- --- --- ---
 from ACESII_code.myImports import *
 start_time = time.time()
@@ -29,7 +32,7 @@ justPrintMAGFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files, [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
@@ -107,7 +110,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from Mag Files')
 
-
         data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {})
 
         data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_mag['Epoch'][0][i]) for i in (range(len(data_dict_mag['Epoch'][0])))])
@@ -119,18 +121,14 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
         ################################################
 
         # Define the SPHERICAL description of the unit vectors IN THE MAG FRAME
-        if wInstr[0] in [0, 2]:  # EEPAA
+        if wInstr[0] in [0, 2]:  # EEPAA and # IEPAA
             ThetaPolar = np.radians(90)
-            unit_vect_temp = [[np.sin(ThetaPolar) * np.cos(np.radians(180-pitch)),
-                               np.sin(ThetaPolar) * np.sin(np.radians(180-pitch)), np.cos(ThetaPolar)] for pitch in
-                              data_dict_esa['Pitch_Angle'][0]]
+            unit_vect_temp = [[np.sin(ThetaPolar) * np.cos(np.radians(180-pitch)), np.sin(ThetaPolar) * np.sin(np.radians(180-pitch)), np.cos(ThetaPolar)] for pitch in data_dict_esa['Pitch_Angle'][0]]
             unit_vect = [np.matmul(Rx(45), temp_vect) for temp_vect in unit_vect_temp]
 
         elif wInstr[0] == 1:  # LEESA
             ThetaPolar = np.radians(90)
-            unit_vect_temp = np.array([[np.sin(ThetaPolar) * np.cos(np.radians(180-ptch)),
-                                   np.sin(ThetaPolar) * np.sin(np.radians(180-ptch)), np.cos(ThetaPolar)] for ptch in
-                                  data_dict_esa['Pitch_Angle'][0]])
+            unit_vect_temp = np.array([[np.sin(ThetaPolar) * np.cos(np.radians(180-ptch)), np.sin(ThetaPolar) * np.sin(np.radians(180-ptch)), np.cos(ThetaPolar)] for ptch in data_dict_esa['Pitch_Angle'][0]])
             unit_vect = [np.matmul(Rx(180), temp_vect) for temp_vect in unit_vect_temp]
 
         # 3D plot of vectors to verify their orientation
@@ -139,9 +137,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
             origin = [0, 0, 0]
 
             if wInstr[1] != 'iepaa':
-
                 for i, vec in enumerate(unit_vect):
-
                     if i == 1:
                         ax.quiver(*origin, *vec, color='cyan',label='0deg')
                     elif i == 19:
@@ -150,7 +146,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
                         ax.quiver(*origin, *vec)
             else:
                 for i, vec in enumerate(unit_vect):
-
                     if i == 0:
                         ax.quiver(*origin, *vec, color='cyan', label='0deg')
                     elif i == len(data_dict_esa['Pitch_Angle'][0])-1:
@@ -192,7 +187,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
         epochFullDataSet = np.zeros(shape=(esaLens[0], esaLens[2]))
         magFullDataSet = np.zeros(shape=(esaLens[0], esaLens[2], 3))
-
 
         # --- populate epochFullDataSet ---
         # NOTE: the eepaa only has 41 energy bins since the first 8 were removed. Take this into account
@@ -238,7 +232,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
                         zeroDegvec= origin
 
                         for i, vec in enumerate(unit_vect):
-
                             if i == 1:
                                 ax.quiver(*origin, *vec, color='cyan', label='$0^{\circ}$')
                                 zeroDegvec = vec
@@ -264,7 +257,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
                         ax.set_xlabel('x')
                         ax.set_ylabel('y')
                         ax.set_zlabel('z')
-
                         plt.legend()
                         plt.show()
 
@@ -281,7 +273,6 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
                 )
             )
 
-
         # --- --- --- --- --- --- --- ---
         # --- PREPARE DATA FOR OUTPUT ---
         # --- --- --- --- --- --- --- ---
@@ -297,7 +288,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
         # get Energy and Pitch angle into data_dict
         for key, val in data_dict_esa.items():
             if key in ['Energy', 'Pitch_Angle', 'Epoch_esa']:
-                data_dict = {**data_dict,**{key:data_dict_esa[key]}}
+                data_dict = {**data_dict, **{key:data_dict_esa[key]}}
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -306,7 +297,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
         globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
-        outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod,wInstr[1])
+        outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
 
         Done(start_time)
 

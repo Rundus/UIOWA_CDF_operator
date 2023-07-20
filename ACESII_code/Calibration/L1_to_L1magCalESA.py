@@ -105,11 +105,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-
         data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
-
         data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
-
         Done(start_time)
 
         # --- get the data from the MagPitch file ---
@@ -120,10 +117,10 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             if wInstr[1] in file and 'magPitch' in file:
                 this_magPitchFile = file
 
+        print(this_magPitchFile)
+
         data_dict_magPitch = loadDictFromFile(this_magPitchFile, {})
-
         data_dict_magPitch['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_magPitch['Epoch_esa'][0][i]) for i in (range(len(data_dict_magPitch['Epoch_esa'][0])))])
-
         Done(start_time)
 
         #############################
@@ -149,7 +146,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         # --- GET CHI^2 CALIBRATION DATA ---
         # --- --- --- --- --- --- --- --- --
 
-        #appended data will look like: [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
+        # apended data will look like: [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
         calData = []
 
         # for two datapoints at the same time/energy but different pitch pads whose "True" pitch angle are <5deg differenet, store this data in calData
@@ -160,12 +157,16 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             pitchVal = magPitch[tme][ptch][engy]
             esaVal = esaData[tme][ptch][engy]
 
-            if (0 < ptch < 20): # 0deg - 180 deg case
+            if wInstr[1] != 'iepaa':
+                if (0 < ptch < 20): # 0deg - 180 deg case
+                    pad = padAngle[ptch]
+                elif ptch == 20: # 190 deg case
+                    pad = 170
+                elif ptch == 0: # -10 deg case
+                    pad = 10
+            else:
                 pad = padAngle[ptch]
-            elif ptch == 20: # 190 deg case
-                pad = 170
-            elif ptch == 0: # -10 deg case
-                pad = 10
+
 
             if (pad - degWidth) <= pitchVal <= (pad + degWidth): # if you're within the right pad, place it where it was
                 esaDataSorted[tme][ptch][engy].append(esaVal)
@@ -181,6 +182,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
                         # [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
                         calData.append([esaData[tme][ptch][engy], esaData[tme][index][engy], ptch, index])
         Done(start_time)
+
 
         # --- --- --- --- --- --- --- --- --- --- -
         # --- REDUCE DATALISTS TO SINGLE VALUES ---
@@ -214,7 +216,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             # get Energy and Pitch angle into data_dict
             for key, val in data_dict_esa.items():
                 if key not in [f'{wInstr[1]}']:
-                    data_dict = {**data_dict,**{key:data_dict_esa[key]}}
+                    data_dict = {**data_dict, **{key:data_dict_esa[key]}}
 
             # --- --- --- --- --- --- --- --- ---
             # --- WRITE OUT THE L1 MagCal DATA ---
@@ -231,7 +233,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             # --- --- --- --- --- --- --- --- --- -
             # store the raw ChiSquare calibration data
             del data_dict
-            calData = np.array(calData) if len(calData) > 0 else np.array([0,0,0,0])
+            calData = np.array(calData) if len(calData) > 0 else np.array([[0, 0, 0, 0]])
+
 
             data_dict = {f'ChiSquare_calData': [calData, {'LABLAXIS': 'ChiSquareCalData',
                                                         'DEPEND_0': None, 'DEPEND_1': None,

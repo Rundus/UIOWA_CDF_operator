@@ -40,7 +40,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [2]
 
 inputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_chiSquare = 'calibration\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -54,7 +54,7 @@ outlierThresh = 30 # determine threshold to remove datapoints that are considere
 
 # order to ChiSquare fits [uncalpal,prinpal]. Left to right order MATTERS
 ChiOrder =[
-    [[10,20],[0,10],[-10,20],[30,20],[40,30],[50,40],[60,50],[70,60],[80,90],[100,90],[180,170],[160,170],[190,160],[150,160],[150,160],[140,150],[130,140],[120,130],[110,120]],
+[[10,20],[0,10],[-10,20],[30,20],[40,30],[50,40],[60,50],[70,60],[80,90],[100,90],[180,170],[160,170],[190,160],[150,160],[150,160],[140,150],[130,140],[120,130],[110,120]],
     [[0,10],[100,110],[160,170],[180,170],[190,160]]
 ]
 
@@ -150,6 +150,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
         # [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
 
         padAngle = data_dict_esa['Pitch_Angle'][0]
+
         calData = list(data_dict_chiSquare['ChiSquare_calData'][0])
 
         padPairs = [[[] for i in range(len(padAngle))] for j in range(len(padAngle))]
@@ -178,11 +179,11 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             # plot the number of pairs for each pad for each source
 
             if wInstr[1] != 'iepaa':
-                axis = [-15 + 10*i for i in range(len(padAngle))]
-                ticksteps = 10
+                axis = [-15 + 10*i for i in range(len(padAngle) + 1)]
+                ticksteps = [-10, 200, 10]
             else:
-                axis = [-15 + 30 * i for i in range(len(padAngle))]
-                ticksteps = 30
+                axis = [-15 + 30 * i for i in range(len(padAngle) + 1)]
+                ticksteps = [0, 190, 30]
 
             X,Y = np.meshgrid(axis, axis)
             Z = viewData
@@ -198,8 +199,8 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
             fig, ax = plt.subplots()
             cmap = ax.pcolormesh(X, Y, Z, vmin=vmins[wRocket-4], vmax=vmaxes[wRocket-4], cmap='turbo',norm='log')
-            ax.set_xticks(range(-10, 200, ticksteps))
-            ax.set_yticks(range(-10, 200, ticksteps))
+            ax.set_xticks(range(*ticksteps))
+            ax.set_yticks(range(*ticksteps))
             ax.set_ylabel('Uncalibrated Pad')
             ax.set_xlabel('Principal Pad')
             plt.title(f'ACES-II {rocketID} {wInstr[1]}')

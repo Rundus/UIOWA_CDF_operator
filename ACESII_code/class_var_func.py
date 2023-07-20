@@ -137,7 +137,7 @@ def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 
         # --- WRITE OUT DATA ---
         for varKey, varVal in data_dict.items():
-            if 'Epoch' in varKey:  # epoch data
+            if varKey in ['Epoch', 'Epoch_monitors', 'Epoch_esa']:  # epoch data
                 sciFile.new(varKey, data=varVal[0], type=33)
             elif 'Function' in varKey:
                 sciFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_REAL8)
