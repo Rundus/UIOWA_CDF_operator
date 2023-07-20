@@ -36,13 +36,13 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket =5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
 wFiles = [0]
-wFile_mag = 0
+wFile_mag = 1
 
 modifier = ''
 inputPath_modifier = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -140,7 +140,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # Determine the angle between the payload spin axis and the ambient magnetic field using the REAL magnetometer data
 
         # Since the mag_payload data is already in payload coordniantes, we just need the angle between B_mag and the spin axis (X-axis in payload frame) or +Yaxis (in RingCore frame)
-        spin_axis = np.array([0,1,0])
+        spin_axis = np.array([1,0,0])
 
         # create normalized B_components array
         Bcomps = np.array(
@@ -180,18 +180,18 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # --- Calculate Coning Angle ---
         ################################
 
-        # calculate coning angle for all time
-        conningAngle = np.array([ data_dict['F_El'][0][i] + data_dict['AoA_T'][0][i] for i in range(len(data_dict['Epoch'][0]))])
-
-        # add variable to data dict
-        data_dict = {**data_dict, **{'Cone Angle':
-                                         [conningAngle, {'LABLAXIS': 'Cone Angle',
-                                                      'DEPEND_0': 'Epoch', 'DEPEND_1': None,
-                                                      'DEPEND_2': None,
-                                                      'FILLVAL': -1e30, 'FORMAT': 'E12.2',
-                                                      'UNITS': 'deg',
-                                                      'VALIDMIN': conningAngle.min(), 'VALIDMAX': conningAngle.max(),
-                                                      'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+        # # calculate coning angle for all time
+        # conningAngle = np.array([ data_dict['F_El'][0][i] + data_dict['AoA_T'][0][i] for i in range(len(data_dict['Epoch'][0]))])
+        #
+        # # add variable to data dict
+        # data_dict = {**data_dict, **{'Cone Angle':
+        #                                  [conningAngle, {'LABLAXIS': 'Cone Angle',
+        #                                               'DEPEND_0': 'Epoch', 'DEPEND_1': None,
+        #                                               'DEPEND_2': None,
+        #                                               'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+        #                                               'UNITS': 'deg',
+        #                                               'VALIDMIN': conningAngle.min(), 'VALIDMAX': conningAngle.max(),
+        #                                               'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---

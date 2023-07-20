@@ -28,9 +28,10 @@ start_time = time.time()
 # --- --- --- ---
 
 # assume the kinetic term is just 2^-0.5
-simplifyKinetic = True
+simplifyKinetic = False
 
 # Altitude Range (in KILOMETERS) to plot alfven speed over
+wkperp = (2*3.1415926535)/100 # This is ANGULAR wave number: k = 2 pi/lambda
 AltLow = 1
 AltHigh = 22000
 xscaling= (1E3) # how to scale the xaxis of the plot
@@ -96,14 +97,14 @@ def AlfvenSpeed(z,lat,long,year,kperp,simplify):
 def main(AltLow, AltHigh):
 
     # altitude range
-    N = 1000
+    N = 10000
     altitudeAxis = np.linspace(AltLow, AltHigh, N)
 
     # determine the alfven speed
     year = 2022 + 323 / 365  # Corresponds to 11/20/2022
     LaunchLat = 69.294167
     LaunchLong = 16.020833
-    alfvenAxis = np.sqrt(2)*np.array([AlfvenSpeed(z, LaunchLat, LaunchLong, year, 1, simplifyKinetic) for z in altitudeAxis])
+    alfvenAxis = np.sqrt(2)*np.array([AlfvenSpeed(z, LaunchLat, LaunchLong, year, wkperp, simplifyKinetic) for z in altitudeAxis])
 
     # normalize the data to whatever you wish
     xData = altitudeAxis/(xscaling) # to 1000 km

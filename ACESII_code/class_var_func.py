@@ -154,6 +154,8 @@ def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
                     sciFile[varKey].attrs[attrKey] = attrVal
 
 
+
+
 # --- The Basic rotation matricies
 def Rx(angle):
     angleRad = np.radians(angle)

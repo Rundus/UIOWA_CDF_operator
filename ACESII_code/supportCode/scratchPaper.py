@@ -1,10 +1,9 @@
 # # --- scratchPaper.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
+import autoplot
 
+print(autoplot.autoplot.version())
 
-a = [1,2,3,4]
-
-print(sum(a)/len(a))
-print(round(sum(a)/len(a)))
-print(int(sum(a)/len(a)))
+# for thing in dir(autoplot):
+#     print(thing)

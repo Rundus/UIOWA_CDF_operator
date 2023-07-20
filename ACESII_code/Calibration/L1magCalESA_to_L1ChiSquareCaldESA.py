@@ -19,13 +19,9 @@ __version__ = "1.0.0"
 
 import itertools
 # --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
-
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
-
 
 
 # --- --- --- ---
@@ -52,10 +48,9 @@ outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 modifier = ''
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
-viewPadPairData_numOfPairs = False
-plotPadPairData = False
+viewPadPairData_numOfPairs = True
+plotPadPairData = True
 outlierThresh = 30 # determine threshold to remove datapoints that are considered outliers
-
 
 # order to ChiSquare fits [uncalpal,prinpal]. Left to right order MATTERS
 ChiOrder =[
@@ -66,27 +61,13 @@ ChiOrder =[
 # ARCHIVED CAL SCHEME FOR LOW FLYER:
 # [0,-10],[50,60],[40,50],[30,40],[20,30],[10,20],[70,80],[110,120],[100,110],[180,170],[160,170],[190,160],[150,160],[140,150],[130,140]
 
-
 # --- Output Data TOGGLES ---
-outputData = True
+outputData = False
+
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-from scipy.optimize import curve_fit
-from ACESII_code.class_var_func import loadCDFdata,outputCDFdata,L1_TRICE_Quick
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg,calcChiSquare
-from glob import glob
-from os.path import getsize
-
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+from ACESII_code.class_var_func import calcChiSquare
 
 def calFunc(x,A):
     return A*x
@@ -113,8 +94,6 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
     input_names_searchable_chiSquare = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names_chiSquare]
 
-    output_names_searchable = [ofile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(outputPath_modifier.lower() +'_', '').replace('_v00', '').replace('__', '_') for ofile in output_names]
-
     dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\','')
 
     # determine which instrument the file corresponds to:
@@ -127,12 +106,10 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
-            anws = ["yes" if input_names_searchable[i].replace('.cdf', "") in output_names_searchable else "no"]
-            print('[{:.0f}] {:80s}{:5.1f} MB   Made L1: {:3s} '.format(i, input_names_searchable[i], round(getsize(file) / (10 ** 6), 1), anws[0]))
+            print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, input_names_searchable[i], round(getsize(file) / (10 ** 6), 1)))
     elif justPrintChiFileNames:
         for i, file in enumerate(inputFiles_chiSquare):
-            anws = ["yes" if input_names_searchable_chiSquare[i].replace('.cdf', "") in output_names_searchable else "no"]
-            print('[{:.0f}] {:80s}{:5.1f} MB   Made L1: {:3s} '.format(i, input_names_searchable_chiSquare[i], round(getsize(file) / (10 ** 6), 1), anws[0]))
+            print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, input_names_searchable_chiSquare[i], round(getsize(file) / (10 ** 6), 1)))
     else:
         print('\n')
         print(color.UNDERLINE + f'Converting to {outputPath_modifier} data for {dataFile_name}' + color.END)
@@ -140,11 +117,8 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-
-        data_dict_esa = loadCDFdata(inputFiles, wFile)
-
+        data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
         data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
-
         Done(start_time)
 
         # --- get the data from the MagPitch file ---
@@ -153,9 +127,9 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
         this_chiSquareFile = ''
         for file in inputFiles_chiSquare:
             if wInstr[1] in file:
-                this_chiSquareFile = [file]
+                this_chiSquareFile = file
 
-        data_dict_chiSquare = loadCDFdata(this_chiSquareFile, 0)
+        data_dict_chiSquare = loadDictFromFile(this_chiSquareFile, {})
 
         Done(start_time)
 
@@ -169,8 +143,8 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
         # description: organize the calibration data into bins that show all
         # the PRINCIPAL pads and how many datapoints fall into those pads. Then do the reverse
 
-        # for each pad, create 21 - 1 empty bins to store all pairs from other bins that go into it.
-        # This creates a 21x21 matrix , where each element is a list full of pairs, each of format [uncalPoint,prinPoint]
+        # for each pad, create len(Pitch_Angle) - 1 empty bins to store all pairs from other bins that go into it.
+        # This creates a len(Pitch_Angle)xlen(Pitch_Angle) matrix , where each element is a list full of pairs, each of format [uncalPoint,prinPoint]
         # these values are stored in "padPairs"
 
         # [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
@@ -196,13 +170,20 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
             viewData = [[] for i in range(len(padAngle))]
 
-            for i in range(len(padPairs)): # first loop over 21
+            for i in range(len(padPairs)): # first loop over len(Pitch_Angle)
 
-                for j in range(len(padPairs[i])): # second loop over 21
+                for j in range(len(padPairs[i])): # second loop over len(Pitch_Angle)
                     viewData[i].append(len(padPairs[i][j]))
 
             # plot the number of pairs for each pad for each source
-            axis = [-15 + 10*i for i in range(22)]
+
+            if wInstr[1] != 'iepaa':
+                axis = [-15 + 10*i for i in range(len(padAngle))]
+                ticksteps = 10
+            else:
+                axis = [-15 + 30 * i for i in range(len(padAngle))]
+                ticksteps = 30
+
             X,Y = np.meshgrid(axis, axis)
             Z = viewData
 
@@ -217,16 +198,18 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
             fig, ax = plt.subplots()
             cmap = ax.pcolormesh(X, Y, Z, vmin=vmins[wRocket-4], vmax=vmaxes[wRocket-4], cmap='turbo',norm='log')
-            ax.set_xticks(range(-10, 200, 10))
-            ax.set_yticks(range(-10, 200, 10))
+            ax.set_xticks(range(-10, 200, ticksteps))
+            ax.set_yticks(range(-10, 200, ticksteps))
             ax.set_ylabel('Uncalibrated Pad')
             ax.set_xlabel('Principal Pad')
             plt.title(f'ACES-II {rocketID} {wInstr[1]}')
-            colorbar = plt.colorbar(mappable=cmap)
+            colorbar = plt.colorbar(mappable=cmap,label='# of pairs')
             plt.grid()
             plt.show()
 
         Done(start_time)
+
+
 
         # --- --- --- --- --- --- ---
         # --- FIT USING CHISQUARE ---

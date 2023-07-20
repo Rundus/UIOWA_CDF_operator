@@ -49,7 +49,7 @@ elevlimits = [20, 20] # value (in deg) of the cutoff elevation angle for the 557
 
 # --- AllSky MOVIE ---
 createAllSkyMovie = True
-fps = 1 # fps of the video
+fps = 20 # fps of the video
 projectionAltitude = 100 # in km
 useRealMagData = False # uses inflight mag data to determine projections for Alt vs Lat plot. Else uses IGRF
 
@@ -59,7 +59,7 @@ specificLocations = [i*10 for i in range(int(12371/10))]
 
 # plot frame skips
 doFrameSkips = True
-frame_skips = 1000 # how many Epoch_esa frames to skip
+frame_skips = 5 # how many Epoch_esa frames to skip
 
 # Kenton wanted just the low flyer for a plot, so here's a toggle to do that
 useOnlyLowFlyer = False

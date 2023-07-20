@@ -40,16 +40,16 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1, 2, 4, 5]
+wFiles = [1]
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
 outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
-
 rotateIntoRingCoreFrame = False
 flipYAxis = False
-useENUcoordinates = False
+useENU = False
+
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -76,17 +76,6 @@ from copy import deepcopy
 
 # Program default: recognize Epoch variable, turn it into "support data". Turn other data into "data"
 # Below you can add additional specifications to known variables
-#
-# special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
-#                 'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
-#                 'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
-#                 'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
-#                 'Bx_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
-#                 'By_Model': {'UNITS': 'nT', 'LABLAXIS': 'By'},
-#                 'Bz_Model': {'UNITS': 'nT', 'LABLAXIS': 'Bz'}
-#                 }
-
-
 special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
                 'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
                 'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
@@ -94,7 +83,7 @@ special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
                 }
 
 
-def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     inputrocketFolderPath = rocketFolderPath + 'ACESII_matlab'
     outputrocketFolderPath = rocketFolderPath
@@ -262,7 +251,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict = {**data_dict, **{'By': [np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))]), data_dict['By_payload'][1]]}}
             data_dict = {**data_dict, **{'Bz': [np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))]), data_dict['Bz_payload'][1]]}}
 
-        if useENUcoordinates:
+        if useENU:
             data_dict['Bx'][1]['LABLAXIS'] = 'B_east'
             data_dict['B_east'] = data_dict.pop('Bx')
             data_dict['By'][1]['LABLAXIS'] = 'B_north'
@@ -345,10 +334,10 @@ if len(glob(f'{rocketFolderPath}\ACESII_matlab\{inputPath_modifier}\{fliers[wfly
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        main(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        mat_to_cdf(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
     elif not wFiles:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.mat')))):
-            main(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
+            mat_to_cdf(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
         for filesNo in wFiles:
-            main(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+            mat_to_cdf(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

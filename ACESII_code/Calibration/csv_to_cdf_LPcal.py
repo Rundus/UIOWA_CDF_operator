@@ -5,8 +5,7 @@
 
 
 # --- --- --- --- ---
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF,prgMsg
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -74,24 +73,11 @@ outputData = False
 
 
 # --- --- --- ---
-# --- import ---
+# --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import matplotlib.pyplot as plt
-from glob import glob
-from tqdm import tqdm
-from more_itertools import sort_together
-from scipy.optimize import curve_fit
 from os import remove, path
-from ACESII_code.class_var_func import outputCDFdata
-from os.path import getsize
+from more_itertools import sort_together
 from csv import reader
-from ACESII_code.data_paths import fliers, ACES_data_folder
-from ACESII_code.class_var_func import color, L2_TRICE_Quick
-from ACESII_code.missionAttributes import ACES_mission_dicts
-from copy import deepcopy
-setupPYCDF()
-from spacepy import pycdf
 from spacepy import coordinates as coord
 coord.DEFAULTS.set_values(use_irbem=False, itol=5)  # maximum separation, in seconds, for which the coordinate transformations will not be recalculated. To force all transformations to use an exact transform for the time, set ``itol`` to zero.
 
