@@ -1,0 +1,39 @@
+word #1: ???
+
+word #2: Bx_high (bits 9-16)
+
+word #3: Bx_low (bits 1-16)
+
+word #4: By_high (bits 9-16)
+
+word #5: By_low (bits 1-16)
+
+word #6: Bz_high (bits 9-16)
+
+word #7: Bz_low (bits 1-16)
+
+word #8: Housekeeping id (bits 9-16)
+
+word #9: Housekeeping data (bits 1-16)
+
+word #10: Time offset (high) - 1 (bit 15)
+
+word #11: Time offset (low) - 1 (bits 1-16)
+
+word #12: Bx_high
+
+word #13: Bx_low
+
+word #14: By_high
+
+word #15: By_low
+
+word #16: Bz_high
+
+word #17: Bz_low
+
+word #18: Housekeeping id
+
+word #19: Housekeeping data
+
+word #20: Time offset (high) - 2

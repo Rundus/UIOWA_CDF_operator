@@ -10,11 +10,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-# --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -51,19 +47,7 @@ outputData = False
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg, L2_TRICE_Quick, outputCDFdata
-from glob import glob
-from os.path import getsize
-
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
-
+# none
 
 def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -81,8 +65,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         rocketAttrs, b, c = TRICE_mission_dicts()
         rocketID = rocketAttrs.rocketID[wflyer]
         outputModelData = outputModelData(wflyer)
-
-
 
 
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
@@ -145,37 +127,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
-
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as L2File:
-                L2File.readonly(False)
-
-                # --- write out global attributes ---
-                inputGlobDic = outputModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key in globalAttrsMod:
-                        L2File.attrs[key] = globalAttrsMod[key]
-                    else:
-                        L2File.attrs[key] = val
-
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict.items():
-                    if 'Epoch' in varKey: # epoch data
-                        L2File.new(varKey, data=varVal[0], type=33)
-                    else: # other data
-                        L2File.new(varKey, data=varVal[0],type=pycdf.const.CDF_REAL8)
-
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            L2File[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            L2File[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            L2File[varKey].attrs[attrKey] = attrVal
+            outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod,wInstr[1])
 
             Done(start_time)
 

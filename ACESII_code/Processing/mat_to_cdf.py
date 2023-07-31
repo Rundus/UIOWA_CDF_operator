@@ -40,7 +40,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1]
+wFiles = [0]
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII

@@ -84,7 +84,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     # determine which instrument the file corresponds to:
     for index,instr in enumerate(['eepaa', 'leesa', 'iepaa', 'lp']):
         if instr in dataFile_name:
-            wInstr = [index,instr]
+            wInstr = [index, instr]
 
     if justPrintFileNames:
             for i, file in enumerate(L1Files):
@@ -123,7 +123,7 @@ def L1_to_L2(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             # TODO: NEED COUNT INTERVAL HERE
             count_interval = data_dict['Count_Interval'][0]
-            count_interval = [917 for i in range(len(data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]][0]))]
+            # count_interval = [917 for i in range(len(data_dict[rocketAttrs.InstrNames_LC[wInstr[0]]][0]))]
 
             geo_factor = rocketAttrs.geometric_factor[wInstr[0]]
 

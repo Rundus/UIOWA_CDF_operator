@@ -10,16 +10,7 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
-import gc
-# --- --- --- --- ---
-
-import time
-
-import cdflib
-
-from ACESII_code.class_var_func import Done, setupPYCDF
-
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -48,6 +39,9 @@ wFiles = [4,5,6]
 
 # Break data into chunkNum pieces to write out
 chunkNum = 10
+
+inputPath_modifier = 'tad' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = 'tmCDF' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 
 
@@ -87,24 +81,11 @@ plugHolesInBSSData_Low = False
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import os
-import numpy as np
-import datetime as dt
-
-from gc import collect
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
-from ACESII_code.data_paths import ACES_data_folder,TRICE_data_folder,Integration_data_folder,fliers
 from struct import unpack
-from tqdm import tqdm
-from os.path import getsize
-from glob import glob
 from cdflib import cdfwrite
-from ACESII_code.class_var_func import newCDFvar,color,tmCDF_TRICE_Quick,prgMsg,Done
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+from ACESII_code.class_var_func import newCDFvar,color,tmCDF_TRICE_Quick
 
 
 
@@ -270,26 +251,26 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
     # ACESII Flight/Integration Data
     if wRocket in [0,1,4,5]:
         rocketAttrs,b,c = ACES_mission_dicts()
-        tmCDF_folder_path = rf'{rocketFolderPath}tmCDF\{fliers[wflyer]}'
+        tmCDF_folder_path = rf'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}'
         rocketID = rocketAttrs.rocketID[wflyer]
         globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
         tmModelData = tmCDF_TRICE_Quick(wflyer)
 
     # TRICE II Flight Data
     elif wRocket in [2,3]:
-        tmCDF_folder_path = rf'{rocketFolderPath}\tmCDF\{fliers[wflyer]}'
+        tmCDF_folder_path = rf'{rocketFolderPath}\{outputPath_modifier}\{fliers[wflyer]}'
         globalAttrsMod = {}
         rocketAttrs,b,c = TRICE_mission_dicts()
         rocketID = rocketAttrs.rocketID[wflyer]
         tmModelData = tmCDF_TRICE_Quick(wflyer)
 
 
-    tadFiles = glob(f'{rocketFolderPath}tad\{fliers[wflyer]}\*.tad')
-    tmCDFFiles = glob(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\*.cdf')
-    tad_names = [ifile.replace(f'{rocketFolderPath}tad\{fliers[wflyer]}\\', '').replace(".tad", '') for ifile in tadFiles]
-    tmCDF_names = [ofile.replace(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\\', '').replace(".cdf",'') for ofile in tmCDFFiles]
+    tadFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.tad')
+    tmCDFFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
+    tad_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '').replace(".tad", '') for ifile in tadFiles]
+    tmCDF_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '').replace(".cdf",'') for ofile in tmCDFFiles]
     wdataFile_path = tadFiles[wFile]
-    wdataFile_name = tadFiles[wFile].replace(f'{rocketFolderPath}tad\{fliers[wflyer]}\\', '')
+    wdataFile_name = tadFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '')
     dataFile_name = wdataFile_name
 
     # --- --- --- --- --- --- --- ------
@@ -326,10 +307,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
             if wRocket in [0, 1]:
                 fileout = f'{dataFile_name.replace(".tad", "")}.cdf'
             else:
-                fname = pycdf.lib.tt2000_to_datetime(ts).isoformat().replace(':','').replace("-",'').replace(".",'')
-                fname1 = fname[:-6]
-                # fileout = f'{rocketAttrs.missionNam}_{rocketID}_rawtm_{fname1}_v00.cdf'
-                fileout = f'{tad_names[wFile]}_rawtm_{fname1}_v00.cdf'
+                fileout = f'{tad_names[wFile]}_rawtm.cdf'
 
             # --- --- --- --- --- ---
             # --- OUTPUT FILES ---
@@ -353,10 +331,10 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
             zsfid = np.array([0])
             zMF = np.array([[0 for i in (range(rocketAttrs.g_nWords))]])
 
-            modParams = {'FILLVAL': -9223372036854775808}
+            modParams = {'FILLVAL': rocketAttrs.epoch_fillVal}
             newCDFvar('Epoch', zEpoch, modParams, tmModelData).writeToFile(outputFile)
 
-            modParams = {'VALIDMIN': 0, 'VALIDMAX': 39,'FILLVAL': -1,'Data_Type': 2}
+            modParams = {'VALIDMIN': 0, 'VALIDMAX': 39, 'FILLVAL': -1, 'Data_Type': 2}
             newCDFvar('sfid', zsfid, modParams, tmModelData).writeToFile(outputFile)
 
             modParams = {'VALIDMIN': 0, 'VALIDMAX': 65535, 'Dim_Sizes': [rocketAttrs.g_nWords], 'FILLVAL': -1}
@@ -398,7 +376,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                     # If you lose gSync fill in the data location with garbage data
                     elif bytes[12:16] != rocketAttrs.gSync:
                         lostgysn.append([i, loopNum])
-                        Epoch[loopNum] = -9223372036854775808
+                        Epoch[loopNum] = rocketAttrs.epoch_fillVal
                         MF[loopNum] = [-1 for j in (range(rocketAttrs.g_nWords))]
                         sfid[loopNum] = -1
 
@@ -409,7 +387,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                         try:
                             Epoch[loopNum] = Gettimestamp(year, unpack("3I", bytes[:12]))
                         except:
-                            Epoch[loopNum] = -9223372036854775808
+                            Epoch[loopNum] = rocketAttrs.epoch_fillVal
 
                         MF[loopNum] = unpackData(bytes, rocketAttrs.nNomDataLen,rocketAttrs.nDataLen)
                         (nMF,) = unpack("<H", bytes[10:12])
@@ -470,7 +448,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                 prgMsg('Resizing Data')
 
                 # --- Initialize the output file ---
-                fileout = f'{tad_names[wFile]}_processedtm_{fname1}_v00.cdf'
+                fileout = f'{tad_names[wFile]}_fixedtm.cdf'
                 outputPath = f'{tmCDF_folder_path}\\{fileout}'
 
                 outputFile = cdfwrite.CDF(outputPath, cdf_spec=tmModelData.info, delete=True)
@@ -491,7 +469,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                 zsfid = np.array([0])
                 zMF = np.array([[0 for i in (range(rocketAttrs.g_nWords))]])
 
-                modParams = {'FILLVAL': -9223372036854775808}
+                modParams = {'FILLVAL': rocketAttrs.epoch_fillVal}
                 newCDFvar('Epoch', zEpoch, modParams, tmModelData).writeToFile(outputFile)
 
                 modParams = {'VALIDMIN': 0, 'VALIDMAX': 39, 'FILLVAL': -1, 'Data_Type': 2}
@@ -570,7 +548,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                         prgMsg('Plugging Holes in Data')
                         # --- PROBLEM #1 sfid 60---
 
-                        path_to_processed_scotts_file = r"D:\Data\ACESII\tmCDF\high\ACESII_36359_flight_11202022_processedtm_20221120T170834_v00.cdf"
+                        path_to_processed_scotts_file = rf"{ACES_data_folder}\{outputPath_modifier}\{wflyer[0]}\ACESII_36359_flight_11202022_fixedtm_20221120T170834.cdf"
 
                         with pycdf.CDF(path_to_processed_scotts_file) as scottsFile:
                             epoch_from_file = scottsFile['Epoch'][...]
@@ -600,7 +578,7 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                         # insert the new value
                         tmCDF_sfid = np.insert(tmCDF_sfid, spindex, [18 + i for i in range(11+1)] )
                         tmCDF_mf = np.insert(tmCDF_mf, [spindex + i for i in range(11+1)], [[-1 for i in range(150)] for j in range(11+1)],axis= 0 )
-                        tmCDF_epoch = np.insert(tmCDF_epoch, spindex, [-9223372036854775808 for i in range(11+1)] )
+                        tmCDF_epoch = np.insert(tmCDF_epoch, spindex, [rocketAttrs.epoch_fillVal for i in range(11+1)] )
 
                         Done(start_time)
 
@@ -625,10 +603,6 @@ def tadToTelem(wRocket,wFile,chunkNum,rocketFolderPath,justPrintFileNames,wflyer
                                 counter = 0
 
                         Done(start_time)
-
-
-
-
 
                     # --- --- --- --- --- --- --- ---
                     # --- OUTPUT PROCESSED FILE ---

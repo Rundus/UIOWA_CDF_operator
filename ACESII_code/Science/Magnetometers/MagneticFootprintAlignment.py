@@ -11,11 +11,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-# --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -48,18 +44,6 @@ outputData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg, L2_TRICE_Quick, outputCDFdata
-from glob import glob
-from os.path import getsize
-
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
 
 
 def magneticFootprintAlignment(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
@@ -110,8 +94,6 @@ def magneticFootprintAlignment(wRocket, wFile, rocketFolderPath, justPrintFileNa
             data_dict_attitude['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_attitude['Epoch'][0][i]) for i in (range(len(data_dict_attitude['Epoch'][0])))])
             attitudeDicts.append(data_dict_attitude)
 
-
-
             # --- get the data from the mag file ---
             data_dict_mag = {}
             with pycdf.CDF(inputFiles_mag[i][wBFile[i]]) as inputDataFile:
@@ -121,7 +103,6 @@ def magneticFootprintAlignment(wRocket, wFile, rocketFolderPath, justPrintFileNa
             data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_mag['Epoch'][0][i]) for i in (range(len(data_dict_mag['Epoch'][0])))])
             magDicts.append(data_dict_mag)
 
-
         Done(start_time)
 
         ######################################
@@ -129,7 +110,6 @@ def magneticFootprintAlignment(wRocket, wFile, rocketFolderPath, justPrintFileNa
         ######################################
 
         # find where low flyer t=0,t=end occurs in high flyer mag data
-
         LF_epoch_start_index = np.abs(magDicts[1]['Epoch'][0] - magDicts[1]['Epoch'][0][0]).argmin()
         LF_epoch_end_index = np.abs(magDicts[1]['Epoch'][0] - magDicts[1]['Epoch'][0][-1]).argmin() + 1
 

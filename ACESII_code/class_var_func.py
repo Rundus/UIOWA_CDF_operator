@@ -87,8 +87,6 @@ class newCDFvar:
         self.var_info = model_data_object.cdfFile.varinq(zVar_str)
         self.var_attrs = model_data_object.cdfFile.varattsget(zVar_str)
 
-
-
         for key, value in modParam.items(): # Overwrite the model dataL1 if I specify a particular attr/var param in the input of the constructor
             if value != None and key in self.attrs_types:
                 self.var_attrs[key] = value
@@ -101,6 +99,13 @@ class newCDFvar:
 # ---------------------
 # ----- FUNCTIONS -----
 # ---------------------
+lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
+def long_to_meter(lat):
+    return lat_to_meter * np.cos(np.radians(lat))
+
+def meter_to_long(lat_km):
+    return np.degrees(np.arccos(lat_km/lat_to_meter))
+
 def prgMsg(message):
     print(f'{message}: ',end='')
 

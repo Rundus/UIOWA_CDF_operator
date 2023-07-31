@@ -35,12 +35,12 @@ justPrintChiFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2]
+wFiles = [0, 1]
 
 inputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_chiSquare = 'calibration\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -48,29 +48,25 @@ outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 modifier = ''
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
-viewPadPairData_numOfPairs = True
-plotPadPairData = True
-outlierThresh = 30 # determine threshold to remove datapoints that are considered outliers
+viewPadPairData_numOfPairs = False
+plotPadPairData = False
+outlierThresh = 30 # (nominally 30) determine threshold to remove datapoints that are considered outliers
+ChiTheshold = [0.42, 2] # bounds that ChiSquare must be to be allowed to adjust the data. Inclusive
 
-# order to ChiSquare fits [uncalpal,prinpal]. Left to right order MATTERS
-ChiOrder =[
-[[10,20],[0,10],[-10,20],[30,20],[40,30],[50,40],[60,50],[70,60],[80,90],[100,90],[180,170],[160,170],[190,160],[150,160],[150,160],[140,150],[130,140],[120,130],[110,120]],
-    [[0,10],[100,110],[160,170],[180,170],[190,160]]
-]
+# order to ChiSquare fits [uncalpal,prinpal]. NOTE: ONLY FOR HIGH FLYER since low flyer was too spin-aligned
+ChiOrder36359_EEPAA = [[10, 20], [0, 10], [-10, 20], [30, 20], [40, 30], [50, 40], [60, 50], [70, 60], [80, 90], [100, 90], [180,170],[160,170],[190,160],[150,160],[150,160],[140,150],[130,140],[120,130],[110,120]]
+ChiOrder36359_LEESA = [[0, 10], [20, 10], [-10, 20], [150, 160], [170, 160], [180, 170], [190, 160]]
 
-# ARCHIVED CAL SCHEME FOR LOW FLYER:
-# [0,-10],[50,60],[40,50],[30,40],[20,30],[10,20],[70,80],[110,120],[100,110],[180,170],[160,170],[190,160],[150,160],[140,150],[130,140]
+# --- Output Data ---
+outputData = True
 
-# --- Output Data TOGGLES ---
-outputData = False
+
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 from ACESII_code.class_var_func import calcChiSquare
 
-def calFunc(x,A):
-    return A*x
 
 def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -102,7 +98,6 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             wInstr = [index, instr]
 
     fileoutName = f'ACESII_{rocketID}_l1_{wInstr[1]}_fullCal.cdf'
-
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
@@ -147,18 +142,16 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
         # This creates a len(Pitch_Angle)xlen(Pitch_Angle) matrix , where each element is a list full of pairs, each of format [uncalPoint,prinPoint]
         # these values are stored in "padPairs"
 
-        # [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
-
         padAngle = data_dict_esa['Pitch_Angle'][0]
 
         calData = list(data_dict_chiSquare['ChiSquare_calData'][0])
 
         padPairs = [[[] for i in range(len(padAngle))] for j in range(len(padAngle))]
 
-        #fill in the padPairs matrix full of [uncal,prin] points. Here I have
-        # enforced that the plotted xaxis be "principal" pad and y-axis be "uncalibratedpad"
+        # fill in the padPairs matrix full of [uncal,prin] points. Here I have enforced that the plotted xaxis be "principal" pad and y-axis be "uncalibratedpad"
 
         # calData is stored in the format: [uncalData, prinData]
+
         for i in range(len(calData)):
 
             if not (int(calData[i][0]) == 0 or int(calData[i][1]) == 0): # Don't Include any points with a 0 count value
@@ -185,7 +178,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
                 axis = [-15 + 30 * i for i in range(len(padAngle) + 1)]
                 ticksteps = [0, 190, 30]
 
-            X,Y = np.meshgrid(axis, axis)
+            X, Y = np.meshgrid(axis, axis)
             Z = viewData
 
             print('\n')
@@ -207,52 +200,50 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             colorbar = plt.colorbar(mappable=cmap,label='# of pairs')
             plt.grid()
             plt.show()
-
         Done(start_time)
-
-
 
         # --- --- --- --- --- --- ---
         # --- FIT USING CHISQUARE ---
         # --- --- --- --- --- --- ---
-        if wRocket == 4:
-
+        if wRocket == 4 and wInstr[1] != 'iepaa':
             prgMsg('Correcting Data using ChiSquare')
 
+            ChiOrder = ChiOrder36359_EEPAA if wInstr[1] == 'eepaa' else ChiOrder36359_LEESA
             esaData_fullCal = np.array(data_dict_esa[wInstr[1]][0])
 
-            iterateThis = iter(ChiOrder[wRocket-4])
+            # --- loop through the pad-pairs ---
             counter = 0
-            for padPair in iterateThis:
+            for padPair in ChiOrder:
                 counter += 1
                 uncalPad = np.abs(padAngle - padPair[0]).argmin()
                 prinPad = np.abs(padAngle - padPair[1]).argmin()
                 dataChiCal = padPairs[uncalPad][prinPad]
-
                 uncalData = np.array([dataChiCal[i][0] for i in range(len(dataChiCal))])
                 prinData = np.array([dataChiCal[i][1] for i in range(len(dataChiCal))])
 
-                # --- remove outlieres from the data ---
+                # remove outliers from the data
                 uncalData_temp = []
                 prinData_temp = []
+
                 for i in range(len(uncalData)):
 
                     if np.abs(uncalData[i] - prinData[i]) < outlierThresh: # remove big outliers
 
-                        if not (uncalData[i] >= 65535 or prinData[i] >= 65535): # remove saturation values
-                            uncalData_temp.append(uncalData[i])
-                            prinData_temp.append(prinData[i])
+                        if not (uncalData[i] >= 65535 or prinData[i] >= 65535):
 
-                uncalData = np.array(uncalData_temp)
-                prinData = np.array(prinData_temp)
+                            if (uncalData[i] > 0 and prinData[i] > 0): # remove saturation values and any negative values
+                                uncalData_temp.append(uncalData[i])
+                                prinData_temp.append(prinData[i])
 
-                if len(uncalData) < 2 or len(prinData) < 2:
-                    next(iterateThis)
-                else:
+                uncalData, prinData = np.array(uncalData_temp), np.array(prinData_temp)
+
+                # if the # of padPairs aren't zero after removing outliers
+                if not (len(uncalData) < 2 or len(prinData) < 2):
+                    def calFunc(x, A):
+                        return A * x
                     params, cov = curve_fit(calFunc, uncalData, prinData)
                     uncalData_fitted = np.array([int(round(calFunc(x, params[0]))) for x in uncalData])
-                    uncalData_errors = uncalData
-                    prinData_errors = prinData
+                    uncalData_errors, prinData_errors = uncalData, prinData
 
                     nu = len(prinData) - len(params)
                     chiSquare = calcChiSquare(prinData, uncalData_fitted, prinData_errors, uncalData_errors, nu)
@@ -260,12 +251,16 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
                     # --- --- --- --- --- --- --- -
                     # --- APPLY FIT TO ESA DATA ---
                     # --- --- --- --- --- --- --- -
+                    if chiSquare >= ChiTheshold[0] and chiSquare <= ChiTheshold[1]:
 
-                    for tme in range(len(esaData_fullCal)):
-                        for engy in range(len(esaData_fullCal[0][0])):
-                            # print('before ',esaData_fullCal[tme][uncalPad][engy],params[0])
-                            esaData_fullCal[tme][uncalPad][engy] = round(esaData_fullCal[tme][uncalPad][engy] * params[0])
-                            # print('after ',esaData_fullCal[tme][uncalPad][engy],params[0])
+                        for tme in range(len(esaData_fullCal)):
+                            for engy in range(len(esaData_fullCal[0][0])):
+
+                                if esaData_fullCal[tme][uncalPad][engy] >= 0:
+                                    esaData_fullCal[tme][uncalPad][engy] = round(esaData_fullCal[tme][uncalPad][engy] * params[0])
+                                else:
+                                    esaData_fullCal[tme][uncalPad][engy] = rocketAttrs.epoch_fillVal
+
 
                     if plotPadPairData:
 
@@ -293,10 +288,10 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
         else:
             esaData_fullCal = np.array(data_dict_esa[wInstr[1]][0])
 
+
         # --- --- --- --- --- --- --- ---
         # --- PREPARE DATA FOR OUTPUT ---
         # --- --- --- --- --- --- --- ---
-
         if outputData:
             prgMsg('Outputting Data')
             data_dict_esa[wInstr[1]][0] = esaData_fullCal
@@ -306,7 +301,6 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             # --- --- --- --- --- --- ---
             # --- WRITE OUT THE DATA ---
             # --- --- --- --- --- --- ---
-            prgMsg('Creating output file')
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
             outputCDFdata(outputPath, data_dict_esa, outputModelData, globalAttrsMod, wInstr[1])

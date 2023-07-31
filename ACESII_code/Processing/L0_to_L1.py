@@ -348,9 +348,9 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                     else: # if epoch is a fillval
                         no_of_fillvals.append([rocketAttrs.LP_Variables[LP_var_counter],j])
-                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([-9223372036854775808 for l in range(8)]) # deltaNdivN
+                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[0]}'][0].append([rocketAttrs.epoch_fillVal for l in range(8)]) # deltaNdivN
                         data_dict[rocketAttrs.LP_Variables[LP_var_counter]][0].append(-1)  # LP_vars
-                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append(-9223372036854775808) # LP_vars
+                        data_dict[f'Epoch_{rocketAttrs.LP_Variables[LP_var_counter]}'][0].append(rocketAttrs.epoch_fillVal) # LP_vars
 
 
                 # Converts  all data to numpy arrays

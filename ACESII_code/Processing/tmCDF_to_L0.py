@@ -1,6 +1,7 @@
 # --- tmCDF_to_L0.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Read in CDF telemetry files and processes them to L0
+# DESCRIPTION: Read in CDF telemetry files and processes them to L0. ALSO, peel out magnetometer data and
+# store it for further processing
 
 
 # --- bookkeeping ---
@@ -9,10 +10,11 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import numpy as np
+
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
-
 
 
 # --- --- --- ---
@@ -29,25 +31,29 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#1,#2,...etc] --> only specific files
-wFiles = [3]
+wFiles = [4]
 
-getMAGdata = False # get the mag data and the ESA data
-justgetMAGdata = False # Only get the MAG data
+inputPath_modifier = 'tmCDF' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = 'L0' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
+getMAGdata = True # get the mag data
+justgetMAGdata = True # Only get the MAG data
+wMag = 0 # 0 --> RingCore, 1--> CHIMERA/Tesseract (depends on flyer)
+modifer_mag = 'L0'
 
-
+# Output the data
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-
 
 def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
@@ -60,7 +66,7 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         rocketAttrs, data_dicts, deConvolveKeys = ACES_mission_dicts()
         rocketID = rocketAttrs.rocketID[wflyer]
         globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
-        globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L0'
+        globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + f'{outputPath_modifier}'
         L0ModelData = L0_TRICE_Quick(wflyer)
 
     # --- TRICE II ---
@@ -71,24 +77,33 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         L0ModelData = L0_TRICE_Quick(wflyer)
 
     # Set the paths for the file names
-    tmCDFFiles = glob(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\*.cdf')
-    L0Files = glob(f'{rocketFolderPath}L0\{fliers[wflyer]}\*.cdf')
-    tmCDF_names = [ifile.replace(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\\', '') for ifile in tmCDFFiles]
-    tmCDF_names_searchable = [cdfname.replace('.cdf','').replace('_','').replace('36359','').replace('36364','') for cdfname in tmCDF_names]
-    L0_names = [ofile.replace(f'{rocketFolderPath}L0\{fliers[wflyer]}\\', '').replace(".cdf", '') for ofile in L0Files]
-    L0_names_searchable = [ fname.replace('ACES_','').replace('l0_','').replace('eepaa_','').replace('leesa_','').replace('iepaa_','').replace('_v00','').replace('_','').replace('eepaa','').replace('leesa','').replace('iepaa','').replace('36359','').replace('36364','') for fname in L0_names]
-    dataFile_name = tmCDFFiles[wFile].replace(f'{rocketFolderPath}tmCDF\{fliers[wflyer]}\\', '')
+    tmCDFFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')
+    L0Files = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
+
+    tmCDF_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '') for ifile in tmCDFFiles]
+    L0_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '').replace(".cdf", '') for ofile in L0Files]
+
+    tmCDF_names_searchable = [cdfname.replace('.cdf', '').replace('_', '').replace('36359', '').replace('36364', '') for cdfname in tmCDF_names]
+    L0_names_searchable = [fname.replace('ACES_','').replace('l0_','').replace('eepaa_','').replace('leesa_','').replace('iepaa_','').replace('_v00','').replace('_','').replace('eepaa','').replace('leesa','').replace('iepaa','').replace('36359','').replace('36364','') for fname in L0_names]
+
+    dataFile_name = tmCDFFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\\', '')
 
     # Output Naming Format: EEPAA, LEESA, IEPAA
     if wRocket in [0, 1]: # Integration Files
         dF_name = dataFile_name.replace('36_359_', '').replace('36_364_', '').replace('.cdf', '')
-        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}_v00.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
-    elif wRocket in [4,5]: #ACESII flight files
+        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
+    elif wRocket in [4, 5]: #ACESII flight files
         dF_name = dataFile_name.replace('36359_', '').replace('36364_', '').replace('ACESII_','').replace('flight_',"").replace('_v00','').replace('.cdf', '')
-        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}_v00.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
+        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
+        if justgetMAGdata:
+            if wRocket==4:
+                wInstr = [wMag, 'RingCore'] if wMag == 0 else [wMag, 'Chimera']
+            elif wRocket == 5:
+                wInstr = [wMag, 'RingCore'] if wMag == 0 else [wMag, 'Tesseract']
+            fileoutName = f'{rocketAttrs.missionNam}_{rocketID}_l0_{wInstr[1]}_magFrm.cdf'
     else: #TRICE
-        dF_name = dataFile_name.replace(rocketID, '').replace(rocketAttrs.missionNam, '').replace('_', '').replace('k0','').replace('.cdf', '')
-        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}_v00.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
+        dF_name = dataFile_name.replace(rocketID,'').replace(rocketAttrs.missionNam, '').replace('_', '').replace('k0','').replace('.cdf', '')
+        fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
 
     # --- --- --- --- --- --- --- ------
     # --- PRODUCE TELEM DATA FILES ---
@@ -99,7 +114,7 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             print('[{:.0f}] {:80s}{:5.1f} MB   Made CDF: {:3s} '.format(i, tmCDF_names[i], round(getsize(file) / (10 ** 6), 1), anws[0]))
     else:
         print('\n')
-        print(color.UNDERLINE + f'Converting to L0 data for {dataFile_name}' + color.END)
+        print(color.UNDERLINE + f'Converting to {outputPath_modifier} data for {dataFile_name}' + color.END)
         print('[' + str(wFile) + ']   ' + str(round(getsize(tmCDFFiles[wFile]) / (10 ** 6), 1)) + 'MiB')
 
         # --- get the data from the tmCDF file ---
@@ -111,22 +126,21 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             atmCDF_mf = tmCDFDataFile['minorframe'][...]
         Done(start_time)
 
-
         tmCDF_epoch = atmCDF_epoch
         tmCDF_sfid = atmCDF_sfid
         tmCDF_mf = atmCDF_mf
-
 
         # --- --- --- --- --- ----
         # --- COLLECTING DATA ---
         # --- --- --- --- --- ----
 
-        # --- pre-allocate memory for ESA data---
-        No_of_esa_measurements = int(len(tmCDF_sfid)/4)
-        for i in (range(rocketAttrs.NumOfInstr - 1)):
-            data_dicts[i]['Epoch'][0] = np.zeros(shape=(No_of_esa_measurements), dtype='int64')
-            data_dicts[i]['sfid'][0] = np.zeros(shape=(No_of_esa_measurements), dtype='uint8')
-            data_dicts[i]['Sector_Counts'][0] = np.zeros(shape=(No_of_esa_measurements, rocketAttrs.num_of_sector_counts[i]), dtype='int32')
+        if not justgetMAGdata:
+            # --- pre-allocate memory for ESA data---
+            No_of_esa_measurements = int(len(tmCDF_sfid)/4)
+            for i in (range(rocketAttrs.NumOfInstr - 1)):
+                data_dicts[i]['Epoch'][0] = np.zeros(shape=(No_of_esa_measurements), dtype='int64')
+                data_dicts[i]['sfid'][0] = np.zeros(shape=(No_of_esa_measurements), dtype='uint8')
+                data_dicts[i]['Sector_Counts'][0] = np.zeros(shape=(No_of_esa_measurements, rocketAttrs.num_of_sector_counts[i]), dtype='int32')
 
         ######################
         # --- GET MAG DATA ---
@@ -135,103 +149,178 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         if getMAGdata:
             prgMsg('Collecting MAG data')
 
-            # Get the data
-            RingCore_data_temp = np.array([tmCDF_mf[iv][120 - 1] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
-            RingCore_sfid_temp = np.array([tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1 )%2 == 1])
-            RingCore_epoch_temp = np.array([tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+            if wMag == 0:
+
+                # Get the data
+                RingCore_data_temp = np.array([tmCDF_mf[iv][120 - 1] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                RingCore_sfid_temp = np.array([tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                RingCore_epoch_temp = np.array([tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                Done(start_time)
+
+                # package all the MAG data into a data_dict
+                ringCore_data = {
+                    'Epoch':[],
+                    'HouseKeeping_ID': [],
+                    'HouseKeeping_Data': [],
+                    'TimeOffset_High': [],
+                    'TimeOffset_Low': [],
+                    'Bx_high': [],
+                    'Bx_low': [],
+                    'By_high': [],
+                    'By_low': [],
+                    'Bz_high': [],
+                    'Bz_low': [],
+                }
+
+                prgMsg('Collecting mag Data')
+
+                for i in tqdm(range(len(RingCore_sfid_temp))):
+
+                    # I'm CHOOSING TO PICK THE EPOCH AT WORD #0 and WORD #11 in a Major Frame
+                    if RingCore_sfid_temp[i] == 0: # Epoch
+                        ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
+                    elif RingCore_sfid_temp[i] == 2: # BxHigh
+                        ringCore_data['Bx_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 4: #BxLow
+                        ringCore_data['Bx_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 6: # ByHigh
+                        ringCore_data['By_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 8: #ByLow
+                        ringCore_data['By_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 10: # BzHigh
+                        ringCore_data['Bz_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 12: # BzLow
+                        ringCore_data['Bz_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 14: # HOUSEKEEPING ID
+                        ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 16: # Housekeeping data
+                        ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 18:
+                        ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 20:
+                        ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
+                        ringCore_data['TimeOffset_Low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 22:  # BxHigh
+                        ringCore_data['Bx_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 24:  # BxLow
+                        ringCore_data['Bx_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 26:  # ByHigh
+                        ringCore_data['By_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 28:  # ByLow
+                        ringCore_data['By_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 30:  # BzHigh
+                        ringCore_data['Bz_high'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 32:  # BzLow
+                        ringCore_data['Bz_low'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 34:  # HOUSEKEEPING ID
+                        ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 36:  # Housekeeping data
+                        ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
+                    elif RingCore_sfid_temp[i] == 38:
+                        ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
+                        ringCore_data['TimeOffset_Low'].append(rocketAttrs.epoch_fillVal)
+
+                # --- --- --- --- --- --- --- --
+                # --- calculate 24-Bit Words ---
+                # --- --- --- --- --- --- --- --
+
+                # create a container to hold all the processed data
+                data_dict_mag = {
+                    'Bx': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'By': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'Bz': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'Epoch': [ringCore_data['Epoch'], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}],
+                    'HouseKeeping_ID': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
+                    'HouseKeeping_Data': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
+                    'TimeOffset': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}]
+                }
+
+                labels = ['Bx', 'By', 'Bz']
+
+                for i in range(len(data_dict_mag['Epoch'][0])):
+
+                    # get the housekeeping data
+                    hkID = '{0:016b}'.format(ringCore_data['HouseKeeping_ID'][i])
+                    hkData = '{0:016b}'.format(ringCore_data['HouseKeeping_Data'][i])
+                    data_dict_mag['HouseKeeping_ID'][0].append(int(hkID[9:16], 2))
+                    data_dict_mag['HouseKeeping_Data'][0].append(int(hkData, 2))
+
+                    # TimeOffset - 18-bit unsigned word 2+16. The 18-bit word converts by 61.035ns/count
+                    # to gets you time in nanoseconds SINCE LAST MAJORFRAME
+                    word_high_offset = ringCore_data['TimeOffset_High'][i]
+                    word_low_offset = ringCore_data['TimeOffset_Low'][i]
+
+                    if word_low_offset == rocketAttrs.epoch_fillVal:
+                        data_dict_mag['TimeOffset'][0].append(rocketAttrs.epoch_fillVal)
+                    else:
+                        data_dict_mag['TimeOffset'][0].append(int('{0:016b}'.format(word_high_offset)[15:16] + '{0:016b}'.format(word_low_offset), 2) * 61.035 ) # converts to ns since majorframe
+
+                    # GET THE MANGETIC FIELD - It's a 24-bit SIGNED word, so we must apply 2's complement to the whole word if it goes negative
+                    for j in range(3):
+                        # If the 24th bit is 1 --> positive value, else negative. Convert to decimal number
+                        # Take the high value, only use first 7 bits, then concatenate it with the all of the low value bits
+                        word_high = ringCore_data[labels[j] + '_high'][i]
+                        word_low = ringCore_data[labels[j] + '_low'][i]
+                        sign = '{0:016b}'.format(word_high)[-8]
+
+                        if sign == '1': # 1 is negative (opposite to what antonio said)
+                            word_high_twosComp = '{0:016b}'.format(word_high)
+                            word_high_twosComp = word_high_twosComp.replace('1', '2').replace('0', '1').replace('2', '0') # the 2's complement equivalent
+                            word_low_twosComp = '{0:016b}'.format(word_low)
+                            word_low_twosComp = word_low_twosComp.replace('1', '2').replace('0', '1').replace('2', '0')
+                            fullword = word_high_twosComp[-7:] + word_low_twosComp
+                            fullword = -1 * int(fullword, 2)
+
+                        elif sign == '0': # 0 is postivie (opposite to what antonio said)
+                            fullword = '{0:016b}'.format(word_high)[-7:] + '{0:016b}'.format(word_low)
+                            fullword = int(fullword, 2)
+
+                        data_dict_mag[labels[j]][0].append(fullword)
+
+                ###################################
+                # --- REMOVE OVERSAMPLING ISSUE ---
+                ###################################
+
+                # use repeated hk index to determine bad data i.e. the hk index must go from 0-127 without repeats.
+                # there ARE repeats due to the oversampling of the telemetry
+                bad_indicies = []
+
+                # find all repeated indicies
+                for i in range(len(data_dict_mag['HouseKeeping_ID'][0])-1):
+                    if data_dict_mag['HouseKeeping_ID'][0][i+1] == data_dict_mag['HouseKeeping_ID'][0][i]:
+                        bad_indicies.append(i+1)
+
+                # convert everything to numpy arrays and remove repeated indicies
+                for key, val in data_dict_mag.items():
+
+                    if len(data_dict_mag[key][0]) > 400:
+                        data_dict_mag[key][0] = np.array(data_dict_mag[key][0])
+
+                        data_dict_mag[key][0] = np.delete(data_dict_mag[key][0],bad_indicies)
+
+
+            elif wMag == 1:
+
+                if wRocket == 5: # Low Flyer has Ring Core and Tesseract
+                    # Get the data
+                    Tesseract_data = np.array([tmCDF_mf[iv][16 - 1] for iv in (range(len(tmCDF_sfid)))])
+                    Tesseract_sfid = np.array(tmCDF_sfid)
+                    Tesseract_epoch = np.array(tmCDF_epoch)
+
+                    # Process the data
+                    data_dict_mag = {}
+                    data_dict_mag = {**data_dict_mag, **{'Tesseract_data':[Tesseract_data, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                    data_dict_mag = {**data_dict_mag, **{'Tesseract_sfid': [Tesseract_sfid, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                    data_dict_mag = {**data_dict_mag, **{'Tesseract_epoch': [Tesseract_epoch, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]}}
 
             Done(start_time)
 
-            # --- Separate the data into words ---
-            prgMsg('Processing MAG data')
-            RingCore_data = { 'Bx': [], 'RingCore_Epoch_Bx': [],
-                              'By': [], 'RingCore_Epoch_By': [],
-                              'Bz': [], 'RingCore_Epoch_Bz': [],
-                              'HouseKeeping_ID':[],
-                              'HouseKeeping_Data':[],
-                              'HouseKeeping_Data_Epoch':[],
-                              'TimeOffset':[]}
+        if outputData:
+            prgMsg('Writing out MAG data')
 
-            for i in tqdm(range(len(RingCore_sfid_temp))):
-                if RingCore_sfid_temp[i]%20 == 0: # BxHigh
-                    RingCore_data['Bx'].append([RingCore_data_temp[i]])
-                elif RingCore_sfid_temp[i]%20 == 2: #BxLow AND EPOCH
-                    RingCore_data['Bx'][-1].append(RingCore_data_temp[i])
-                    RingCore_data['RingCore_Epoch_Bx'].append(RingCore_epoch_temp[i])
-                elif RingCore_sfid_temp[i]%20 == 4: # ByHigh
-                    RingCore_data['By'].append([RingCore_data_temp[i]])
-                elif RingCore_sfid_temp[i]%20 == 6: #ByLow AND EPOCH
-                    RingCore_data['By'][-1].append(RingCore_data_temp[i])
-                    RingCore_data['RingCore_Epoch_By'].append(RingCore_epoch_temp[i])
-                elif RingCore_sfid_temp[i]%20 == 8: # BzHigh
-                    RingCore_data['Bz'].append([RingCore_data_temp[i]])
-                elif RingCore_sfid_temp[i]%20 == 10: # BzLow AND EPOCH
-                    RingCore_data['Bz'][-1].append(RingCore_data_temp[i])
-                    RingCore_data['RingCore_Epoch_Bz'].append(RingCore_epoch_temp[i])
-                elif RingCore_sfid_temp[i]%20 == 12: # HOUSEKEEPING ID
-                    RingCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
-                elif RingCore_sfid_temp[i]%20 == 14: # Housekeeping data
-                    RingCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
-                    RingCore_data['HouseKeeping_Data_Epoch'].append(RingCore_epoch_temp[i])
-                elif RingCore_sfid_temp[i]%20 == 16:
-                    RingCore_data['TimeOffset'].append([RingCore_data_temp[i]])
-                elif RingCore_sfid_temp[i]%20 == 18:
-                    RingCore_data['TimeOffset'][-1].append(RingCore_data_temp[i])
+            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            print(RingCore_data['HouseKeeping_ID'][0:100])
-
-            # --- --- --- --- --- --- --- --
-            # --- calculate 24-Bit Words ---
-            # --- --- --- --- --- --- --- --
-
-            magData = {'Bx':[], 'By':[], 'Bz':[],'TimeOffset':[]}
-            labels = ['Bx', 'By', 'Bz']
-
-            for i in range(len(RingCore_data['Bx']) - 1):
-                # Store all three axis data
-                for j in range(3):
-                    # If the 24th bit is 1 --> positive value, else negative. Convert to decimal number
-                    # Take the high value, only use first 7 bits, then concatinate it with the all of the low value bits
-                    data_now = RingCore_data[labels[j]][i]
-                    data_next = RingCore_data[labels[j]][i+1]
-                    sign = '{0:016b}'.format(data_next[0])[-8]
-                    fullword = '{0:016b}'.format(data_now[1])[-7:] + '{0:016b}'.format(data_next[0])
-
-                    if sign == '0':
-                        fullword = -1*int(fullword, 2)
-                    elif sign == '1':
-                        fullword = int(fullword, 2)
-                    magData[labels[j]].append(fullword)
-
-            # package all the MAG data into a data_dict
-            data_dict_mag = {
-                'RingCore_Bx': [np.array(magData['Bx']), {'DEPEND_0': 'RingCore_Epoch_Bx', 'DEPEND_1': None, 'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}],
-                'RingCore_By': [np.array(magData['By']), {'DEPEND_0': 'RingCore_Epoch_By', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                'RingCore_Bz': [np.array(magData['Bz']), {'DEPEND_0': 'RingCore_Epoch_Bz', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                'RingCore_Epoch_Bx': [np.array(RingCore_data['RingCore_Epoch_Bx'][:-1]), {'DEPEND_0': 'RingCore_Epoch_Bx', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}],
-                'RingCore_Epoch_By': [np.array(RingCore_data['RingCore_Epoch_By'][:-1]), {'DEPEND_0': 'RingCore_Epoch_By', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'} ],
-                'RingCore_Epoch_Bz': [np.array(RingCore_data['RingCore_Epoch_Bz'][:-1]), {'DEPEND_0': 'RingCore_Epoch_Bz', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'} ],
-                'HouseKeeping_ID': [np.array(RingCore_data['HouseKeeping_ID']), {'DEPEND_0': "HouseKeeping_Data_Epoch", 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
-                'HouseKeeping_Data': [np.array(RingCore_data['HouseKeeping_Data']), {'DEPEND_0': 'HouseKeeping_Data_Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
-                'HouseKeeping_Data_Epoch': [np.array(RingCore_data['HouseKeeping_Data_Epoch']), {'DEPEND_0': 'HouseKeeping_Data_Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'} ]
-            }
-            # 'TimeOffset': [np.array(magData['TimeOffset']), {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -1, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]
-
-            print(data_dict_mag['HouseKeeping_Data'][120000:120020])
-            print(data_dict_mag['HouseKeeping_ID'][120000:120020])
-
-
-            if wRocket == 5: # Low Flyer has Ring Core and Tesseract
-                # Get the data
-                Tesseract_data = np.array([tmCDF_mf[iv][16 - 1] for iv in (range(len(tmCDF_sfid)))])
-                Tesseract_sfid = np.array(tmCDF_sfid)
-                Tesseract_epoch = np.array(tmCDF_epoch)
-
-                # Process the data
-
-                data_dict_mag = {**data_dict_mag, **{'Tesseract_data':[Tesseract_data, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
-                data_dict_mag = {**data_dict_mag, **{'Tesseract_sfid': [Tesseract_sfid, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
-                data_dict_mag = {**data_dict_mag, **{'Tesseract_epoch': [Tesseract_epoch, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]}}
+            outputCDFdata(outputPath, data_dict_mag, L0ModelData, globalAttrsMod, wInstr[1])
 
             Done(start_time)
 
@@ -366,102 +455,62 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
 
             Done(start_time)
+            if outputData:
+                # --- --- --- --- --- --- ---
+                # --- WRITE OUT THE DATA ---
+                # --- --- --- --- --- --- ---
+                writeOut_path = [f'{rocketFolderPath}L0\{fliers[wflyer]}\\{fileoutName[i]}' for i in range(rocketAttrs.NumOfInstr)]
 
-            # --- --- --- --- --- --- ---
-            # --- WRITE OUT THE DATA ---
-            # --- --- --- --- --- --- ---
-            writeOut_path = [f'{rocketFolderPath}L0\{fliers[wflyer]}\\{fileoutName[i]}' for i in range(rocketAttrs.NumOfInstr)]
+                # --- loop through instruments ---
+                for v in range(rocketAttrs.NumOfInstr):
+                    prgMsg(f'Writing out {rocketAttrs.InstrNames[v]} data')
+                    outputPath = writeOut_path[v]
 
-            # --- loop through instruments ---
-            for v in range(rocketAttrs.NumOfInstr):
-                prgMsg(f'Writing out {rocketAttrs.InstrNames[v]} data')
-                outputPath = writeOut_path[v]
+                    # --- delete output file if it already exists ---
+                    if os.path.exists(outputPath):
+                        os.remove(outputPath)
 
-                # --- delete output file if it already exists ---
-                if os.path.exists(outputPath):
-                    os.remove(outputPath)
+                    # --- open the output file ---
+                    with pycdf.CDF(outputPath,'') as L0File:
+                        L0File.readonly(False)
 
-                # --- open the output file ---
-                with pycdf.CDF(outputPath,'') as L0File:
-                    L0File.readonly(False)
+                        # --- write out global attributes ---
+                        inputGlobDic = L0ModelData.cdfFile.globalattsget()
+                        for key, val in inputGlobDic.items():
+                            if key == 'Descriptor':
+                                globalAttrsMod[key] = rocketAttrs.InstrNames_Full[v]
 
-                    # --- write out global attributes ---
-                    inputGlobDic = L0ModelData.cdfFile.globalattsget()
-                    for key, val in inputGlobDic.items():
-                        if key == 'Descriptor':
-                            globalAttrsMod[key] = rocketAttrs.InstrNames_Full[v]
+                            if key in globalAttrsMod:
+                                L0File.attrs[key] = globalAttrsMod[key]
+                            else:
+                                L0File.attrs[key] = val
 
-                        if key in globalAttrsMod:
-                            L0File.attrs[key] = globalAttrsMod[key]
-                        else:
-                            L0File.attrs[key] = val
+                        # --- WRITE OUT DATA ---
+                        for varKey, varVal in data_dicts[v].items():
+                            if varKey == 'Epoch' or varKey == 'Epoch_monitors':
+                                L0File.new(varKey, data=varVal[0], type = 33)
+                            elif varKey == 'Sector_Counts':
+                                L0File.new(varKey, data=varVal[0], type=pycdf.const.CDF_UINT2)
+                            else:
+                                L0File.new(varKey, data=varVal[0])
 
-                    # --- WRITE OUT DATA ---
-                    for varKey, varVal in data_dicts[v].items():
-                        if varKey == 'Epoch' or varKey == 'Epoch_monitors':
-                            L0File.new(varKey, data=varVal[0], type = 33)
-                        elif varKey == 'Sector_Counts':
-                            L0File.new(varKey, data=varVal[0], type=pycdf.const.CDF_UINT2)
-                        else:
-                            L0File.new(varKey, data=varVal[0])
+                            # --- Write out the attributes and variable info ---
+                            for attrKey, attrVal in data_dicts[v][varKey][1].items():
+                                if attrKey == 'VALIDMIN':
+                                    L0File[varKey].attrs[attrKey] = varVal[0].min()
+                                elif attrKey == 'VALIDMAX':
+                                    L0File[varKey].attrs[attrKey] = varVal[0].max()
+                                elif attrVal != None:
+                                    L0File[varKey].attrs[attrKey] = attrVal
 
-                        # --- Write out the attributes and variable info ---
-                        for attrKey, attrVal in data_dicts[v][varKey][1].items():
-                            if attrKey == 'VALIDMIN':
-                                L0File[varKey].attrs[attrKey] = varVal[0].min()
-                            elif attrKey == 'VALIDMAX':
-                                L0File[varKey].attrs[attrKey] = varVal[0].max()
-                            elif attrVal != None:
-                                L0File[varKey].attrs[attrKey] = attrVal
-
-                Done(start_time)
-
-
-
-        if getMAGdata:
-            prgMsg('Writing out MAG data')
-
-            if wRocket == 4:
-                fileoutName = fileoutName[0].replace('eepaa_','mag_').replace('iepaa_','mag_').replace('leesa_','mag_')
-            elif wRocket == 5:
-                fileoutName = fileoutName[0].replace('eepaa_', 'mag&tesseract_').replace('iepaa_', 'mag&tesseract_').replace('leesa_','mag&tesseract_')
-
-            outputPath = f'{rocketFolderPath}mag\{fliers[wflyer]}\\{fileoutName}'
+                    Done(start_time)
 
 
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
 
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as magFile:
-                magFile.readonly(False)
 
-                # --- write out global attributes ---
-                inputGlobDic = L0ModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key in globalAttrsMod:
-                        magFile.attrs[key] = globalAttrsMod[key]
-                    else:
-                        magFile.attrs[key] = val
 
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict_mag.items():
-                    if 'epoch' in varKey.lower():  # epoch data
-                        magFile.new(varKey, data=varVal[0], type=33)
-                    else:  # other data
-                        magFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_REAL8)
 
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict_mag[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            magFile[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            magFile[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            magFile[varKey].attrs[attrKey] = attrVal
 
-            Done(start_time)
 
 
 
