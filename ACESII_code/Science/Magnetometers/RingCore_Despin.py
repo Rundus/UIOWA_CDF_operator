@@ -8,7 +8,6 @@
 # for the position of the magnetometer itself to adjust for coning
 
 
-
 # --- bookkeeping ---
 # !/usr/bin/env python
 __author__ = "Connor Feltman"
@@ -38,11 +37,13 @@ justPrintFileNames = False
 # 5 -> ACES II Low Flier
 wRocket = 4
 
-
 modifier = ''
-inputPath_modifier = 'mag'
+inputPath_modifier = 'l1'
 inputPath_modifier_attitude = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+
+# --- Specific Corrections Toggle ---
+useRingCorePosition = False
 
 outputData = True
 
@@ -59,7 +60,7 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
     ModelData = L0_TRICE_Quick(wflyer)
 
-    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*_Spun*')
+    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
     inputFiles_attitude = glob(f'{rocketFolderPath}{inputPath_modifier_attitude}\{fliers[wflyer]}{modifier}\*.cdf')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
@@ -68,7 +69,7 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
     input_names_searchable_attitude = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier_attitude.lower() + '_', '').replace('_v00', '') for ifile in input_names_attitude]
 
-    fileoutName = f'ACESII_{rocketID}_RingCore_DeSpun_c.cdf'
+    fileoutName = f'ACESII_{rocketID}_RingCore_IGRF_model.cdf'
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
@@ -76,7 +77,7 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     else:
         print('\n')
         print(color.UNDERLINE + f'Converting to {outputPath_modifier} data for {fileoutName}' + color.END)
-        print('[0]   ' + str(round(getsize(inputFiles[0]) / (10 ** 6), 1)) + 'MiB')
+        print('[0] ' + str(round(getsize(inputFiles[0]) / (10 ** 6), 1)) + 'MiB')
 
         ###########################
         # --- Get the Variables ---
@@ -92,13 +93,11 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         data_dict_attitude = loadDictFromFile(inputFiles_attitude[0], {})
         Done(start_time)
 
-
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ########################################
         #### DEP-SPIN THE MAGNETOMETER DATA ####
         ########################################
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
         # --- [1] Match Attitude and Magnetometer Epoch ---
         prgMsg('Collecting Variables')
@@ -110,27 +109,29 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         Epoch_mag = data_dict_mag['Epoch'][0]
         B = np.array([np.array([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]]) for i in range(len(Epoch_mag))])
 
-        # create new altitude that accounts for the position of the magnetometer
-        r = 0/1000 # corresponds to the length (in km) that the magnetometer was away from the central gyroscope/thing that measured altitude
+        if useRingCorePosition:
+            # create new altitude that accounts for the position of the magnetometer
+            r = 0/1000 # corresponds to the length (in km) that the magnetometer was away from the central gyroscope/thing that measured altitude
 
-        X_Az = data_dict_attitude['X_Az'][0]
-        X_El = data_dict_attitude['X_El'][0]
+            X_Az = data_dict_attitude['X_Az'][0]
+            X_El = data_dict_attitude['X_El'][0]
 
-        from ACESII_code.class_var_func import lat_to_meter,meter_to_long
+            from ACESII_code.class_var_func import lat_to_meter,meter_to_long
 
-        adjustedAlt = np.array([
-            (r*np.cos(np.radians(90 - X_El[i]))) + alt[i] for i in range(len(Epoch_attitude))
-        ])
-        adjustedLat = np.array([
-            lat[i] + (1/lat_to_meter)*r*np.sin(np.radians(90 - X_El[i]))*np.cos(np.radians(90 - X_Az[i])) for i in range(len(Epoch_attitude))
-        ])
+            Alt = np.array([(r*np.cos(np.radians(90 - X_El[i]))) + alt[i] for i in range(len(Epoch_attitude))])
+            Lat = np.array([lat[i] + (1/lat_to_meter)*r*np.sin(np.radians(90 - X_El[i]))*np.cos(np.radians(90 - X_Az[i])) for i in range(len(Epoch_attitude))])
 
-        adjustedLong = np.array([
-            long[i] + meter_to_long(r * np.sin(np.radians(90 - X_El[i])) * np.sin(np.radians(90 - X_Az[i]))) for i in range(len(Epoch_attitude))
-        ])
+            Long = np.array([long[i] + meter_to_long(r * np.sin(np.radians(90 - X_El[i])) * np.sin(np.radians(90 - X_Az[i]))) for i in range(len(Epoch_attitude))])
+        else:
+            Alt = np.array(data_dict_attitude['Alt'][0])/1000
+            Lat = data_dict_attitude['Latgd'][0]
+            Long = data_dict_attitude['Long'][0]
 
+        ###########################
+        # --- Use DCM to despin ---
+        ###########################
 
-        # -- Output order forpyIGRF.igrf_value ---
+        # -- Output order for pyIGRF.igrf_value ---
         # [0] Declination (+ E | - W)
         # [1] Inclination (+ D | - U)
         # [2] Horizontal Intensity
@@ -140,7 +141,7 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         # [6] Total Field
 
         date = 2022 + 323 / 365  # Corresponds to 11/20/2022
-        IGRF = np.array([pyIGRF.igrf_value(adjustedLat[i], adjustedLong[i], adjustedAlt[i], date) for i in range(len(Epoch_attitude))])
+        IGRF = np.array([pyIGRF.igrf_value(Lat[i], Long[i], Alt[i], date) for i in range(len(Epoch_attitude))])
         IGRF_B = np.array([[IGRF[i][4], IGRF[i][3], -1*IGRF[i][5]] for i in range(len(Epoch_attitude))])
 
         DCMMatrix = np.array([
@@ -154,7 +155,7 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
         DCMMatrix_inverse = np.array([np.linalg.inv(DCMMatrix[i]) for i in range(len(DCMMatrix))])
 
-        # --- Apply inverse to get IGRF in rocket frme ---
+        # --- Apply inverse to get IGRF in rocket frame ---
         IGRF_B_rocket = np.array([np.matmul(DCMMatrix_inverse[i], IGRF_B[i]) for i in range(len(Epoch_attitude))])
         Done(start_time)
 
@@ -162,18 +163,16 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         # Down-sample the mag epoch to the ACS, do a linear chi-fit between the ACS and mag
         # then apply the fit to the ACS data.
 
-        #make sure both datasets are tt2000
+        # make sure both datasets are tt2000
         Epoch_mag = np.array([pycdf.lib.datetime_to_tt2000(val) for val in Epoch_mag])
         Epoch_attitude = np.array([pycdf.lib.datetime_to_tt2000(val) for val in Epoch_attitude])
 
         prgMsg('Downsampling Mag')
         magIndicies = [np.abs(Epoch_mag - Epoch_attitude[i]).argmin() for i in range(len(Epoch_attitude))]
-        Epoch_mag_ds = np.array([ pycdf.lib.tt2000_to_datetime(Epoch_mag[index]) for index in magIndicies])
+        Epoch_mag_ds = np.array([pycdf.lib.tt2000_to_datetime(Epoch_mag[index]) for index in magIndicies])
         Epoch_attitude = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in Epoch_attitude])
         B_ds = np.array([B[index] for index in magIndicies])
         Done(start_time)
-
-
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -228,8 +227,6 @@ def RingCore_Despin(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                                              'TIME_SCALE':'Terrestrial Time',
                                                                              'REFERENCE_POSITION':'Rotating Earth Geoid', 'SCALETYP':'linear'}]}}
 
-            fileoutName = f'ACESII_{rocketID}_RingCore_IGRF_model.cdf'
-
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
             outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, "RingCore")
@@ -252,8 +249,8 @@ elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*Spun*')) == 0:
-    print(color.RED + 'There are no RingCore_Spun.cdf files in the specified directory' + color.END)
+if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*RingCore_rktFrm*')) == 0:
+    print(color.RED + 'There are no RingCore_rktFrm.cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
         RingCore_Despin(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)

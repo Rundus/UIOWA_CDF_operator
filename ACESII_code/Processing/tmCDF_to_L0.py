@@ -31,12 +31,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#1,#2,...etc] --> only specific files
-wFiles = [4]
+wFiles = [5]
 
 inputPath_modifier = 'tmCDF' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L0' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
@@ -100,7 +100,10 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                 wInstr = [wMag, 'RingCore'] if wMag == 0 else [wMag, 'Chimera']
             elif wRocket == 5:
                 wInstr = [wMag, 'RingCore'] if wMag == 0 else [wMag, 'Tesseract']
-            fileoutName = f'{rocketAttrs.missionNam}_{rocketID}_l0_{wInstr[1]}_magFrm.cdf'
+            if 'mag_cal' in dF_name:
+                fileoutName = f'{rocketAttrs.missionNam}_{rocketID}_l0_{wInstr[1]}_magCal_20221013_magFrm.cdf'
+            else:
+                fileoutName = f'{rocketAttrs.missionNam}_{rocketID}_l0_{wInstr[1]}_magFrm.cdf'
     else: #TRICE
         dF_name = dataFile_name.replace(rocketID,'').replace(rocketAttrs.missionNam, '').replace('_', '').replace('k0','').replace('.cdf', '')
         fileoutName = [f'{rocketAttrs.missionNam}_{rocketID}_l0_{rocketAttrs.InstrNames_LC[i]}_{dF_name}.cdf' for i in (range(len(rocketAttrs.InstrNames_LC)))]
@@ -226,9 +229,9 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
                 # create a container to hold all the processed data
                 data_dict_mag = {
-                    'Bx': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                    'By': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                    'Bz': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'Bx': [[], {'LABLAXIS':'Bx', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'By': [[], {'LABLAXIS':'By', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                    'Bz': [[], {'LABLAXIS':'Bz', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
                     'Epoch': [ringCore_data['Epoch'], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}],
                     'HouseKeeping_ID': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
                     'HouseKeeping_Data': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],

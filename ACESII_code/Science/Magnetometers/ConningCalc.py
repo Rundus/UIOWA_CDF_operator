@@ -161,7 +161,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                          [data_dict_mag['Epoch'][0], {'LABLAXIS': 'Epoch_B',
                                                             'DEPEND_0': 'Epoch_B', 'DEPEND_1': None,
                                                             'DEPEND_2': None,
-                                                            'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                             'UNITS': 'ns',
                                                             'VALIDMIN': data_dict_mag['Epoch'][0].min(),
                                                             'VALIDMAX': data_dict_mag['Epoch'][0].max(),
@@ -171,27 +171,10 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                                          [spinAxis_B_alignment, {'LABLAXIS': 'spinAxis_B_alignment',
                                                          'DEPEND_0': 'Epoch_B', 'DEPEND_1': None,
                                                          'DEPEND_2': None,
-                                                         'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                         'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                          'UNITS': 'deg',
                                                          'VALIDMIN': spinAxis_B_alignment.min(), 'VALIDMAX': spinAxis_B_alignment.max(),
                                                          'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
-
-        ################################
-        # --- Calculate Coning Angle ---
-        ################################
-
-        # # calculate coning angle for all time
-        # conningAngle = np.array([ data_dict['F_El'][0][i] + data_dict['AoA_T'][0][i] for i in range(len(data_dict['Epoch'][0]))])
-        #
-        # # add variable to data dict
-        # data_dict = {**data_dict, **{'Cone Angle':
-        #                                  [conningAngle, {'LABLAXIS': 'Cone Angle',
-        #                                               'DEPEND_0': 'Epoch', 'DEPEND_1': None,
-        #                                               'DEPEND_2': None,
-        #                                               'FILLVAL': -1e30, 'FORMAT': 'E12.2',
-        #                                               'UNITS': 'deg',
-        #                                               'VALIDMIN': conningAngle.min(), 'VALIDMAX': conningAngle.max(),
-        #                                               'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---

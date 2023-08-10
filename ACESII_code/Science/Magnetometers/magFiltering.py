@@ -1,6 +1,7 @@
-# --- template.py ---
+# --- magFiltering.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION:
+# DESCRIPTION: I use Autoplot to create nice spectrograms of the magnetometer data
+# I use this file to clean up/filter the mag data
 
 
 
@@ -9,6 +10,10 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import math
+
+import numpy as np
 
 from ACESII_code.myImports import *
 start_time = time.time()
@@ -21,7 +26,7 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files
-justPrintFileNames = True
+justPrintFileNames = False
 
 # --- Select the Rocket ---
 # 0 -> Integration High Flier
@@ -35,7 +40,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2]
+wFiles = [2] # try to use _Spun.cdf data
 
 modifier = ''
 inputPath_modifier = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -47,28 +52,28 @@ useENUcoordinates = False
 ##################
 # FILTER TOGGLES #
 ##################
-filtOrder = 1 # order of filter
-cutoff_Freq = 1 # cut off frequency where gain has reached -3dB
-dataSampleFreq = 128 # sample rate of the data
+filtOrder = 8 # order of filter
+low_cutoff_Freq = 2 # cut off frequency where gain has reached -3dB
+high_cutoff_Freq = 20
+dataSampleFreq = 128 # sample per second of the data
+plotFilteredData = False
 
-# Plot the filtered data
-plotFilteredData = True
+#######################
+# SPECTROGRAM TOGGLES #
+#######################
 plotFreqSpectrogram = True
 
 # output the data
-outputData = False
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from scipy.signal import butter, filtfilt, spectrogram
-def butter_highpass(cutoff, fs, order):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='high', analog=False)
-    return b, a
-def butter_highpass_filter(data, cutoff, fs, order):
-    b, a = butter_highpass(cutoff, fs, order=order)
+from scipy.signal import butter, filtfilt, spectrogram, lfilter
+def butterworth(lowcutoff, highcutoff, fs, order):
+    return butter(N = order, Wn= [lowcutoff, highcutoff], fs=fs, btype='band')
+def butter_filter(data, lowcutoff, highcutoff, fs, order):
+    b, a = butterworth(lowcutoff, highcutoff, fs, order)
     y = filtfilt(b, a, data)
     return y
 
@@ -94,7 +99,7 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         if instr.lower() in dataFile_name.lower():
             wInstr = [index, instr, instr]
 
-    fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_filtered.cdf'
+    fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_Bandpass.cdf'
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
@@ -106,13 +111,13 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
         # --- get the data from the tmCDF file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = loadDictFromFile(inputFiles[wFile],{})
+        data_dict = loadDictFromFile(inputFiles[wFile], {})
         data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in (range(len(data_dict['Epoch'][0])))])
         Done(start_time)
 
-        ##################################
-        # --- FITLER AND PLOT MAG DATA ---
-        ##################################
+        #########################
+        # --- FITLER THE DATA ---
+        #########################
 
         # format: [Bx,By,Bz]
         if useENUcoordinates:
@@ -120,23 +125,61 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         else:
             magAxes = ['Bx', 'By', 'Bz']
 
+        # remove fillvals
+        badIndicies = []
+        for i in range(len(data_dict['Epoch'][0])):
+            if data_dict['Epoch'][0][i] <= 0:
+                badIndicies.append(i)
+            elif np.isnan(data_dict[magAxes[0]][0][i]):
+                badIndicies.append(i)
+            elif np.isnan(data_dict[magAxes[1]][0][i]):
+                badIndicies.append(i)
+            elif np.isnan(data_dict[magAxes[2]][0][i]):
+                badIndicies.append(i)
+
+        data_dict['Epoch'][0] = np.delete(data_dict['Epoch'][0], badIndicies)
+        data_dict[magAxes[0]][0] = np.delete(data_dict[magAxes[0]][0], badIndicies)
+        data_dict[magAxes[1]][0] = np.delete(data_dict[magAxes[1]][0], badIndicies)
+        data_dict[magAxes[2]][0] = np.delete(data_dict[magAxes[2]][0], badIndicies)
         rawData = np.array([data_dict[axes][0] for axes in magAxes])
-        conditionedData = np.array([butter_highpass_filter(data_dict[axes][0], cutoff_Freq, dataSampleFreq, filtOrder) for axes in magAxes])
 
-        time = data_dict['Epoch'][0]
 
-        if plotFreqSpectrogram:
-            wAxes = 0
-            fig, ax = plt.subplots()
-            f, t, Sxx = spectrogram(rawData[wAxes], dataSampleFreq, return_onesided=True)
-            cmap = ax.pcolormesh(t, f, Sxx, cmap='turbo', vmin=1E-3, vmax=1E3, norm='log')
-            ax.set_ylabel('Frequency [Hz]')
-            ax.set_xlabel('Time')
-            ax.set_title(f'{magAxes[wAxes]}_filtered Spectrogram\nCutoff Freq: {cutoff_Freq} Hz \nOrder: {filtOrder}')
-            cbar = fig.colorbar(cmap)
-            cbar.set_label('Spectral Density')
+        FilteredData = np.array([
+            butter_filter(data=data_dict[axes][0],
+                          lowcutoff=low_cutoff_Freq,
+                          highcutoff=high_cutoff_Freq,
+                          fs=dataSampleFreq,
+                          order=filtOrder)
+            for axes in magAxes])
+
+        time = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict['Epoch'][0]])
+
+
+        if plotFilteredData:
+            targetTimeLower = pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 24, 55, 00))
+            indexLower = np.abs(data_dict['Epoch'][0] - targetTimeLower).argmin()
+            targetTimeUpper = pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 25, 9, 00))
+            indexUpper = np.abs(data_dict['Epoch'][0] - targetTimeUpper).argmin()
+
+            Epoch = data_dict['Epoch'][0][indexLower:indexUpper]
+            Epoch_reduced = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in Epoch])
+            B1 = data_dict[magAxes[0]][0][indexLower:indexUpper]
+            B2 = data_dict[magAxes[1]][0][indexLower:indexUpper]
+            B3 = data_dict[magAxes[2]][0][indexLower:indexUpper]
+            B = [B1, B2, B3]
+            B_filtered = [thing[indexLower:indexUpper] for thing in FilteredData]
+
+            wComp = 1
+            fig, ax = plt.subplots(2)
+            fig.suptitle(f'HighCutOff: {high_cutoff_Freq} Hz\n'
+                         f'LowCutOFf: {low_cutoff_Freq} Hz\n'
+                         f'Order: {filtOrder}')
+            ax[0].plot(Epoch_reduced, B[wComp])
+            ax[0].set_ylabel(f'{magAxes[wComp]}_raw')
+            ax[1].plot(Epoch_reduced, B_filtered[wComp])
+            ax[1].set_ylabel(f'{magAxes[wComp]}_filtered')
+            ax[1].set_xlabel('Time')
             plt.show()
-
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -144,8 +187,19 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
         if outputData:
             # Add filtered data to data dict
+            bandpass_limits = np.array([low_cutoff_Freq, high_cutoff_Freq])
+            data_dict = {**data_dict, **{f'Bandpass_Limits':
+                                             [bandpass_limits, {'LABLAXIS': f'Bandpass_Limits',
+                                                                    'DEPEND_0':'Bandpass_Limits',
+                                                                    'DEPEND_1': None,
+                                                                    'DEPEND_2': None,
+                                                                    'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
+                                                                    'UNITS': 'nT',
+                                                                    'VALIDMIN': bandpass_limits.min(),
+                                                                    'VALIDMAX': bandpass_limits.max(),
+                                                                    'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
 
-            for i,data in enumerate(conditionedData):
+            for i, data in enumerate(FilteredData):
                 data_dict = {**data_dict, **{f'{magAxes[i]}_filtered':
                                                  [data, {'LABLAXIS': f'{magAxes[i]}_filtered',
                                                                         'DEPEND_0': 'Epoch',

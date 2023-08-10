@@ -100,8 +100,8 @@ class newCDFvar:
 # ----- FUNCTIONS -----
 # ---------------------
 lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
-def long_to_meter(lat):
-    return lat_to_meter * np.cos(np.radians(lat))
+def long_to_meter(long,lat):
+    return long*(lat_to_meter * np.cos(np.radians(lat)))
 
 def meter_to_long(lat_km):
     return np.degrees(np.arccos(lat_km/lat_to_meter))
@@ -164,13 +164,17 @@ def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 # --- The Basic rotation matricies
 def Rx(angle):
     angleRad = np.radians(angle)
-    return np.array([[1,0,0],[0,np.cos(angleRad),-np.sin(angleRad)],[0,np.sin(angleRad),np.cos(angleRad)]])
+    return np.array([[1,0,0],
+                     [0,np.cos(angleRad),-np.sin(angleRad)],
+                     [0,np.sin(angleRad),np.cos(angleRad)]])
 def Ry(angle):
     angleRad = np.radians(angle)
     return np.array([[np.cos(angleRad),0,np.sin(angleRad)],[0,1,0],[-np.sin(angleRad),0,np.cos(angleRad)]])
 def Rz(angle):
     angleRad = np.radians(angle)
-    return np.array([[np.cos(angleRad),-np.sin(angleRad),0],[np.sin(angleRad),np.cos(angleRad),0],[0,0,1]])
+    return np.array([[np.cos(angleRad),-np.sin(angleRad),0],
+                     [np.sin(angleRad),np.cos(angleRad),0],
+                     [0,0,1]])
 
 def Rotation3D(yaw,pitch,roll):
     yawR = np.radians(yaw)

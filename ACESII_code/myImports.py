@@ -16,7 +16,7 @@ import datetime as dt
 ######################
 # --- FROM IMPORTS ---
 ######################
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.class_var_func import Done, setupPYCDF,IonMasses,q0,m_e,meter_to_long,cm_to_m,kB,ep0
 from tqdm import tqdm
 from glob import glob
 from os.path import getsize

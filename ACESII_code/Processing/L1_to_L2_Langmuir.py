@@ -1,8 +1,13 @@
 #--- L1_to_L2_Langmuir.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Convert the engineering Langmuir data to scientifically useful units.
-# Also renames "Boom_Monitor_1/2" --> "Fixed_Boom_Monitor_1/2" etc
-# it was discovered that ni_swept for the low AND high Flyer start with an extra value that should not be there. This is fixed in L0_to_L1.py
+# DESCRIPTION: Convert the engineering Langmuir data to scientifically useful units. Also renames
+# "Boom_Monitor_1/2" --> "Fixed_Boom_Monitor_1/2" etc
+
+# it was discovered that ni_swept for the low AND high Flyer start with an extra value that should not be there.
+# This is fixed in L0_to_L1.py
+
+# It was discovered that the gain for the Swept LPs is probably too high. This means the instrument enters saturation
+# very quickly. So both the real data and calibration data saturate too quickly
 
 
 # --- bookkeeping ---
@@ -13,10 +18,13 @@ __version__ = "1.0.0"
 
 import itertools
 import math
+
+import matplotlib.scale
+import numpy as np
+
 # --- --- --- --- ---
 
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -40,19 +48,11 @@ wRocket = 4
 ###############################
 # --- FIXED VOLTAGE TOGGLES ---
 ###############################
-unit_conversion = 10**(9) # 1 for Amps 10**9 for nano amps, etc
+unit_conversion = 1e9 # 1 for Amps 10**9 for nano amps, etc
 
-# Ideal parameters for ACES High and Low [no_of_splits=2,splice_value = 2]
-fixedProbeCal = True
-no_of_splits = 2 # 0, 1 or 2
-split_value = 3 # If no_of_splits == 1: calibrated curve data is split in TWO, starting at the <--- split_value, If no_of_splits == 2: calibrated curve data is split in THREE, starting at the <--- splice value, then +1 to +2
-splice_value = 2
-rounding = 20 # displays the error parameters up to this many decimal points
-plotFixedCalCurve = True
-
-# determining n_i from Ion saturation
-Ti_assumed = 0.1 # assuming an ion temperature of 0.1eV
-
+SECTION_fixedProbeCal = True
+applyFixedCalCurve = True
+plotFixedCalCurve = False
 
 ##################################
 # --- SWEPT TO VOLTAGE TOGGLES ---
@@ -60,29 +60,30 @@ Ti_assumed = 0.1 # assuming an ion temperature of 0.1eV
 # Does a little analysis on the "step" variable to determine the average values of the steps.
 # Needed to calculate from "Step" variable to voltage
 # MUST BE ==TRUE WHEN SWEPT PROBE ==TRUE
-stepToVoltage = True
+SECTION_stepToVoltage = True
 
 # the capacitive effect between the probe and plasma cause an RC decay on the data.
-# This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
-downSample_RCeffect = False
-keepThisManyPoints = 1
+downSample_RCeffect = True # This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
+keepThisManyPoints = 1 # how many points to keep when you downsample RC effect
 
 #########################
 # --- SWEPT PROBE CAL ---
 #########################
-sweptProbeData = True # use the swept Probe data to convert analog values to current
-sweptProbeCal = True # uses Iowa Calibration Data. Andoya data is shi-...not good.
-applySweptCalCurve = False # False - data is in analog values, True - data is in current
-from ACESII_code.data_paths import ACES_data_folder
+SECTION_sweptProbe = True # use the swept Probe calibration data to convert analog values to current
+removeADCValsOutofCalRange = True
+applySweptCalCurve = True # False - data is in analog values, True - data is in current.
 inputCalFile_Iowa = f'{ACES_data_folder}\calibration\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
 useNanoAmps = True
 
 # --- break into curves toggles ---
-breakIntoCurves = True
-targetVoltage_min = -4 # only care about voltage sweeps above this voltage value. Nominally -1
+breakIntoCurves = False
+targetVoltage_min = -1 # only care about voltage sweeps above this voltage value. Nominally -1
 digitalVariance = 5 # how much the digitized step point can vary when looking for the top and bottom of curves. nominally = 5
 indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff needed between epoch points to identify particular sweeps
 
+
+# TODO: adjust code so the breakIntoCurves = True case works with my new calibration procedure
+# TODO: Add code toggle so we can only use swept ADC values in the valid range
 #####################
 # --- DATA OUTPUT ---
 #####################
@@ -91,28 +92,11 @@ outputData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import matplotlib.pyplot as plt
+
 import scipy
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, L2_ACES_Quick,L2_TRICE_Quick, prgMsg, kB,IonMasses,q0,cm_to_m, outputCDFdata
-from glob import glob
-from os.path import getsize
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
 from collections import Counter
-
-def calFunction_fixed(x, A, B, C):
-    y = -A * ((x) ** (B)) - C
-    return y
-
-def linear(x, A, B):
-    y = A * x + B
-    return y
 
 def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -129,16 +113,11 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     L1Files = glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*_lp_*')
     LangmuirFiles = glob(f'{outputFolderPath}\{fliers[wflyer]}\*_langmuir_*')
     LangmuirSweptCalFiles = glob(f'{rocketFolderPath}\calibration\LP_calibration\{fliers[wflyer]}\*_345deg_*')
-
     L1_names = [ifile.replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '') for ifile in L1Files]
-
     L1_names_searchable = [ifile.replace('ACESII_', '').replace('36359_', '').replace('36364_', '').replace('l1_', '').replace('_v00', '') for ifile in L1_names]
-
     dataFile_name = L1_names_searchable[0].replace(f'{rocketFolderPath}L1\{fliers[wflyer]}\\', '').replace('lp_','').replace('ni_','').replace('ne_swept_','').replace('step_','').replace('ni_swept_','').replace('deltaNdivN_','')
-
     fileoutName = rf'ACESII_{rocketAttrs.rocketID[wRocket-4]}_l2_langmuir' + '.cdf'
-
-    wInstr = [0,'LangmuirProbe']
+    wInstr = [0, 'LangmuirProbe']
 
     if justPrintFileNames:
             for i, file in enumerate(L1Files):
@@ -167,170 +146,72 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     for key, val in LangmuirSweptCalFiles.items():
                         if key not in data_dict_cal:
                             data_dict_cal = {**data_dict_cal, **{key: [LangmuirSweptCalFiles[key][...], {key: val for key, val in LangmuirSweptCalFiles[key].attrs.items()}]}}
-
         Done(start_time)
 
         #####################
         # --- Fixed Probe ---
         #####################
         # description: Loads in the fixed calibrated data (provided by scott, found in missionAttributes.py).
-        # Depending on the toggles set above, it fits curves to "no_of_Splits" + 1 separate curves
-        # using scipy.optimize.curve_fit.
 
-        if fixedProbeCal:
+        if SECTION_fixedProbeCal:
             prgMsg('Converting fixed probe to Voltage')
+            def calFunction_fixed(x, A, B):
+                y = A*x + B
+                return y
+
             fixedCalResistances = rocketAttrs.LPFixed_calResistances[wRocket - 4]
             probeBias = rocketAttrs.LPFixedProbeBias[wRocket - 4]
             calibrationCurrents = []
-            digital_vals = []
+            analog_vals = []
 
             # convert calibration data to current (in nanoamps)
+            # NOTE: WE don't care about the "open case"
             for key, val in fixedCalResistances.items():
-                digital_vals.append(val)
-                if key == 'Open':
-                    calibrationCurrents.append(probeBias/(10*unit_conversion)) #10 gigaOhms
-                else:
-                    calibrationCurrents.append((unit_conversion)*probeBias/key)
+                if key != 'Open':
+                    analog_vals.append(val)
+                    calibrationCurrents.append(unit_conversion * probeBias / key)
 
-            digital_vals = np.array(digital_vals)
-            calibrationCurrents = np.array(calibrationCurrents)
+            analog_vals, calibrationCurrents = np.array(analog_vals), np.array(calibrationCurrents)
 
-            if no_of_splits == 2:
-                no_of_loops = 3
-                digital_vals = [np.array(digital_vals[0:splice_value+1]),
-                                np.array(digital_vals[splice_value:splice_value+3]),
-                                np.array(digital_vals[splice_value+2:])]
-                calibrationCurrents = [np.array(calibrationCurrents[0:splice_value+1]),
-                                       np.array(calibrationCurrents[splice_value:splice_value+3]),
-                                       np.array(calibrationCurrents[splice_value+2:])]
-                testData = [np.linspace(0, max(digital_vals[0]), 1000),
-                            np.linspace(max(digital_vals[0]), max(digital_vals[1]), 1000),
-                            np.linspace(max(digital_vals[1]), 4095 , 1000)]
-                fit_params = []
-            elif no_of_splits == 1:
-                no_of_loops = 2
-                digital_vals = [np.array(digital_vals[0:split_value]),np.array(digital_vals[split_value:])]
-                calibrationCurrents = [np.array(calibrationCurrents[0:split_value]),np.array(calibrationCurrents[split_value:])]
-                testData = [np.linspace(0, max(digital_vals[0]), 1000),np.linspace(max(digital_vals[0]), 4095 , 1000)]
-                fit_params = []
-            elif no_of_splits == 0:
-                no_of_loops = 1
-                digital_vals = [np.array(digital_vals)]
-                calibrationCurrents = [np.array(calibrationCurrents)]
-                testData = [np.linspace(0, 4095, 4096)]
-                fit_params = []
+            # apply a log scale to the data in order to prepare it for fitting
+            calibrationCurrents = np.array([np.log(-1*cur) for cur in calibrationCurrents])
 
-            # Plot all the different calibration lines and display their information
-            for k in range(no_of_loops):
-                parameters, covariance = scipy.optimize.curve_fit(calFunction_fixed, digital_vals[k],calibrationCurrents[k],maxfev=100000)
-                fit_params.append(parameters)
+            # Fit a linear line to the log'd data
+            parameters, covariance = scipy.optimize.curve_fit(calFunction_fixed, analog_vals, calibrationCurrents, maxfev=10000)
 
-                if plotFixedCalCurve:
-                    linData = [calFunction_fixed(testData[k][i],parameters[0],parameters[1],parameters[2]) for i in range(len(testData[k]))]
-                    plt.scatter(digital_vals[k], -1*calibrationCurrents[k])
-                    plt.yscale('log')
-                    plt.plot(testData[k],linData)
-
-                # Quantify Fit errors
-                fixedCalErrors = {
-                    'digital_value       ':[digital_vals[k][i] for i in range(len(digital_vals[k]))],
-                    'calCurrent          ':[calibrationCurrents[k][i] for i in range(len(digital_vals[k]))],
-                    'calFunc             ':[round(calFunction_fixed(digital_vals[k][i],parameters[0],parameters[1],parameters[2]),rounding) for i in range(len(digital_vals[k]))],
-                    'Difference          ':[round(calibrationCurrents[k][i] - calFunction_fixed(digital_vals[k][i],parameters[0],parameters[1],parameters[2]),rounding) for i in range(len(digital_vals[k]))],
-                    'calCurrent % diff.  ':[str(round(100*(calibrationCurrents[k][i] - calFunction_fixed(digital_vals[k][i],parameters[0],parameters[1],parameters[2]))/calibrationCurrents[k][i],rounding))+'%' for i in range(len(digital_vals[k]))]
-                }
-
-                if plotFixedCalCurve:
-                    print(f'--- CALIBRATION ERRORS FOR FIXED, LOOP NO. {k + 1}:---')
-
-                    for key, val in fixedCalErrors.items():
-                        print(key, val)
-
-                    print('FIT PARAMETERS for A*(x**(B)) - C', parameters, '\n')
-
-            # put the labels on the plot after plotting several lines
             if plotFixedCalCurve:
-                plt.xlabel('ADC Analog Value')
-                plt.ylabel(f'Current [nA]')
+                xDataFit = np.array([i for i in range(1, 4096)])
+                yDataFit = [calFunction_fixed(val, *parameters) for val in xDataFit]
+                plt.plot(xDataFit, yDataFit, color='red')
+                plt.scatter(analog_vals, calibrationCurrents)
+                plt.xlabel('ADC Value')
+                plt.ylabel(r'Ln($I_{cal}$) [nA]')
                 plt.suptitle('FIXED LP\n'
-                             'Calculated Current vs Recorded Analog Value')
+                             'Calculated Calibration Current vs Analog Value')
+                plt.legend(['ln(y) = mx + b\n'
+                           f'm: {parameters[0]}\n'
+                           f'b: {parameters[1]}'])
                 plt.show()
 
             # Apply the calibration function curve
-            ni = np.zeros(shape = (len(data_dict['ni'][0])))
-            sign_of_data = -1 # better to keep the current as positive. People can understand what to do as long as it's labelled ni
-            if no_of_loops == 1:
-                for j in range(len(data_dict['ni'][0])):
-                    ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[0][0],fit_params[0][1],fit_params[0][2])
-            elif no_of_loops == 2:
-                for j in range(len(data_dict['ni'][0])):
-                    if data_dict['ni'][0][j] <= max(digital_vals[0]):
-                        ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[0][0],fit_params[0][1],fit_params[0][2])
-                    elif data_dict['ni'][0][j] > max(digital_vals[0]):
-                        ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[1][0],fit_params[1][1],fit_params[1][2])
-            elif no_of_loops == 3:
-                for j in range(len(data_dict['ni'][0])):
-                    if data_dict['ni'][0][j] <= max(digital_vals[0]):
-                        ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[0][0],fit_params[0][1],fit_params[0][2])
-                    elif data_dict['ni'][0][j] > max(digital_vals[0]) and data_dict['ni'][0][j] <= max(digital_vals[1]):
-                        ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j],fit_params[1][0],fit_params[1][1],fit_params[1][2])
-                    elif data_dict['ni'][0][j] > max(digital_vals[1]):
-                        ni[j] = sign_of_data*calFunction_fixed(data_dict['ni'][0][j], fit_params[2][0], fit_params[2][1], fit_params[2][2])
-
-            for i,data in enumerate(ni):
-                if np.abs(data)>=5000:
-                    ni[i] = rocketAttrs.epoch_fillVal
+            if applyFixedCalCurve:
+                ni = np.array([ np.exp(calFunction_fixed(data_dict['ni'][0][i], *parameters)) for i in range(len(data_dict['ni'][0]))])
+                fixedLPunits = 'nA'
+            else:
+                ni = np.array(data_dict['ni'][0])
+                fixedLPunits = 'ADC'
 
             data_dict = {**data_dict, **{'fixed_current': [ni, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
                                                             'DEPEND_1': None,
                                                             'DEPEND_2': None,
-                                                            'FILLVAL': -1e30,
+                                                            'FILLVAL': rocketAttrs.epoch_fillVal,
                                                             'FORMAT': 'E12.2',
-                                                            'UNITS': 'nA',
+                                                            'UNITS': fixedLPunits,
                                                             'VALIDMIN': ni.min(),
                                                             'VALIDMAX': ni.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
             data_dict['fixed_Epoch'] = data_dict.pop('Epoch_ni') # rename to fixed
-
-            ##################################################################
-            # --- Calculate the plasma density from Ion Saturation Current ---
-            ##################################################################
-
-            # using the fixed LP data (now calibrated), determine n_i from the basic ion saturation current equation
-            vth_i = np.sqrt((8*Ti_assumed * q0  )/(IonMasses[0]*np.pi))
-            ni_density = np.array([  (4*(current)) / ((cm_to_m**3) * unit_conversion*q0 * vth_i * rocketAttrs.LP_probe_areas[0][0]) for current in ni])
-
-            # quality assurance check
-            for i,val in enumerate(ni_density):
-                if np.abs(val) > 1E20:
-                    ni_density[i] = rocketAttrs.epoch_fillVal
-
-            data_dict = {**data_dict, **{'fixed_ni_density': [ni_density, {'LABLAXIS': 'plasma density',
-                                                                'DEPEND_0': 'fixed_Epoch',
-                                                                'DEPEND_1': None,
-                                                                'DEPEND_2': None,
-                                                                'FILLVAL': rocketAttrs.epoch_fillVal,
-                                                                'FORMAT': 'E12.2',
-                                                                'UNITS': 'cm!U-3!',
-                                                                'VALIDMIN': ni_density.min(),
-                                                                'VALIDMAX': ni_density.max(),
-                                                                'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
-
-
-            ni_density_filtered = scipy.signal.savgol_filter(ni_density, window_length=10000, polyorder=2, mode='nearest')
-            data_dict = {**data_dict, **{'fixed_ni_density_smoothed': [ni_density_filtered, {'LABLAXIS': 'plasma density_smoothed',
-                                                                           'DEPEND_0': 'fixed_Epoch',
-                                                                           'DEPEND_1': None,
-                                                                           'DEPEND_2': None,
-                                                                           'FILLVAL': rocketAttrs.epoch_fillVal,
-                                                                           'FORMAT': 'E12.2',
-                                                                           'UNITS': ''
-                                                                                    '',
-                                                                           'VALIDMIN': ni_density.min(),
-                                                                           'VALIDMAX': ni_density.max(),
-                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
-
             Done(start_time)
 
         #########################
@@ -340,7 +221,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
         # determining a nominal voltage to assign each of these values will indicate what voltage was applied
         # to the swept langmuir probes.
 
-        if stepToVoltage:
+        if SECTION_stepToVoltage:
 
             prgMsg('Calculating swept step voltage')
 
@@ -349,7 +230,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             sampleStart = np.abs(np.array(Epoch_step - pycdf.lib.datetime_to_tt2000(rocketAttrs.Epoch_range_to_determine_stepDAC[wRocket-4][0]))).argmin()
             sampleEnd = np.abs(np.array(Epoch_step - pycdf.lib.datetime_to_tt2000(rocketAttrs.Epoch_range_to_determine_stepDAC[wRocket-4][1]))).argmin()
 
-            adjustments = [[2,2],[10,11]]
+            adjustments = [[2, 2], [10, 11]]
 
             # determine the values of step for each step
             sampleData = data_dict['step'][0][sampleStart+adjustments[wRocket-4][0]:sampleEnd+adjustments[wRocket-4][1]]
@@ -423,55 +304,30 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             Done(start_time)
 
-        ###########################################
-        # --- Swept Probe Calibration at Iowa ---
-        ###########################################
-
-        # description: Produces the function that will be used to calibrate the Swept Langmuir Probe
-
-        if sweptProbeCal:
-
-            prgMsg('Collecting Swept Calibration Fit Data')
-
-            # get the fit parameters from "csv_to_cdf_LPcal.py"
-            data_dict_iowaCal = {}
-            with pycdf.CDF(inputCalFile_Iowa) as LangmuirSweptCalFile:
-                for key, val in LangmuirSweptCalFile.items():
-                    if key not in data_dict_iowaCal:
-                        data_dict_iowaCal = {**data_dict_iowaCal, **{key: [LangmuirSweptCalFile[key][...], {key: val for key, val in LangmuirSweptCalFile[key].attrs.items()}]}}
-
-            def linear(x, A, B):
-                y = A*x + B
-                return y
-
-            def expo(x, A, B, C, D):
-                y = A * np.exp((x - B) / C) + D
-                return y
-
-            # get the fit function range
-            fitRegions = data_dict_iowaCal['fitRegions'][0]
-            fit_params = data_dict_iowaCal['fit_params'][0]
-
-            # def sweptCal_Analog_to_Current(analogVal):
-            #     if (analogVal >= fitRegions[0]) and (analogVal <= fitRegions[1]): # middle
-            #         return linear(analogVal,fit_params[1][0],fit_params[1][1])
-            #     elif (analogVal > fitRegions[1]): # upper
-            #         return expo(analogVal,fit_params[2][0],fit_params[2][1],fit_params[2][2],fit_params[2][3])
-            #     elif (analogVal < fitRegions[0]): # lower
-            #         return expo(analogVal,fit_params[0][0],fit_params[0][1],fit_params[0][2],fit_params[0][3])
-
-            def sweptCal_Analog_to_Current(analogVal):
-                return linear(analogVal,fit_params[1][0],fit_params[1][1])
-
-
-            Done(start_time)
-
         #####################
         # --- Swept Probe ---
         #####################
 
-        if sweptProbeData:
+        if SECTION_sweptProbe:
+
+            if applySweptCalCurve:
+                prgMsg('Collecting Swept Calibration Fit Data')
+                def sweptCal_Analog_to_Current(analogVal, fitParams):
+                    return np.exp(fitParams[0]*analogVal + fitParams[1])
+
+                # get the fit parameters from "csv_to_cdf_LPcal.py"
+                data_dict_iowaCal = loadDictFromFile(inputCalFile_Iowa, {})
+
+                # get the calibration data
+                fit_params = data_dict_iowaCal['fit_params'][0] # format: [[#1], [#2]]
+                Done(start_time)
+
             prgMsg('Calculating swept LP current')
+            if removeADCValsOutofCalRange:
+                fitRegions = data_dict_iowaCal['fitRegions'][0]  # format: [[#1], [#2]]
+
+
+
 
             # Calculate the swept current
             n_i_swept = np.array(data_dict['ni_swept'][0])
@@ -482,6 +338,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             for i in range(len(n_i_swept)):
                 sweptCurrent_temp[i] = (n_e_swept[i] - n_i_swept[i])
+
 
             if breakIntoCurves:
                 Epoch_sweptCurrent = []
@@ -564,29 +421,31 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     for thing in sweptCurrent_New[i]:
                         sweptCurrent.append(thing)
                     for thing in Epoch_sweptCurrent_New[i]:
-                        Epoch_sweptCurrent.append(thing)
+                        Epoch_sweptCurrent.append( pycdf.lib.tt2000_to_datetime(thing))
                     for thing in sweptStep_New[i]:
                         step_sweptVoltage.append(thing)
 
                 sweptCurrent = np.array(sweptCurrent)
-                Epoch_sweptCurrent = np.array(Epoch_sweptCurrent)
+                Epoch_sweptCurrent = np.array(Epoch_sweptCurrent_temp)
                 step_sweptVoltage = np.array(step_sweptVoltage)
 
                 ###########################################################
                 # --- APPLY THE CALIBRATION CURVES FROM SWEPT_PROBE_CAL ---
                 ###########################################################
                 if applySweptCalCurve:
-                    sweptCurrent = np.array([sweptCal_Analog_to_Current(analogVal) for analogVal in sweptCurrent])
-
+                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) for analogVal in n_e_swept])
+                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) for analogVal in n_i_swept])
+                    sweptCurrent = np.array(ne_current - ni_current)
             else:
-                sweptCurrent = np.array(sweptCurrent_temp)
                 Epoch_sweptCurrent = np.array(Epoch_sweptCurrent_temp)
                 step_sweptVoltage = np.array(sweptStep_temp)
 
                 if applySweptCalCurve:
-                    sweptCurrent = np.array([sweptCal_Analog_to_Current(analogVal) for analogVal in sweptCurrent])
+                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) for analogVal in n_e_swept])
+                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) for analogVal in n_i_swept])
+                    sweptCurrent = np.array(ne_current - ni_current)
                 else:
-                    sweptCurrent = sweptCurrent_temp
+                    sweptCurrent = np.array(sweptCurrent_temp)
 
             units = 'nA' if applySweptCalCurve else 'Analog'
             if applySweptCalCurve:
@@ -599,6 +458,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             else:
                 units = 'Analog'
 
+
             data_dict = {**data_dict, **{'swept_Current': [sweptCurrent, {'LABLAXIS': 'swept_Current',
                                                             'DEPEND_0': 'Epoch_swept_Current',
                                                             'DEPEND_1': None,
@@ -608,6 +468,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                             'VALIDMIN': sweptCurrent.min(),
                                                             'VALIDMAX': sweptCurrent.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+
             data_dict = {**data_dict, **{'Epoch_swept_Current': [Epoch_sweptCurrent, {'LABLAXIS':'Epoch_swept_Current',
                                                                     'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None,
                                                                     'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'ns',

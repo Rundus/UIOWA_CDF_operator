@@ -5,7 +5,7 @@
 # Truncates all data to only that past 17:20:00. Look at tmCDF_to_L0 to see when Mag data Epoch
 # is sampled (should be sfid == 1 & 21)
 
-# Because we forgot to take into account that the coil system at Iowa and at Wallops
+# Added Correction: We forgot to take into account that the coil system at Iowa and at Wallops
 # are left-handed to minimize gradients.  We simply flipped the magnetometer axis Y-Axis the
 # wrong way rather than flip the reference data axis. So we add a minus sign to the mag Y-axis in
 # our code.
@@ -38,7 +38,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
@@ -49,12 +49,21 @@ modifier = ''
 inputPath_modifier = 'L0' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
+# Calibration Toggles
+applyScales = True
+applyFifthOrderCal = True
+applyRotateToRocket = True
+applyFlipBy = True
+applyVectorCals = True
+
+
+
 outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-# none
+from numpy.polynomial import Polynomial
 
 def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -117,71 +126,65 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict_mag[key][0] = data_dict_mag[key][0][truncIndex:]
         Done(start_time)
 
+        B = np.array([[data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]] for i in range(len(data_dict_mag['Epoch'][0]))])
+
         # #################################
         # --- CONVERT TO SCIENCE UNITS ---
         # #################################
-        prgMsg('Converting to Science Units')
+        prgMsg('Converting and Calibrating Data')
 
-        B_engineering_units = np.array([[data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]] for i in range(len(data_dict_mag['Epoch'][0]))])
-        def ringCoreADCtoScience(B):
+        if applyScales:
+            scales = np.array(rocketAttrs.ringCoreScaleFactors[wflyer])  # Linear correction coefficents
+            B = np.array([[data_dict_mag['Bx'][0][i]*scales[0], data_dict_mag['By'][0][i]*scales[1], data_dict_mag['Bz'][0][i]*scales[2]] for i in range(len(data_dict_mag['Epoch'][0]))])
 
-            # Linear correction coefficents
-            linearCorrection = rocketAttrs.ringCoreLinearCorrections[wflyer]
-            B = [linearCorrection[0] * B[0], linearCorrection[1] * B[1], linearCorrection[2] * B[2]]
+            # --- assign data ---
+            data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B[:, 0]), np.array(B[:, 1]), np.array(B[:, 2])
 
-            # non-linear correction 5th, order coeffients. The terms descend in exponent order i.e. fithOrderCorrection[0] --> x^5 term, etc
-            fithOrderCorrection = rocketAttrs.ringCore5thOrderCorrections[wflyer]
 
-            for i in range(len(B)):
-                B[i] = B[i] * fithOrderCorrection[i][4] + (B[i] ** 2) * fithOrderCorrection[i][3] + (B[i] ** 3) * \
-                       fithOrderCorrection[i][2] + (B[i] ** 4) * fithOrderCorrection[i][1] + (B[i] ** 5) * \
-                       fithOrderCorrection[i][0]
-            return B
+        if applyFifthOrderCal:
+            fithOrderCorrection = np.array(rocketAttrs.ringCore5thOrderCorrections[wflyer]) # non-linear correction 5th, order coeffients. The terms descend in exponent order i.e. fithOrderCorrection[0] --> x^5 term, etc
 
-        # convert the data and assign it back to the data dict
-        B_science_units = np.array([ringCoreADCtoScience(B) for B in B_engineering_units])
-        data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = B_science_units[:, 0], B_science_units[:, 1], B_science_units[:, 2]
-        Done(start_time)
+            polys = [np.polynomial.Polynomial(fithOrderCorrection[0][::-1]),
+                     np.polynomial.Polynomial(fithOrderCorrection[1][::-1]),
+                     np.polynomial.Polynomial(fithOrderCorrection[2][::-1])]
+            B = np.array([[polys[0](data_dict_mag['Bx'][0][i]), polys[1](data_dict_mag['By'][0][i]), polys[2](data_dict_mag['Bz'][0][i])] for i in range(len(data_dict_mag['Epoch'][0]))])
 
-        # ############################
-        # --- CORRECT FLIPPED AXIS ---
-        # ############################
-        # The magnetometer Y-axis was flipped during calibration. Here we add back in the minus sign
-        data_dict_mag['By'][0] = -1*data_dict_mag['By'][0]
+            # --- assign data ---
+            data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B[:, 0]), np.array(B[:, 1]), np.array(B[:, 2])
 
-        # ###############################
-        # --- ROTATE INTO ROCKETFRAME ---
-        # ###############################
-        # The magnetometer frame can be converted to rocket-body frame by a 90deg rotation about Z-axis
-        from ACESII_code.class_var_func import Rz
-        B_rktFrm = np.array([np.matmul(Rz(90), np.array([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]])) for i in range(len(data_dict_mag['Epoch'][0]))])
-        data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B_rktFrm[:, 0]), np.array(B_rktFrm[:, 1]), np.array(B_rktFrm[:, 2])
+        if applyRotateToRocket:
+            # The magnetometer frame can be converted to rocket-body frame by a 90deg rotation about Z-axis
+            from ACESII_code.class_var_func import Rz
+            B = []
 
-        # ##########################
-        # --- APPLY CALIBRATIONS ---
-        # ##########################
-        # description: Apply the calibration matrix which is a vector cal with the model: orthogonality, offset, and Euler rotation.
-        # It is a coupled matrix containing all cals found via robust weighted regression.
-        # Columns 1:3 are multiplied by the spun data then column 4 is added (basically a line equation in 3-D)
-        prgMsg('Applying Calibrations')
-        calMatrix = rocketAttrs.ringCoreCalMatrix[wRocket-4]
-        orthoEuler = np.array([calMatrix[i][0:3] for i in range(len(calMatrix))])
-        offset = np.array([calMatrix[i][3] for i in range(len(calMatrix))])
-        B_cald = np.array([np.matmul(orthoEuler, np.array([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]])) + offset for i in range(len(data_dict_mag['Epoch'][0]))])
-        data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B_cald[:, 0]), np.array(B_cald[:, 1]), np.array(B_cald[:, 2])
-        Done(start_time)
+            for i in range(len(data_dict_mag['Epoch'][0])):
+                B_temp = np.array([data_dict_mag['Bx'][0][i],data_dict_mag['By'][0][i],data_dict_mag['Bz'][0][i]])
+                B_rot = np.matmul(Rz(-90), B_temp)
+                B.append(B_rot)
 
-        ###############################
-        # --- FIX SENSITIVITY ISSUE ---
-        ###############################
+            B = np.array(B)
 
-        # description: Bx needs to be multiplied by -1. This was discovered after sanity checking
-        # the calibration parameters and seeing that the X sensitivity was negative (which is impossible)
-        # Bx in rocket body was the original Y term in the magnetometer frame, so that is explained
-        # by the flipped axis.
+            # --- assign data ---
+            data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B[:, 0]), np.array(B[:, 1]), np.array(B[:, 2])
 
-        prgMsg('Fixing Sensitivity')
-        data_dict_mag['By'][0] = np.array([-1*data_dict_mag['By'][0][i] for i in range(len(data_dict_mag['By'][0]))])
+
+        if applyFlipBy:
+            # The magnetometer Y-axis was flipped during calibration. Here we add back in the minus sign
+            data_dict_mag['By'][0] = -1*np.array(data_dict_mag['By'][0])
+
+        if applyVectorCals:
+            # description: Apply the calibration matrix which is a vector cal with the model: orthogonality, offset, and Euler rotation.
+            # It is a coupled matrix containing all cals found via robust weighted regression.
+            # Columns 1:3 are multiplied by the spun data then column 4 is added (basically a line equation in 3-D)
+
+            calMatrix = rocketAttrs.ringCoreCalMatrix[wRocket-4]
+            orthoEuler = np.array([calMatrix[i][0:3] for i in range(len(calMatrix))])
+            offset = np.array([calMatrix[i][3] for i in range(len(calMatrix))])
+            B = np.array([np.matmul(orthoEuler, np.array([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]])) + offset for i in range(len(data_dict_mag['Epoch'][0]))])
+
+            # --- assign data ---
+            data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B[:, 0]), np.array(B[:, 1]), np.array(B[:, 2])
+
         Done(start_time)
 
         # --- --- --- --- --- --- ---
@@ -189,6 +192,10 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # --- --- --- --- --- --- ---
 
         if outputData:
+            data_dict_mag['Bx'][1]['UNITS'] = 'nT'
+            data_dict_mag['By'][1]['UNITS'] = 'nT'
+            data_dict_mag['Bz'][1]['UNITS'] = 'nT'
+
             prgMsg('Creating output file')
 
             for key,val in data_dict_mag.items():

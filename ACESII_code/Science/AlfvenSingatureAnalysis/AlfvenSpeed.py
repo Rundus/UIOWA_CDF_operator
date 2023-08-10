@@ -38,7 +38,7 @@ xscaling= (1E3) # how to scale the xaxis of the plot
 yscaling= 299792458 # how to scale the yaxis of the plot. Nominally: (1E4)*(1E3)
 plotylabel = 'Kinetic Alfven Speed [$V_{A}/c$]' # nominally: [10,000 km/s]
 plotxlabel = 'Altitude (1000 km)'
-ylimits = (0,0.3)
+ylimits = (0,0.05)
 xlimits = (22,0) # the x-axis is inverted remember
 
 # --- --- --- ---
@@ -58,13 +58,13 @@ pycdf.lib.set_backward(False)
 
 
 # profile taken from Kletzing: Alfven Wave Electron Acceleration
-def density(z): # returns density for altitude "z [km]" in m^-3
+def density(z): # returns density for altitude "z [km]" in cm^-3
     h = 0.06*Re # in km from E's surface
     n0 = 6E4
     n1 = 1.34E7
     z0 = 0.05*Re # in km from E's surface
-    n = n0*np.exp(-1*(z-z0)/h) + n1*(z**(-1.55))
-    return ((cm_to_m)**3) * n
+    n = n0*np.exp(-1*(z-z0)/h) + n1*(z**(-1.55)) # calculated density (in cm^-3)
+    return (cm_to_m**3)*n
 
 def kineticTerm(kperp, z, simplify): # represents the denominator of the Alfven velocity term: 1/(1 + (kperp*c/omega_pe)^2)^1/2
     if simplify:
@@ -85,7 +85,7 @@ def AlfvenSpeed(z,lat,long,year,kperp,simplify):
     # [6] Total Field
 
     B = pyIGRF.igrf_value(lat, long, z, year)
-    V_A = (B[6]*1E-9)/np.sqrt(u0 * density(z)*IonMasses[0])
+    V_A = (B[6]*1E-9)/np.sqrt(u0 * density(z) * IonMasses[0])
 
     if simplify:
         V = V_A*kineticTerm(1, z, simplify)
@@ -99,6 +99,10 @@ def main(AltLow, AltHigh):
     # altitude range
     N = 10000
     altitudeAxis = np.linspace(AltLow, AltHigh, N)
+
+    # fig,ax = plt.subplots()
+    # ax.plot(altitudeAxis,density(altitudeAxis))
+    # plt.show()
 
     # determine the alfven speed
     year = 2022 + 323 / 365  # Corresponds to 11/20/2022

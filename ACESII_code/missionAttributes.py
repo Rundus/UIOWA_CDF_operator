@@ -58,9 +58,11 @@ class makeRocketAttrs:
         self.LPswept_cal_resistances = missionAttrs['LPswept_cal_resistances']
         self.LPswept_cal_epoch_ranges_single_sweep = missionAttrs['LPswept_cal_epoch_ranges_single_sweep']
         self.timeBetweenSteps_in_ns = missionAttrs['timeBetweenSteps_in_ns']
-        self.ringCoreLinearCorrections = missionAttrs['ringCoreLinearCorrections']
+        self.ringCoreScaleFactors = missionAttrs['ringCoreScaleFactors']
         self.ringCore5thOrderCorrections = missionAttrs['ringCore5thOrderCorrections']
         self.ringCoreCalMatrix = missionAttrs['ringCoreCalMatrix']
+        self.AvgConingRate = missionAttrs['AvgConingRate']
+        self.AvgRollRate = missionAttrs['AvgRollRate']
 
 
 
@@ -94,6 +96,8 @@ def ACES_mission_dicts():
                 'TEXT': 'Raw Data from the ACESII mission organized by minorframe.150 words per minor frame.40 minor frames to a major frame.'
             }],
         'Launch_Times': [722236869184000000, 722236969184000000], # TT2000 values corresponding to 17:20:00 and 17:21:40 for high/low flyer, respectively.
+        'AvgConingRate': [0.05397837461866082, 0.11071336310292652],
+        'AvgRollRate': [0.671, 0.547],
         'g_nWords': 150,
         'g_nNomRecLen': 150 * 2 + 12,
         'nNomDataLen': 150 - 2,
@@ -212,7 +216,8 @@ def ACES_mission_dicts():
                            85.91,     73.48,   62.85,   53.76,   45.98,   39.33,   33.64,   28.78,
                            24.61,     21.05,   18.01,   15.40,   13.17,   11.27,    9.64,    8.24, 7.05])
                         ],
-        'ringCoreLinearCorrections': [[-0.00759273866010453, -0.00983337688949566, -0.00910656152667623], [0.00887255961330481, 0.00857834057158005, 0.00795888490103171]],
+        'ringCoreScaleFactors': [[-0.00759273866010453, -0.00983337688949566, -0.00910656152667623],
+                                 [0.00887255961330481, 0.00857834057158005, 0.00795888490103171]],
         'ringCore5thOrderCorrections': [
             # high flyer
             [[-2.01426584458453e-22, 4.78339584524288e-18, 5.14890545473976e-12, - 2.35923633686087e-08, 0.989892268554107, 851.689485242279],

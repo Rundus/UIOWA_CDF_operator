@@ -3,10 +3,7 @@
 # # DESCRIPTION: script for general tinkering
 
 import glob
-import numpy as np
-from class_var_func import setupPYCDF
-setupPYCDF()
-from spacepy import pycdf
+from ACESII_code.myImports import *
 
 directory = r'C:\Users\cfeltman\PycharmProjects\UIOWA_CDF_operator\Data\Integration\tmCDF\high'
 files = glob.glob(rf'{directory}\*.cdf')

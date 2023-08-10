@@ -1,7 +1,18 @@
 # --- csv_to_cdf_LPcal.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: convert the LPcalibration files that were performed at iowa into .cdf files
-# with all the data into one file
+# with all the data into one file.
+import matplotlib.pyplot as plt
+import numpy as np
+
+# NOTE: The instrument gain was set too high, so for both instruments, we must do a semi-log plot of
+# ln(current) vs ADC voltage and fit the linear regions as best we can. The swept probe will have
+# two linear fits since the two ampliers at the end probably had different responses. Diode saturation
+# will be considered to be 1nA. The "saturation" points in the cal curve shouldn't even be there unless we are at the extremes of the ADC +/- 4095
+# Recall that our calibration setup ONLY had current coming from the power supply, so there is not natural
+# atmospheric saturation occuring, thus the ADC should've seen current applied grow linearly in Ln(current), but it didn't
+# This is because the instrument gain was set too high and we reached a point were the instrument could no
+# long measure current accurately, thus we fit semi-log plots and find the linear regime and only fit those regions.
 
 
 # --- --- --- --- ---
@@ -14,73 +25,54 @@ start_time = time.time()
 # --- --- --- ---
 
 justPrintFileNames = False
-
-
-wRocket = 5 # 4 or 5 for high and low, respectively
-
+wRocket = 4 # 4 or 5 for high and low, respectively
 inputPath_modifier = "calibration\LP_calibration\sweptCals"
 outputPath_modifier = 'calibration\LP_calibration'
 modifier = ''
-
 # information to read the .csv files
 wRow_names = 0 ; wRow_startData = 1  # row index corresponding to the name of the variable # which row does the data begin
 getVars = [1, 3, 5, 7] # column index corresponding to the desired variables to collect from each file. These should be 2 - DAC, 4 - P1, 6 - ni_stepped, 8- ne_stepped
 
-# plot each individual curve
-plotIndividualCurveData = False
+### ANALYSIS TOGGLES ###
 
-# plot the overlay of all the individual curves
-plotCalCurveOverlay = False
+useNanoAmps = True # all currents in nA, else it's Amps
+unitConv = 1E9
+
+plotIndividualCurveData = False # plot each individual curve
+plotCalCurvesOverlay = False # plot the overlay of all the individual curves
 
 # Size of analog window when determining the error in current derived from V_applied/R_resistor
 analogWindowSize = 39 # 39 is the smallest window that has >=2 datapoints in each window bin
-plotErrorsInCurrent= False
+plotErrorsInCurrent = False
+
+# plot the final set of data for ni and ne which will be fitted for calibration
+plotFlattenedANDCleanedOverlay = False
 
 # Average the calibration curves to get a smoothed result
-AverageCalCurves = False # The point of averaging is to remove the assumed 60Hz noise that was present on the output of the LP input point. We then fit the averaged dataset with a linear line
-plotAverageCalCurves = True
+AverageCalCurves = True # The point of averaging is to remove the assumed 60Hz noise that was present on the output of the LP input point. We then fit the averaged dataset with a linear line
+plotAverageCalCurves = False
+AveragingWindow = 100
+polyOrder = 2
 
 # plot the final calibration curve with the fits
-plotCalibrationCurveFitted = True
-
-# --- Andoya Calibration toggles ---
-useAndoyaData = False
-useSingleSweeptData = True
-slope = [0.004296482412060302, 0.004267676767676767]
-intercept = [- 4.72, -4.68]
-
-# --- Iowa fit toggles ---
-# low flyer analog range [-4065,3713]
-# high flyer analog range [-4061,2824]
-
-# LINEAR - MIDDLE
-fitRangeYMid = [-1, 1]
-fitRangeXMid = [-4200, 2000]
-
-# EXPO - UPPER
-fitRangeXUp = [4000, 5000] # nominally [1400,3000]
-
-
-# EXPO - LOWER
-fitRangeXDown = [-5000, -4500] # nominally [-4070,-3000]
-
-unitConv = 1E9
+n_e_fitRange = [0, 1820] # ADC range to fit calibration curve
+n_i_fitRange = [0, 4250] # ADC range to fit calibration curve
+plotCalibrationCurveFitted = False
 
 
 # output the data
-outputData = False
+outputData = True
 
 
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from os import remove, path
-from more_itertools import sort_together
 from csv import reader
 from spacepy import coordinates as coord
+import warnings
+warnings.filterwarnings('ignore')
 coord.DEFAULTS.set_values(use_irbem=False, itol=5)  # maximum separation, in seconds, for which the coordinate transformations will not be recalculated. To force all transformations to use an exact transform for the time, set ``itol`` to zero.
-
 print(color.BOLD + color.CYAN + 'csv_to_cdf_LPcal.py' + color.END + color.END)
 
 def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
@@ -91,7 +83,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
         wflyer = 1
 
     # --- ACES II Flight/Integration Data ---
-    rocketAttrs, b, c = ACES_mission_dicts()
+    rocketAttrs, missionDict, data_dict_temp = ACES_mission_dicts()
     rocketID = rocketAttrs.rocketID[wflyer]
     globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'science'
@@ -112,17 +104,15 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
 
         # --- Create Data Dict ---
         data_dict = {}
-        rocketAttrs, missionDict, data_dict_temp = ACES_mission_dicts()
-        exampleAttrs = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
-                        'FORMAT': 'I5', 'UNITS': None, 'LABLAXIS': None, 'VALIDMIN': None, 'VALIDMAX': None,
-                        'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
         #############################
         # --- STORE THE .CSV DATA ---
         #############################
         Rnames = []
-        calCurveData_Analog = []
-        calCurveData_Current = []
+        calCurveData_knownI = []
+        calCurveData_ni = []
+        calCurveData_ne = []
+        resistanceVals = []
         for i, inputfile in enumerate(inputFiles):
 
             # get the filename identifier
@@ -134,6 +124,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             resitanceNum = filenameOnly[:filenameOnly.index("p")]
             resitanceDeci =filenameOnly[filenameOnly.index("p") + 1 : filenameOnly.index("k")]
             resistanceVal = (float(resitanceNum) + float(resitanceDeci)/1000)*1000
+            resistanceVals.append(resistanceVal)
 
             # --- collect the csv data ---
             with open(inputfile) as csvFile:
@@ -147,7 +138,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             v_stepped = np.array([4*(R*vStep + (-5)*(1 - R)) for vStep in v_stepped]) # apply function to convert DAC output to v_stepped
             v_stepped_current = np.array(v_stepped / resistanceVal)
 
-            # --- determine what the ADC would report. The ADC was a 12-bit, 5V converter ---
+            # --- determine what the ADC would've reported. The ADC was a 12-bit, 5V converter ---
             ni_stepped = np.array(csvData[getVars[2]][:], dtype='float64')
             ne_stepped = np.array(csvData[getVars[3]][:], dtype='float64')
 
@@ -155,183 +146,172 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             ni_stepped = np.array([val if val > 0 else 0 for val in ni_stepped])
             ne_stepped = np.array([val if val > 0 else 0 for val in ne_stepped])
 
+            # convert the measured ni/ne into the ideal ADC values
             ni_stepped_digital = np.array([(4096/5) * (ni_stepped[i]) for i in range(len(ni_stepped))])
             ne_stepped_digital = np.array([(4096/5) * (ne_stepped[i]) for i in range(len(ne_stepped))])
-            sweep = np.array(ne_stepped_digital - ni_stepped_digital)
+
+            # use the individual circuit data curves
+            calCurveData_ni.append(ni_stepped_digital)
+            calCurveData_ne.append(ne_stepped_digital)
+
 
             if plotIndividualCurveData:
                 if i in range(len(inputFiles)):
                     fig, ax = plt.subplots(2)
-                    ax[0].scatter(v_stepped, sweep)
-                    ax[0].set_xlabel('Voltage applied to Resistor')
-                    ax[0].set_ylabel('Current seen by ADC [Analog Units]')
-
-                    ax[1].plot([j for j in range(len(sweep))], ni_stepped_digital, [j for j in range(len(sweep))], ne_stepped_digital)
+                    ax[0].plot([j for j in range(len(ni_stepped_digital))], ni_stepped_digital, [j for j in range(len(ne_stepped_digital))], ne_stepped_digital)
+                    ax[1].plot([j for j in range(len(v_stepped))],v_stepped)
                     plt.suptitle(filenameOnly)
+                    ax[0].set_xlabel('Datapoint No.')
+                    ax[0].set_ylabel('ADC Value')
                     ax[1].set_xlabel('Datapoint No.')
-                    ax[1].set_ylabel('Voltage')
+                    ax[1].set_ylabel('Applied Voltage [V]')
                     plt.show()
 
             # --- store data ---
-            calCurveData_Analog.append(sweep)
-            calCurveData_Current.append(v_stepped_current)
-            Done(start_time)
-
-        ###########################
-        ### GET ANDOYA CAL DATA ###
-        ###########################
-        if useAndoyaData:
-
-            prgMsg('Collecting Swept Calibration Data')
-            LangmuirSweptCalFiles = glob(f'{rocketFolderPath}\science\LP_calibration\{fliers[wRocket - 4]}\*_345deg_*')
-
-            # Collect the LP data except deltaNdivN into a data dict
-            data_dict_cal = {}
-            for file in LangmuirSweptCalFiles:
-                if 'deltaNdivN' not in file:
-                    with pycdf.CDF(file) as LangmuirSweptCalFiles:
-                        for key, val in LangmuirSweptCalFiles.items():
-                            if key not in data_dict_cal:
-                                data_dict_cal = {**data_dict_cal, **{key: [LangmuirSweptCalFiles[key][...], {key: val for key, val in LangmuirSweptCalFiles[key].attrs.items()}]}}
+            calCurveData_knownI.append(v_stepped_current)
 
             Done(start_time)
 
-            if useSingleSweeptData:
-                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges_single_sweep[wflyer]
-            else:
-                sweptCalRanges = rocketAttrs.LPswept_cal_epoch_ranges[wflyer]
+        # convert all the numpy array
+        calCurveData_ni, calCurveData_ne, calCurveData_knownI = map(np.array, (calCurveData_ni, calCurveData_ne, calCurveData_knownI))
 
-            # --- --- --- --- --- --- --- --- ---
-            # --- COLLECT/CALC CAL RANGE DATA ---
-            # --- --- --- --- --- --- --- --- ---
-            calEpoch = np.array([pycdf.lib.datetime_to_tt2000(data_dict_cal['Epoch_ne_swept'][0][i]) for i in range(len(data_dict_cal['Epoch_ne_swept'][0]))])
+        # apply nanoAmp condition
+        if useNanoAmps:
+            currentUnits = 'nA'
+            calCurveData_knownI = np.array([calCurveData_knownI[i]*unitConv for i in range(len(calCurveData_knownI))])
+        else:
+            currentUnits = 'A'
 
-            sweptCal_voltage = []  # voltage of the step
-            sweptCal_calCurrent = []  # corresponding current based on voltage
-            sweptCal_analog_current = []  # current determined from the analag calibration data
-            sweptCal_Epoch = []  # epoch values of the start/end of this cal range
-            for i in range(len(sweptCalRanges)):
-                # find the indicies of the calibration range
-                start = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][0])).argmin()
-                end = np.abs(calEpoch - pycdf.lib.datetime_to_tt2000(sweptCalRanges[i][1])).argmin()
-
-                # calculate the analog current, voltage and calibration current
-                sweptCal_analog_current.append(np.array(data_dict_cal['ne_swept'][0][start:end]) - np.array(data_dict_cal['ni_swept'][0][start:end]))
-                sweptCal_Epoch.append(calEpoch[start:end])
-                resistance = rocketAttrs.LPswept_cal_resistances[i]
-                sweptCal_step = data_dict_cal['step'][0][start:end]
-
-                def step_to_Voltage(analog_voltage):
-                    return slope[wRocket - 4]*analog_voltage + intercept[wRocket - 4]
-
-                sweptCal_voltage.append(np.array([step_to_Voltage(sweptCal_step[i]) for i in range(len(sweptCal_step))]))
-                sweptCal_calCurrent.append(sweptCal_voltage[-1] / resistance)
-
-            # --- --- --- --- --- --- --- --- ---
-            # --- Remove outliers from data ---
-            # --- --- --- --- --- --- --- --- ---
-
-            # surprisingly, only the high flyer cal needed needs to be filtered for outliers
-            if wRocket == 4:
-                removeOutliers = True
-            elif wRocket == 5:
-                removeOutliers = False
-
-            if removeOutliers:
-                prgMsg('Removing Outliers')
-                threshold_percent = 0.05  # if the next point is >= 50% the the distance between max/min of the dataset, it is an outlier
-                repeat_process = 20  # how many times to repeat outlier search
-
-                for process in range(repeat_process):
-                    for i in range(len(sweptCalRanges)):
-                        maxV = sweptCal_analog_current[i].max()
-                        minV = sweptCal_analog_current[i].min()
-                        threshDistance = np.abs(maxV - minV) * threshold_percent
-
-                        # check every value and record the indices
-                        remove_indices = []
-
-                        for j in range(len(sweptCal_analog_current[i]) - 1):
-                            # take an average of data to see where I am:
-                            no_of_points = 10
-                            AVG = sum([sweptCal_analog_current[i][j - k] for k in range(no_of_points)]) / no_of_points
-
-                            if AVG < -3400:  # apply a stricter threshold for things close to when the current is low
-                                if np.abs(sweptCal_analog_current[i][j + 1] - sweptCal_analog_current[i][j]) >= threshDistance:
-                                    remove_indices.append(j + 1)
-                            elif np.abs(sweptCal_analog_current[i][j + 1]) >= 4095:  # remove any points at absolute maximum
-                                remove_indices.append(j + 1)
-                            elif sweptCal_Epoch[i][j + 1] < 3178576.8709884263:
-                                remove_indices.append(j + 1)
-
-                        sweptCal_calCurrent[i] = np.delete(sweptCal_calCurrent[i], remove_indices, axis=0)
-                        sweptCal_voltage[i] = np.delete(sweptCal_voltage[i], remove_indices, axis=0)
-                        sweptCal_analog_current[i] = np.delete(sweptCal_analog_current[i], remove_indices, axis=0)
-                        sweptCal_Epoch[i] = np.delete(sweptCal_Epoch[i], remove_indices, axis=0)
-
-                Done(start_time)
-
-            # put data into plotting datastructures
-            for i in range(len(sweptCal_analog_current)):
-                name = str(rocketAttrs.LPswept_cal_resistances[i]) + '_Andoya'
-                Rnames.append(name)
-                calCurveData_Analog.append(sweptCal_analog_current[i])
-                calCurveData_Current.append(sweptCal_calCurrent[i])
+        # store everything in a dictonary
+        cali_dict = {
+            'ni': calCurveData_ni,
+            'ni_knownI_avg' : [],
+            'ni_knownI': calCurveData_knownI,
+            'ni_errors':[],
+            'ni_error_bins':[],
+            'ne': calCurveData_ne,
+            'ne_knownI_avg': [],
+            'ne_knownI': calCurveData_knownI,
+            'ne_errors': [],
+            'ne_error_bins': []
+        }
 
         # --- --- --- --- --- --- --- --- --- --- -
         # --- FILTER THE CALIBRATION CURVE DATA ---
         # --- --- --- --- --- --- --- --- --- --- -
 
-        if plotCalCurveOverlay:
-            legend = []
-            # for resistance in [Rnames[0],Rnames[1],Rnames[2],Rnames[3]]:
-            for i in range(len(calCurveData_Analog)):
-                stepped_current = calCurveData_Current[i]
-                sweep = calCurveData_Analog[i]
-                plt.scatter(sweep, stepped_current)
-                plt.xlabel('Analog Value ADC Would Record [Analog]')
-                plt.ylabel('Current derived from V_applied/R [A]')
-                legend.append(Rnames[i])
 
-            plt.legend(legend)
+        if plotCalCurvesOverlay:
+            legend = []
+            fig, ax = plt.subplots(2)
+            currents = [cali_dict['ne'], cali_dict['ni']]
+            labels = ['ne','ni']
+            for j in range(2):
+                for i in range(len(calCurveData_knownI)): #loop through all the inidividual curves
+                    stepped_current = np.array(calCurveData_knownI[i])
+                    sweep = currents[j][i]
+                    ax[j].scatter(sweep, stepped_current)
+                    ax[j].set_xlabel('ADC value it wouldve Recorded [Analog]')
+                    ax[j].set_ylabel(f'Current derived from V_applied/R [{currentUnits}]')
+                    # ax[j].set_yscale('symlog',linthresh=0.1,base=np.exp(1))
+                    ax[j].set_title(f'{labels[j]}')
+                    legend.append(Rnames[i])
+
+                plt.legend(legend)
             plt.show()
 
         # Flatten all the data and convert it to nano-amps
-        calCurveData_Analog = np.array([item for sublist in calCurveData_Analog for item in sublist])
-        calCurveData_Current = np.array([item*unitConv for sublist in calCurveData_Current for item in sublist])
+        cali_dict['ne_knownI'] = np.array([item for sublist in deepcopy(cali_dict['ne_knownI']) for item in sublist])
+        cali_dict['ni_knownI'] = np.array([item for sublist in deepcopy(cali_dict['ni_knownI']) for item in sublist])
+        cali_dict['ne'] = np.array([item for sublist in deepcopy(cali_dict['ne']) for item in sublist])
+        cali_dict['ni'] = np.array([item for sublist in deepcopy(cali_dict['ni']) for item in sublist])
 
-        # --- COLLECT LP ERROR DATA ---
-        prgMsg('Collecting Error Data')
-        analogBins = np.array([[num, num+analogWindowSize] for num in range(int(calCurveData_Analog.min()) - 1, int(calCurveData_Analog.max())+1, analogWindowSize)])
-        stdDevErrors = []
-
-        for bin in tqdm(analogBins):
-
-            errors = [calCurveData_Current[i] for i in range(len(calCurveData_Analog)) if ((calCurveData_Analog[i] >= bin[0]) and (calCurveData_Analog[i] < bin[1]))]
-
-            stdDevErrors.append(np.std(errors))
-
-        analogBins = np.array(analogBins)
-        stdDevErrors = np.array(stdDevErrors)
-
-        if plotErrorsInCurrent:
-            xData = [bin[0] for bin in analogBins]
-            yData = stdDevErrors*unitConv
-
-            fig, ax = plt.subplots()
-            ax.scatter(xData, yData)
-            ax.set_ylim(-0.025, 0.18)
-            ax.set_title(f'$\Delta I$ vs Analog Value\n Analog Bin Size: {analogWindowSize}')
-            ax.set_xlabel('Lower Bound of Analog Bin [Analog]')
-            ax.set_ylabel('Std Dev Error [nA]')
-            plt.show()
-
-        Done(start_time)
+        # we don't care about when n_i/n_e == 0 since the v_applied was pos/neg, respectively, lets remove those points
+        # ni
+        badIndicies = np.where(cali_dict['ni'] == 0)[0]
+        cali_dict['ni_knownI'] = np.delete(cali_dict['ni_knownI'], badIndicies)
+        cali_dict['ni'] = np.delete(cali_dict['ni'], badIndicies)
+        # ne
+        badIndicies = np.where(cali_dict['ne'] == 0)[0]
+        cali_dict['ne_knownI'] = np.delete(cali_dict['ne_knownI'], badIndicies)
+        cali_dict['ne'] = np.delete(cali_dict['ne'], badIndicies)
 
         # --- Sort the data ---
-
         # assign the data and also sort it based on the analog values
-        calCurveData_Current,calCurveData_Analog = sort_together([calCurveData_Current,calCurveData_Analog])
+        cali_dict['ni'], cali_dict['ni_knownI'] = list(zip(*sorted(zip(cali_dict['ni'], cali_dict['ni_knownI']))))
+        cali_dict['ne'], cali_dict['ne_knownI'] = list(zip(*sorted(zip(cali_dict['ne'], cali_dict['ne_knownI']))))
+
+        # convert everything to numpy
+        for key, val in cali_dict.items():
+            if len(val) > 0:
+                cali_dict[key] = np.array(cali_dict[key])
+
+        # --- CORRECT INPUT VOLTAGE NOISE PROBLEM ---
+        # NOTE: The input voltage to the circuit was noisey sometimes. This means that around 0V, the current swung positive and
+        # negative, which means n_i can sometimes see positive current and n_e can see negative current, which shouldn't be possible
+        # normally. Here I just remove these points for fitting purposes.
+        labels = ['ne', 'ni']
+        for i in range(2):
+            if labels[i] == 'ne':
+                badIndicies = np.where(cali_dict[f'{labels[i]}_knownI'] < 0)[0]
+            else:
+                badIndicies = np.where(cali_dict[f'{labels[i]}_knownI'] > 0)[0]
+            cali_dict[f'{labels[i]}'] = np.delete(deepcopy(cali_dict[f'{labels[i]}']), badIndicies)
+            cali_dict[f'{labels[i]}_knownI'] = np.delete(deepcopy(cali_dict[f'{labels[i]}_knownI']),badIndicies)
+
+
+        if plotFlattenedANDCleanedOverlay:
+            fig, ax = plt.subplots(2)
+            labels = ['ne', 'ni']
+            for j in range(2):
+                ax[j].scatter(cali_dict[f'{labels[j]}'], cali_dict[f'{labels[j]}_knownI'])
+                ax[j].set_xlabel(f'{labels[j]} ADC [Analog]')
+                ax[j].set_ylabel(f'Known I from Cal. Resistor [{currentUnits}]')
+                ax[j].set_yscale('symlog',linthresh=0.001,base=np.exp(1))
+                ax[j].set_title(f'{labels[j]}')
+                # ax[j].set_xscale('log')
+            plt.show()
+
+        # --- COLLECT LP ERROR DATA ---
+        # Both ne/ni have error in their determination of the known current, gather that info now
+
+        prgMsg('Collecting Error Data')
+        analogBins_ne = np.array([[num, num+analogWindowSize] for num in range(int(cali_dict['ne'].min()) - 1, int(cali_dict['ne'].max())+1, analogWindowSize)])
+        analogBins_ni = np.array([[num, num+analogWindowSize] for num in range(int(cali_dict['ni'].min()) - 1, int(cali_dict['ni'].max())+1, analogWindowSize)])
+        stdDevErrors_ne = []
+        stdDevErrors_ni = []
+
+        for bin in analogBins_ne:
+            errors = [ np.log(cali_dict['ne_knownI'][i]) for i in range(len(cali_dict['ne'])) if bin[0] <= cali_dict['ne'][i] < bin[1]]
+            stdDevErrors_ne.append(np.std(errors))
+
+        for bin in analogBins_ni:
+            errors = [np.log(-1*cali_dict['ni_knownI'][i]) for i in range(len(cali_dict['ni'])) if bin[0] <= cali_dict['ni'][i] < bin[1]]
+            stdDevErrors_ni.append(np.std(errors))
+
+        # store all the information
+        cali_dict['ne_error_bins'] = np.array(analogBins_ne)
+        cali_dict['ni_error_bins'] = np.array(analogBins_ni)
+        cali_dict['ne_errors'] = np.array(stdDevErrors_ne)
+        cali_dict['ni_errors'] = np.array(stdDevErrors_ni)
+
+        if plotErrorsInCurrent:
+            xData_ne = [bin[0] for bin in analogBins_ne]
+            yData_ne = stdDevErrors_ne
+            xData_ni = [bin[0] for bin in analogBins_ni]
+            yData_ni = stdDevErrors_ni
+
+            fig, ax = plt.subplots(2)
+            fig.suptitle(f'$\Delta I$ vs Analog Value\n Analog Bin Size: {analogWindowSize}')
+            ax[0].scatter(xData_ne, yData_ne)
+            ax[0].set_xlabel('Lower Bound of Analog Bin [Analog]')
+            ax[0].set_ylabel(f'ne Ln(I_known) Std Dev [Ln({currentUnits})]')
+            ax[1].scatter(xData_ni, yData_ni)
+            ax[1].set_xlabel('Lower Bound of Analog Bin [Analog]')
+            ax[1].set_ylabel(f'ne Ln(I_known) Std Dev [Ln({currentUnits})]')
+            plt.show()
+        Done(start_time)
+
 
         # --- AVERAGE LP CAL CURVES ---
         # The point of averaging is to remove the assumed 60Hz noise that was present on the output of the LP input point. We then
@@ -340,107 +320,89 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
         if AverageCalCurves:
             prgMsg('Averaging Calibration Curves')
 
-            from scipy.signal import savgol_filter
-            AveragingWindow = 100
-            polyOrder = 2
+            cali_dict['ni_knownI'] = np.array([np.log(-1*cur) for cur in cali_dict['ni_knownI']])
+            cali_dict['ne_knownI'] = np.array([np.log(cur) for cur in cali_dict['ne_knownI']])
 
-            # calCurveData_Current_filtered = moving_average(calCurveData_Current, AveragingWindow)
-            calCurveData_Current_filtered = savgol_filter(calCurveData_Current, window_length=AveragingWindow, polyorder=polyOrder)
+            from scipy.signal import savgol_filter
+            cali_dict['ni_knownI_avg'] = savgol_filter(cali_dict['ni_knownI'], window_length=AveragingWindow, polyorder=polyOrder)
+            cali_dict['ne_knownI_avg'] = savgol_filter(cali_dict['ne_knownI'], window_length=AveragingWindow, polyorder=polyOrder)
 
             if plotAverageCalCurves:
-                fig, ax = plt.subplots()
-                ax.scatter(calCurveData_Analog, calCurveData_Current)
-                ax.plot(calCurveData_Analog, calCurveData_Current_filtered, color='red')
-                ax.set_ylabel('Current [nA]')
-                ax.set_xlabel('ADC Analog Value')
-                ax.set_title('SG filtering Cal data')
+
+                fig, ax = plt.subplots(2)
+                labels = ['ne', 'ni']
+                fig.suptitle('SG filtering Cal data')
+                for j in range(2):
+                    ax[j].scatter(cali_dict[f'{labels[j]}'], cali_dict[f'{labels[j]}_knownI'])
+                    ax[j].plot(cali_dict[f'{labels[j]}'], cali_dict[f'{labels[j]}_knownI_avg'],color='red')
+                    ax[j].set_xlabel(f'{labels[j]} ADC [Analog]')
+                    ax[j].set_ylabel(f'Ln(I from Cal) [{currentUnits}]')
+                    # ax[j].set_yscale('symlog', linthresh=0.001, base=np.exp(1))
+                    ax[j].set_title(f'{labels[j]}')
+                    # ax[j].set_xscale('log')
                 plt.show()
 
-            calCurveData_Current = calCurveData_Current_filtered
             Done(start_time)
 
-        # --- --- --- --- --- --- --- -
-        # --- ORGANIZE THE CAL DATA ---
-        # --- --- --- --- --- --- --- -
-        yData = calCurveData_Current
-        xData = calCurveData_Analog
-
-        # break the data up into 3 fitted curves
-
-        yData_fit_Up = []; xData_fit_Up = []
-        yData_fit_Mid = []; xData_fit_Mid = []
-        yData_fit_Down = []; xData_fit_Down = []
-
-        for i in range(len(yData)):
-
-            # Middle
-            if xData[i] <= fitRangeXMid[1] and xData[i] > fitRangeXMid[0]:
-                xData_fit_Mid.append(xData[i])
-                yData_fit_Mid.append(yData[i])
-            # upper
-            elif xData[i] <= fitRangeXUp[1] and xData[i] > fitRangeXUp[0]:
-                xData_fit_Up.append(xData[i])
-                yData_fit_Up.append(yData[i])
-            # lower
-            elif xData[i] <= fitRangeXDown[1] and xData[i] > fitRangeXDown[0]:
-                xData_fit_Down.append(xData[i])
-                yData_fit_Down.append(yData[i])
-
-        # convert to numpy
-        yData_fit_Mid = np.array(yData_fit_Mid)
-        xData_fit_Mid = np.array(xData_fit_Mid)
-        yData_fit_Down = np.array(yData_fit_Down)
-        xData_fit_Down = np.array(xData_fit_Down)
-        yData_fit_Up = np.array(yData_fit_Up)
-        xData_fit_Up = np.array(xData_fit_Up)
-
-        #########################
-        ### FIT THE CAL CURVE ###
-        #########################
+        # --- --- --- --- --- --- -
+        # --- LINEARLY FIT DATA ---
+        # --- --- --- --- --- --- -
+        from scipy.optimize import curve_fit
         def linear(x, A, B):
             y = A * x + B
             return y
-        def expo(x,A,B,C,D):
-            y = A*np.exp((x-B)/C) + D
-            return y
 
-        def poly(x,A,B,C,D,E):
-            y = A*((B)**(C*(x-D))) - A*((B)**(-1*C*(x-D))) + E
-            return y
+        # only get the data to fit within my specified range
 
+        dataModifier = '_avg' if AverageCalCurves else ''
+        xData_ne = []
+        yData_ne = []
+        xData_ni = []
+        yData_ni = []
 
-        xData_fit_Mid = xData_fit_Mid
-        yData_fit_Mid = yData_fit_Mid
-        paramsMid, cov = curve_fit(poly, xData_fit_Mid, yData_fit_Mid, maxfev=1000000)
+        for i in range(len(cali_dict['ne'])):
+            if n_e_fitRange[0] <= cali_dict['ne'][i] <= n_e_fitRange[1]:
+                xData_ne.append(cali_dict['ne'][i])
+                yData_ne.append(cali_dict[f'ne_knownI{dataModifier}'][i])
 
+        for i in range(len(cali_dict['ni'])):
+            if n_i_fitRange[0] <= cali_dict['ni'][i] <= n_i_fitRange[1]:
+                xData_ni.append(cali_dict['ni'][i])
+                yData_ni.append(cali_dict[f'ni_knownI{dataModifier}'][i])
+
+        params_ne, cov = curve_fit(linear, xData_ne, yData_ne)
+        params_ni, cov = curve_fit(linear, xData_ni, yData_ni)
 
         if plotCalibrationCurveFitted:
 
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(2)
 
-            # Middle Down
-            xData = np.linspace(fitRangeXMid[0], fitRangeXMid[1], 1000)
-            yData = np.array(poly(xData, *paramsMid))
-            ax.plot(xData, yData, color='red')
+            # ne
+            ax[0].set_title('ne')
+            ax[0].scatter(cali_dict['ne'], cali_dict['ne_knownI'])
+            xData = np.linspace(min(cali_dict['ne']), max(cali_dict['ne']), 1000)
+            yData = [linear(x, *params_ne) for x in xData]
+            ax[0].plot(xData, yData, color='purple')
 
-            plt.hlines(fitRangeYMid[0], xmin=fitRangeXMid[0], xmax=fitRangeXMid[1], color='green', label='Data used for cal fit')
-            plt.hlines(fitRangeYMid[1], xmin=fitRangeXMid[0], xmax=fitRangeXMid[1], color='green')
-            plt.vlines(fitRangeXMid[0], ymin=fitRangeYMid[0], ymax=fitRangeYMid[1], color='green')
-            plt.vlines(fitRangeXMid[1], ymin=fitRangeYMid[0], ymax=fitRangeYMid[1], color='green')
+            #ni
+            ax[1].set_title('ni')
+            ax[1].scatter(cali_dict['ni'], cali_dict['ni_knownI'])
+            xData = np.linspace(min(cali_dict['ni']), max(cali_dict['ni']), 1000)
+            yData = [linear(x, *params_ni) for x in xData]
+            ax[1].plot(xData, yData, color='purple')
 
-            # extra
-            ax.scatter(calCurveData_Analog,calCurveData_Current)
-            ax.set_ylabel('Current [nA]')
-            ax.set_xlabel('Analog Val')
-            ax.set_xlim(-4500, 4000)
-            plt.legend([f'Func: A*B^(C*(x-D)) - A*B^(-C*(x-D)) + E\n'
-                        f'A: {paramsMid[0]}\n'
-                        f'B: {paramsMid[1]}\n'
-                        f'C: {paramsMid[2]}\n'
-                        f'D: {paramsMid[3]}\n'
-                        f'E: {paramsMid[4]}\n'])
-            plt.suptitle('V/R resistor Current vs Analog Circuit Response\n'
-                         f'Analog Fit Range: [{fitRangeXMid[0]},{fitRangeXMid[1]}] ')
+            if AverageCalCurves:
+                ax[0].plot(cali_dict['ne'], cali_dict['ne_knownI_avg'], color='red')
+                ax[1].plot(cali_dict['ni'], cali_dict['ni_knownI_avg'], color='red')
+
+            plt.legend([f'Func n_e: A*x + B\n'
+                        f'A: {params_ne[0]}\n'
+                        f'B: {params_ne[1]}\n',
+                        f'Func n_e: A*x + B\n'
+                        f'A: {params_ni[0]}\n'
+                        f'B: {params_ni[1]}\n'
+                        ])
+            plt.suptitle('V/R resistor Current vs Analog Circuit Response')
             plt.show()
 
 
@@ -450,18 +412,21 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
 
         # The analog bins for the error in the current need to be converted into current themselves
         # in order to be useful
-        #
-        analogBins_current = [] # bins for the error in the current
 
-        for i in range(len(analogBins)):
+        analogBins_current_ne = []  # bins for the error in the current
+        analogBins_current_ni = []
 
-            # Lower
-            if analogBins[i][1] <= fitRangeXMid[0]:
-                analogBins_current.append([expo(bin[0],paramsDown[0],paramsDown[1],paramsDown[2],paramsDown[3]),expo(bin[1],paramsDown[0],paramsDown[1],paramsDown[2],paramsDown[3])])
+        for i in range(len(cali_dict['ne_error_bins'])):
+                analogBins_current_ne.append(
+                    [linear(cali_dict['ne_error_bins'][i][0], *params_ne),
+                     linear(cali_dict['ne_error_bins'][i][1], *params_ne)])
 
+        for i in range(len(cali_dict['ni_error_bins'])):
+                analogBins_current_ni.append(
+                    [linear(cali_dict['ni_error_bins'][i][0], *params_ni),
+                     linear(cali_dict['ni_error_bins'][i][1], *params_ni)])
 
-        analogBins_current= np.array(analogBins_current)
-
+        cali_dict['ne_error_bins'], cali_dict['ni_error_bins'] = np.array(analogBins_current_ne), np.array(analogBins_current_ni)
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -470,34 +435,49 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             prgMsg('Creating output file')
 
             # store the fit parameters
-            fit_params = np.array([paramsDown,[paramsMid[0],paramsMid[1],0,0],paramsUp])
+            fit_params = np.array([params_ne,params_ni])
             data_dict = {**data_dict,
                          **{'fit_params': [fit_params, {'LABLAXIS': 'fit_params',
                                                               'DEPEND_0': None,
                                                               'DEPEND_1': None,
                                                               'DEPEND_2': None,
                                                               'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
-                                                              'UNITS': 'nA',
+                                                              'UNITS': 'Units',
                                                               'VALIDMIN': fit_params.min(),
                                                               'VALIDMAX': fit_params.max(),
                                                               'VAR_TYPE': 'data',
                                                               'SCALETYP': 'linear'}]}}
 
-
             # store the error in the current and the respective bins
+            stdDevErrors = np.array(cali_dict['ne_errors'])
             data_dict = {**data_dict,
-                         **{'errorInCurrent': [stdDevErrors, {'LABLAXIS': 'errorInCaldCurrent',
+                         **{'ne_errorInCurrent': [stdDevErrors, {'LABLAXIS': 'ne_errorInCaldCurrent',
                                                                         'DEPEND_0': None,
                                                                         'DEPEND_1': None,
                                                                         'DEPEND_2': None,
                                                                         'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
-                                                                        'UNITS': 'nA',
+                                                                        'UNITS': f'{currentUnits}',
                                                                         'VALIDMIN': stdDevErrors.min(),
                                                                         'VALIDMAX': stdDevErrors.max(),
                                                                         'VAR_TYPE': 'data',
                                                                         'SCALETYP': 'linear'}]}}
+            stdDevErrors = np.array(cali_dict['ni_errors'])
             data_dict = {**data_dict,
-                         **{'errorBins': [analogBins, {'LABLAXIS': 'errorBins',
+                         **{'ni_errorInCurrent': [stdDevErrors, {'LABLAXIS': 'ni_errorInCaldCurrent',
+                                                                 'DEPEND_0': None,
+                                                                 'DEPEND_1': None,
+                                                                 'DEPEND_2': None,
+                                                                 'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                 'FORMAT': 'E12.2',
+                                                                 'UNITS': f'{currentUnits}',
+                                                                 'VALIDMIN': stdDevErrors.min(),
+                                                                 'VALIDMAX': stdDevErrors.max(),
+                                                                 'VAR_TYPE': 'data',
+                                                                 'SCALETYP': 'linear'}]}}
+
+            analogBins = np.array(cali_dict['ne_error_bins'])
+            data_dict = {**data_dict,
+                         **{'ne_errorBins': [analogBins, {'LABLAXIS':'ne_errorBins',
                                                               'DEPEND_0': None,
                                                               'DEPEND_1': None,
                                                               'DEPEND_2': None,
@@ -507,21 +487,21 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                                                               'VALIDMAX': analogBins.max(),
                                                               'VAR_TYPE': 'support_data',
                                                               'SCALETYP': 'linear'}]}}
-
+            analogBins = np.array(cali_dict['ni_error_bins'])
             data_dict = {**data_dict,
-                         **{'errorBins_current': [analogBins_current, {'LABLAXIS': 'errorBins_current',
+                         **{'ni_errorBins': [analogBins, {'LABLAXIS': 'ni_errorBins',
                                                        'DEPEND_0': None,
                                                        'DEPEND_1': None,
                                                        'DEPEND_2': None,
                                                        'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
-                                                       'UNITS': 'nA',
+                                                       'UNITS': 'analogValue',
                                                        'VALIDMIN': analogBins.min(),
                                                        'VALIDMAX': analogBins.max(),
                                                        'VAR_TYPE': 'support_data',
                                                        'SCALETYP': 'linear'}]}}
 
             # store the regions where the different fits apply
-            fitRegions = np.array(fitRangeXMid)
+            fitRegions = np.array([n_e_fitRange, n_i_fitRange])
             data_dict = {**data_dict,
                          **{'fitRegions': [fitRegions, {'LABLAXIS': 'fitRegions',
                                                                        'DEPEND_0': None,
@@ -529,19 +509,19 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                                                                        'DEPEND_2': None,
                                                                        'FILLVAL': rocketAttrs.epoch_fillVal,
                                                                        'FORMAT': 'E12.2',
-                                                                       'UNITS': 'nA',
-                                                                       'VALIDMIN': fitRegions.min(),
-                                                                       'VALIDMAX': fitRegions.max(),
+                                                                       'UNITS': 'ADC',
+                                                                       'VALIDMIN': 0,
+                                                                       'VALIDMAX': 1,
                                                                        'VAR_TYPE': 'support_data',
                                                                        'SCALETYP': 'linear'}]}}
 
-
-
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = "Langmuir_Probe"
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod,'LangmuirProbe')
+            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'LangmuirProbe')
 
             Done(start_time)
+
+
 
 # --- --- --- ---
 # --- EXECUTE ---
