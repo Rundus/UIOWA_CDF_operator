@@ -10,11 +10,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-# --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -42,30 +38,22 @@ wRocket = 5
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
 wFiles = [0]
 
-modifier = ''
-inputPath_modifier = 'mag_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'mag' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+convertBData = False
+convertEData = True
 
 rotateIntoRingCoreFrame = False
 flipYAxis = False
 useENU = False
 
+modifier = ''
+inputPath_modifier = 'mag_formatted' if convertBData else 'E_field_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'science' if convertBData else 'E_field' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+
+
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-import scipy
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg, L0_ACES_Quick,L0_TRICE_Quick
-from glob import glob
-from os.path import getsize
-
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
 from mat73 import loadmat
 from copy import deepcopy
 
@@ -76,11 +64,19 @@ from copy import deepcopy
 
 # Program default: recognize Epoch variable, turn it into "support data". Turn other data into "data"
 # Below you can add additional specifications to known variables
-special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
-                'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
-                'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
-                'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
-                }
+
+if convertBData:
+    special_mods = {'Epoch': {'UNITS':'ns','LABLAXIS':'Epoch'},
+                    'Bx': {'UNITS': 'nT', 'LABLAXIS': 'Bx'},
+                    'By': {'UNITS': 'nT', 'LABLAXIS': 'By'},
+                    'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
+                    }
+elif convertEData:
+    special_mods = {'Epoch': {'UNITS':'ns', 'LABLAXIS':'Epoch'},
+                    'E_east': {'UNITS': 'V/m', 'LABLAXIS': 'E_east'},
+                    'E_north': {'UNITS': 'V/m', 'LABLAXIS': 'E_north'},
+                    'E_up': {'UNITS': 'V/m', 'LABLAXIS': 'E_up'},
+                    }
 
 
 def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
@@ -116,7 +112,7 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     fileoutName = dataFile_name.replace(f'{inputrocketFolderPath}\\{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', "").replace('.mat','.cdf')
 
-    for index, instr in enumerate(['RingCore','Tesseract']):
+    for index, instr in enumerate(['RingCore','Tesseract','E_field']):
         if instr.lower() in dataFile_name.lower():
             wInstr = [index, instr]
 
@@ -142,7 +138,6 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                   'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data',
                   'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time',
                   'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear', 'LABLAXIS': 'Epoch'}
-
 
         # DETERMINE THE FILETYPE
         loadThisFile = inputFiles[wFile]
@@ -191,28 +186,34 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict['Epoch'][0] = np.array([data_dict['Epoch'][0][i]*(10**(9)) + rocketAttrs.Launch_Times[wRocket - 4] for i in range(len(data_dict['Epoch'][0]))])
 
         # Calculate the Bmag value
-        BmagAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
-                        'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
-                        'SCALETYP': 'linear', 'LABLAXIS': 'Bmag'}
+        if convertBData:
+            BmagAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+                            'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
+                            'SCALETYP': 'linear', 'LABLAXIS': 'Bmag'}
 
-        # Real data
-        Bmag = np.array(
-            [
-              np.linalg.norm([data_dict['Bx'][0][i],data_dict['By'][0][i],data_dict['Bz'][0][i]])
-                for i in range(len(data_dict['Bx'][0]))
-            ])
+            # Real data
+            Bmag = np.array(
+                [
+                    np.linalg.norm([data_dict['Bx'][0][i], data_dict['By'][0][i], data_dict['Bz'][0][i]])
+                    for i in range(len(data_dict['Bx'][0]))
+                ])
 
-        data_dict = {**data_dict,**{'Bmag':[Bmag,BmagAttrs]}}
+            data_dict = {**data_dict, **{'Bmag': [Bmag, BmagAttrs]}}
 
-        # Model data
-        # Bmag_Model = np.array(
-        #     [
-        #         np.linalg.norm([data_dict['Bx_Model'][0][i], data_dict['By_Model'][0][i], data_dict['Bz_Model'][0][i]])
-        #         for i in range(len(data_dict['Bx_Model'][0]))
-        # #     ])
-        #
-        # BmagAttrs['LABLAXIS'] = 'Bmag_Model'
-        # data_dict = {**data_dict, **{'Bmag_Model': [Bmag_Model, BmagAttrs]}}
+        elif convertEData:
+            EmagAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+                         'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
+                         'SCALETYP': 'linear', 'LABLAXIS': 'Emag'}
+
+            # Real data
+            Emag = np.array(
+                [
+                    np.linalg.norm([data_dict['E_east'][0][i], data_dict['E_north'][0][i], data_dict['E_up'][0][i]])
+                    for i in range(len(data_dict['E_east'][0]))
+                ])
+
+            data_dict = {**data_dict, **{'Emag': [Emag, EmagAttrs]}}
+
 
         Done(start_time)
 

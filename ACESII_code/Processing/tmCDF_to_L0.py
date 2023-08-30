@@ -41,10 +41,13 @@ wFiles = [5]
 inputPath_modifier = 'tmCDF' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L0' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
+# --- magnetometers ---
 getMAGdata = True # get the mag data
 justgetMAGdata = True # Only get the MAG data
+useAntoniosDataInstead = True # use Antonios data instead of my dataset
 wMag = 0 # 0 --> RingCore, 1--> CHIMERA/Tesseract (depends on flyer)
 modifer_mag = 'L0'
+modifier_antonio_data = 'L0'
 
 # Output the data
 outputData = True
@@ -152,180 +155,181 @@ def tmCDF_to_L0(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         if getMAGdata:
             prgMsg('Collecting MAG data')
 
-            if wMag == 0:
+            if not useAntoniosDataInstead:
+                if wMag == 0:
 
-                # Get the data
-                RingCore_data_temp = np.array([tmCDF_mf[iv][120 - 1] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
-                RingCore_sfid_temp = np.array([tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
-                RingCore_epoch_temp = np.array([tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
-                Done(start_time)
-
-                # package all the MAG data into a data_dict
-                ringCore_data = {
-                    'Epoch':[],
-                    'HouseKeeping_ID': [],
-                    'HouseKeeping_Data': [],
-                    'TimeOffset_High': [],
-                    'TimeOffset_Low': [],
-                    'Bx_high': [],
-                    'Bx_low': [],
-                    'By_high': [],
-                    'By_low': [],
-                    'Bz_high': [],
-                    'Bz_low': [],
-                }
-
-                prgMsg('Collecting mag Data')
-
-                for i in tqdm(range(len(RingCore_sfid_temp))):
-
-                    # I'm CHOOSING TO PICK THE EPOCH AT WORD #0 and WORD #11 in a Major Frame
-                    if RingCore_sfid_temp[i] == 0: # Epoch
-                        ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
-                    elif RingCore_sfid_temp[i] == 2: # BxHigh
-                        ringCore_data['Bx_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 4: #BxLow
-                        ringCore_data['Bx_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 6: # ByHigh
-                        ringCore_data['By_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 8: #ByLow
-                        ringCore_data['By_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 10: # BzHigh
-                        ringCore_data['Bz_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 12: # BzLow
-                        ringCore_data['Bz_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 14: # HOUSEKEEPING ID
-                        ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 16: # Housekeeping data
-                        ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 18:
-                        ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 20:
-                        ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
-                        ringCore_data['TimeOffset_Low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 22:  # BxHigh
-                        ringCore_data['Bx_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 24:  # BxLow
-                        ringCore_data['Bx_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 26:  # ByHigh
-                        ringCore_data['By_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 28:  # ByLow
-                        ringCore_data['By_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 30:  # BzHigh
-                        ringCore_data['Bz_high'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 32:  # BzLow
-                        ringCore_data['Bz_low'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 34:  # HOUSEKEEPING ID
-                        ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 36:  # Housekeeping data
-                        ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
-                    elif RingCore_sfid_temp[i] == 38:
-                        ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
-                        ringCore_data['TimeOffset_Low'].append(rocketAttrs.epoch_fillVal)
-
-                # --- --- --- --- --- --- --- --
-                # --- calculate 24-Bit Words ---
-                # --- --- --- --- --- --- --- --
-
-                # create a container to hold all the processed data
-                data_dict_mag = {
-                    'Bx': [[], {'LABLAXIS':'Bx', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                    'By': [[], {'LABLAXIS':'By', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                    'Bz': [[], {'LABLAXIS':'Bz', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
-                    'Epoch': [ringCore_data['Epoch'], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}],
-                    'HouseKeeping_ID': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
-                    'HouseKeeping_Data': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
-                    'TimeOffset': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}]
-                }
-
-                labels = ['Bx', 'By', 'Bz']
-
-                for i in range(len(data_dict_mag['Epoch'][0])):
-
-                    # get the housekeeping data
-                    hkID = '{0:016b}'.format(ringCore_data['HouseKeeping_ID'][i])
-                    hkData = '{0:016b}'.format(ringCore_data['HouseKeeping_Data'][i])
-                    data_dict_mag['HouseKeeping_ID'][0].append(int(hkID[9:16], 2))
-                    data_dict_mag['HouseKeeping_Data'][0].append(int(hkData, 2))
-
-                    # TimeOffset - 18-bit unsigned word 2+16. The 18-bit word converts by 61.035ns/count
-                    # to gets you time in nanoseconds SINCE LAST MAJORFRAME
-                    word_high_offset = ringCore_data['TimeOffset_High'][i]
-                    word_low_offset = ringCore_data['TimeOffset_Low'][i]
-
-                    if word_low_offset == rocketAttrs.epoch_fillVal:
-                        data_dict_mag['TimeOffset'][0].append(rocketAttrs.epoch_fillVal)
-                    else:
-                        data_dict_mag['TimeOffset'][0].append(int('{0:016b}'.format(word_high_offset)[15:16] + '{0:016b}'.format(word_low_offset), 2) * 61.035 ) # converts to ns since majorframe
-
-                    # GET THE MANGETIC FIELD - It's a 24-bit SIGNED word, so we must apply 2's complement to the whole word if it goes negative
-                    for j in range(3):
-                        # If the 24th bit is 1 --> positive value, else negative. Convert to decimal number
-                        # Take the high value, only use first 7 bits, then concatenate it with the all of the low value bits
-                        word_high = ringCore_data[labels[j] + '_high'][i]
-                        word_low = ringCore_data[labels[j] + '_low'][i]
-                        sign = '{0:016b}'.format(word_high)[-8]
-
-                        if sign == '1': # 1 is negative (opposite to what antonio said)
-                            word_high_twosComp = '{0:016b}'.format(word_high)
-                            word_high_twosComp = word_high_twosComp.replace('1', '2').replace('0', '1').replace('2', '0') # the 2's complement equivalent
-                            word_low_twosComp = '{0:016b}'.format(word_low)
-                            word_low_twosComp = word_low_twosComp.replace('1', '2').replace('0', '1').replace('2', '0')
-                            fullword = word_high_twosComp[-7:] + word_low_twosComp
-                            fullword = -1 * int(fullword, 2)
-
-                        elif sign == '0': # 0 is postivie (opposite to what antonio said)
-                            fullword = '{0:016b}'.format(word_high)[-7:] + '{0:016b}'.format(word_low)
-                            fullword = int(fullword, 2)
-
-                        data_dict_mag[labels[j]][0].append(fullword)
-
-                ###################################
-                # --- REMOVE OVERSAMPLING ISSUE ---
-                ###################################
-
-                # use repeated hk index to determine bad data i.e. the hk index must go from 0-127 without repeats.
-                # there ARE repeats due to the oversampling of the telemetry
-                bad_indicies = []
-
-                # find all repeated indicies
-                for i in range(len(data_dict_mag['HouseKeeping_ID'][0])-1):
-                    if data_dict_mag['HouseKeeping_ID'][0][i+1] == data_dict_mag['HouseKeeping_ID'][0][i]:
-                        bad_indicies.append(i+1)
-
-                # convert everything to numpy arrays and remove repeated indicies
-                for key, val in data_dict_mag.items():
-
-                    if len(data_dict_mag[key][0]) > 400:
-                        data_dict_mag[key][0] = np.array(data_dict_mag[key][0])
-
-                        data_dict_mag[key][0] = np.delete(data_dict_mag[key][0],bad_indicies)
-
-
-            elif wMag == 1:
-
-                if wRocket == 5: # Low Flyer has Ring Core and Tesseract
                     # Get the data
-                    Tesseract_data = np.array([tmCDF_mf[iv][16 - 1] for iv in (range(len(tmCDF_sfid)))])
-                    Tesseract_sfid = np.array(tmCDF_sfid)
-                    Tesseract_epoch = np.array(tmCDF_epoch)
+                    RingCore_data_temp = np.array([tmCDF_mf[iv][120 - 1] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                    RingCore_sfid_temp = np.array([tmCDF_sfid[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                    RingCore_epoch_temp = np.array([tmCDF_epoch[iv] for iv in (range(len(tmCDF_sfid))) if (tmCDF_sfid[iv] + 1)%2 == 1])
+                    Done(start_time)
 
-                    # Process the data
-                    data_dict_mag = {}
-                    data_dict_mag = {**data_dict_mag, **{'Tesseract_data':[Tesseract_data, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
-                    data_dict_mag = {**data_dict_mag, **{'Tesseract_sfid': [Tesseract_sfid, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
-                    data_dict_mag = {**data_dict_mag, **{'Tesseract_epoch': [Tesseract_epoch, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]}}
+                    # package all the MAG data into a data_dict
+                    ringCore_data = {
+                        'Epoch':[],
+                        'HouseKeeping_ID': [],
+                        'HouseKeeping_Data': [],
+                        'TimeOffset_High': [],
+                        'TimeOffset_Low': [],
+                        'Bx_high': [],
+                        'Bx_low': [],
+                        'By_high': [],
+                        'By_low': [],
+                        'Bz_high': [],
+                        'Bz_low': [],
+                    }
 
+                    prgMsg('Collecting mag Data')
+
+                    for i in tqdm(range(len(RingCore_sfid_temp))):
+
+                        # I'm CHOOSING TO PICK THE EPOCH AT WORD #0 and WORD #11 in a Major Frame
+                        if RingCore_sfid_temp[i] == 0: # Epoch
+                            ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
+                        elif RingCore_sfid_temp[i] == 2: # BxHigh
+                            ringCore_data['Bx_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 4: #BxLow
+                            ringCore_data['Bx_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 6: # ByHigh
+                            ringCore_data['By_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 8: #ByLow
+                            ringCore_data['By_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 10: # BzHigh
+                            ringCore_data['Bz_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 12: # BzLow
+                            ringCore_data['Bz_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 14: # HOUSEKEEPING ID
+                            ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 16: # Housekeeping data
+                            ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 18:
+                            ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 20:
+                            ringCore_data['Epoch'].append(RingCore_epoch_temp[i])
+                            ringCore_data['TimeOffset_Low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 22:  # BxHigh
+                            ringCore_data['Bx_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 24:  # BxLow
+                            ringCore_data['Bx_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 26:  # ByHigh
+                            ringCore_data['By_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 28:  # ByLow
+                            ringCore_data['By_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 30:  # BzHigh
+                            ringCore_data['Bz_high'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 32:  # BzLow
+                            ringCore_data['Bz_low'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 34:  # HOUSEKEEPING ID
+                            ringCore_data['HouseKeeping_ID'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 36:  # Housekeeping data
+                            ringCore_data['HouseKeeping_Data'].append(RingCore_data_temp[i])
+                        elif RingCore_sfid_temp[i] == 38:
+                            ringCore_data['TimeOffset_High'].append(RingCore_data_temp[i])
+                            ringCore_data['TimeOffset_Low'].append(rocketAttrs.epoch_fillVal)
+
+                    # --- --- --- --- --- --- --- --
+                    # --- calculate 24-Bit Words ---
+                    # --- --- --- --- --- --- --- --
+
+                    # create a container to hold all the processed data
+                    data_dict_mag = {
+                        'Bx': [[], {'LABLAXIS':'Bx', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                        'By': [[], {'LABLAXIS':'By', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                        'Bz': [[], {'LABLAXIS':'Bz', 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ADC', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}],
+                        'Epoch': [ringCore_data['Epoch'], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'MONOTON': 'INCREASE', 'TIME_BASE': 'J2000', 'TIME_SCALE': 'Terrestrial Time', 'REFERENCE_POSITION': 'Rotating Earth Geoid', 'SCALETYP': 'linear'}],
+                        'HouseKeeping_ID': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
+                        'HouseKeeping_Data': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': '#', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}],
+                        'TimeOffset': [[], {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'I5', 'UNITS': 'ns', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}]
+                    }
+
+                    labels = ['Bx', 'By', 'Bz']
+
+                    for i in range(len(data_dict_mag['Epoch'][0])):
+
+                        # get the housekeeping data
+                        hkID = '{0:016b}'.format(ringCore_data['HouseKeeping_ID'][i])
+                        hkData = '{0:016b}'.format(ringCore_data['HouseKeeping_Data'][i])
+                        data_dict_mag['HouseKeeping_ID'][0].append(int(hkID[9:16], 2))
+                        data_dict_mag['HouseKeeping_Data'][0].append(int(hkData, 2))
+
+                        # TimeOffset - 18-bit unsigned word 2+16. The 18-bit word converts by 61.035ns/count
+                        # to gets you time in nanoseconds SINCE LAST MAJORFRAME
+                        word_high_offset = ringCore_data['TimeOffset_High'][i]
+                        word_low_offset = ringCore_data['TimeOffset_Low'][i]
+
+                        if word_low_offset == rocketAttrs.epoch_fillVal:
+                            data_dict_mag['TimeOffset'][0].append(rocketAttrs.epoch_fillVal)
+                        else:
+                            data_dict_mag['TimeOffset'][0].append(int('{0:016b}'.format(word_high_offset)[15:16] + '{0:016b}'.format(word_low_offset), 2) * 61.035 ) # converts to ns since majorframe
+
+                        # GET THE MANGETIC FIELD - It's a 24-bit SIGNED word, so we must apply 2's complement to the whole word if it goes negative
+                        for j in range(3):
+                            # If the 24th bit is 1 --> positive value, else negative. Convert to decimal number
+                            # Take the high value, only use first 7 bits, then concatenate it with the all of the low value bits
+                            word_high = ringCore_data[labels[j] + '_high'][i]
+                            word_low = ringCore_data[labels[j] + '_low'][i]
+                            sign = '{0:016b}'.format(word_high)[-8]
+
+                            if sign == '1': # 1 is negative (opposite to what antonio said)
+                                word_high_twosComp = '{0:016b}'.format(word_high)
+                                word_high_twosComp = word_high_twosComp.replace('1', '2').replace('0', '1').replace('2', '0') # the 2's complement equivalent
+                                word_low_twosComp = '{0:016b}'.format(word_low)
+                                word_low_twosComp = word_low_twosComp.replace('1', '2').replace('0', '1').replace('2', '0')
+                                fullword = word_high_twosComp[-7:] + word_low_twosComp
+                                fullword = -1 * int(fullword, 2)
+
+                            elif sign == '0': # 0 is postivie (opposite to what antonio said)
+                                fullword = '{0:016b}'.format(word_high)[-7:] + '{0:016b}'.format(word_low)
+                                fullword = int(fullword, 2)
+
+                            data_dict_mag[labels[j]][0].append(fullword)
+
+                    ###################################
+                    # --- REMOVE OVERSAMPLING ISSUE ---
+                    ###################################
+
+                    # use repeated hk index to determine bad data i.e. the hk index must go from 0-127 without repeats.
+                    # there ARE repeats due to the oversampling of the telemetry
+                    bad_indicies = []
+
+                    # find all repeated indicies
+                    for i in range(len(data_dict_mag['HouseKeeping_ID'][0])-1):
+                        if data_dict_mag['HouseKeeping_ID'][0][i+1] == data_dict_mag['HouseKeeping_ID'][0][i]:
+                            bad_indicies.append(i+1)
+
+                    # convert everything to numpy arrays and remove repeated indicies
+                    for key, val in data_dict_mag.items():
+
+                        if len(data_dict_mag[key][0]) > 400:
+                            data_dict_mag[key][0] = np.array(data_dict_mag[key][0])
+
+                            data_dict_mag[key][0] = np.delete(data_dict_mag[key][0],bad_indicies)
+                elif wMag == 1:
+
+                    if wRocket == 5: # Low Flyer has Ring Core and Tesseract
+                        # Get the data
+                        Tesseract_data = np.array([tmCDF_mf[iv][16 - 1] for iv in (range(len(tmCDF_sfid)))])
+                        Tesseract_sfid = np.array(tmCDF_sfid)
+                        Tesseract_epoch = np.array(tmCDF_epoch)
+
+                        # Process the data
+                        data_dict_mag = {}
+                        data_dict_mag = {**data_dict_mag, **{'Tesseract_data':[Tesseract_data, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                        data_dict_mag = {**data_dict_mag, **{'Tesseract_sfid': [Tesseract_sfid, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -1,'FORMAT': 'I5','UNITS': '#','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','SCALETYP':'linear'}]}}
+                        data_dict_mag = {**data_dict_mag, **{'Tesseract_epoch': [Tesseract_epoch, {'DEPEND_0': 'Tesseract_epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': rocketAttrs.epoch_fillVal,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'support_data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear'}]}}
+            else:
+                antonioMagFile = glob(f'{rocketFolderPath}{modifier_antonio_data}\{fliers[wflyer]}\*Antonio_*')[0]
+                data_dict_mag = loadDictFromFile(antonioMagFile,{})
             Done(start_time)
 
-        if outputData:
-            prgMsg('Writing out MAG data')
+            if outputData:
+                prgMsg('Writing out MAG data')
 
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            outputCDFdata(outputPath, data_dict_mag, L0ModelData, globalAttrsMod, wInstr[1])
+                outputCDFdata(outputPath, data_dict_mag, L0ModelData, globalAttrsMod, wInstr[1])
 
-            Done(start_time)
+                Done(start_time)
 
         if not justgetMAGdata:
             # --- variables with special conditions ---

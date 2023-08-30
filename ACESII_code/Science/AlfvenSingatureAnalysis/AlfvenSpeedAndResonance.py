@@ -1,7 +1,8 @@
 # --- ModelAlfvenSpeed.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Plot a model of the Alfven Speed vs altitude in order to analyze
-# Alfven dispersion features
+# Alfven dispersion features. Also, plot vs altitude a resonance condition
+# useful for determining what particles will resonate with alfven waves.
 
 
 # --- bookkeeping ---
@@ -10,51 +11,44 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import copy
-import itertools
-# --- --- --- --- ---
+from ACESII_code.myImports import *
+from ACESII_code.class_var_func import Re
 
-import time
-
-import matplotlib.pyplot as plt
-
-from ACESII_code.class_var_func import Done, setupPYCDF
 
 start_time = time.time()
 # --- --- --- --- ---
 
-# --- --- --- ---
-# --- TOGGLES ---
-# --- --- --- ---
+# --- --- --- --- --- --- --- ---
+# --- ALFVEN VELOCITY TOGGLES ---
+# --- --- --- --- --- --- --- ---
+SECTION_AlfvenVelocityPlot = True
 
 # assume the kinetic term is just 2^-0.5
-simplifyKinetic = False
+simplifyKinetic = True
 
 # Altitude Range (in KILOMETERS) to plot alfven speed over
-wkperp = (2*3.1415926535)/100 # This is ANGULAR wave number: k = 2 pi/lambda
-AltLow = 1
-AltHigh = 22000
-xscaling= (1E3) # how to scale the xaxis of the plot
-yscaling= 299792458 # how to scale the yaxis of the plot. Nominally: (1E4)*(1E3)
-plotylabel = 'Kinetic Alfven Speed [$V_{A}/c$]' # nominally: [10,000 km/s]
-plotxlabel = 'Altitude (1000 km)'
-ylimits = (0,0.05)
-xlimits = (22,0) # the x-axis is inverted remember
+wkperp = (2*np.pi)/100 # This is ANGULAR wave number: k = 2 pi/lambda
+AltLow = 1 # in km
+AltHigh = 6*Re # in km
+xscaling = Re # how to scale the xaxis of the plot
+yscaling= 1E7 # how to scale the yaxis of the plot. Nominally: (1E4)*(1E3)
+plotylabel = '$V_{A}$ [10,000 km/s]' # nominally: [10,000 km/s]
+plotxlabel = 'Altitude [$R_{E}$]'
+ylimits = (0,1)
+xlimits = (0.1,-0.1) # the x-axis is inverted remember
+
+
+# --- --- --- --- --- --- --- ---
+# --- ALFVEN RESONANCE TOGGLES ---
+# --- --- --- --- --- --- --- ---
+SECTION_AlfvenResonancePlot = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
 import pyIGRF
-import datetime as dt
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg,outputCDFdata,L1_TRICE_Quick,L2_TRICE_Quick,loadDictFromFile, q0,m_e,u0,lightSpeed,IonMasses,ep0,Re,cm_to_m
-from glob import glob
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
+from ACESII_code.class_var_func import lightSpeed,u0
+
 
 
 # profile taken from Kletzing: Alfven Wave Electron Acceleration
@@ -114,18 +108,22 @@ def main(AltLow, AltHigh):
     xData = altitudeAxis/(xscaling) # to 1000 km
     yData = alfvenAxis/(yscaling) # to 10,000 km/s
 
-    # --- --- --- ---
-    # --- PLOTTING ---
-    # --- --- --- ---
-    fig, ax = plt.subplots()
-    ax.set_ylabel(plotylabel)
-    ax.set_xlabel(plotxlabel)
-    fig.suptitle('Alfven Speed vs Altitude')
-    ax.plot(xData, yData)
-    ax.invert_xaxis()
-    ax.set_ylim(*ylimits)
-    ax.set_xlim(*xlimits)
-    plt.show()
+    if SECTION_AlfvenVelocityPlot:
+        # --- --- --- ---
+        # --- PLOTTING ---
+        # --- --- --- ---
+        fig, ax = plt.subplots()
+        ax.set_ylabel(plotylabel)
+        ax.set_xlabel(plotxlabel)
+        fig.suptitle('Alfven Speed ($V_{A}$) vs Altitude')
+        ax.plot(xData, yData)
+        ax.invert_xaxis()
+        ax.set_ylim(*ylimits)
+        ax.set_xlim(*xlimits)
+        plt.show()
+        
+    # if SECTION_AlfvenResonancePlot:
+
 
 
 

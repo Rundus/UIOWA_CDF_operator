@@ -43,7 +43,9 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
+
+useNanoAmps = True
 
 ###############################
 # --- FIXED VOLTAGE TOGGLES ---
@@ -69,21 +71,18 @@ keepThisManyPoints = 1 # how many points to keep when you downsample RC effect
 #########################
 # --- SWEPT PROBE CAL ---
 #########################
-SECTION_sweptProbe = True # use the swept Probe calibration data to convert analog values to current
+SECTION_sweptProbe = False # use the swept Probe calibration data to convert analog values to current
 removeADCValsOutofCalRange = True
 applySweptCalCurve = True # False - data is in analog values, True - data is in current.
 inputCalFile_Iowa = f'{ACES_data_folder}\calibration\LP_calibration\high\ACESII_LP_Cals_swept_Iowa.cdf'
-useNanoAmps = True
+
 
 # --- break into curves toggles ---
-breakIntoCurves = False
+breakIntoCurves = True
 targetVoltage_min = -1 # only care about voltage sweeps above this voltage value. Nominally -1
 digitalVariance = 5 # how much the digitized step point can vary when looking for the top and bottom of curves. nominally = 5
 indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff needed between epoch points to identify particular sweeps
 
-
-# TODO: adjust code so the breakIntoCurves = True case works with my new calibration procedure
-# TODO: Add code toggle so we can only use swept ADC values in the valid range
 #####################
 # --- DATA OUTPUT ---
 #####################
@@ -169,7 +168,11 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             for key, val in fixedCalResistances.items():
                 if key != 'Open':
                     analog_vals.append(val)
-                    calibrationCurrents.append(unit_conversion * probeBias / key)
+
+                    if useNanoAmps:
+                        calibrationCurrents.append(unit_conversion * probeBias / key)
+                    else:
+                        calibrationCurrents.append(probeBias / key)
 
             analog_vals, calibrationCurrents = np.array(analog_vals), np.array(calibrationCurrents)
 
@@ -186,7 +189,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 plt.scatter(analog_vals, calibrationCurrents)
                 plt.xlabel('ADC Value')
                 plt.ylabel(r'Ln($I_{cal}$) [nA]')
-                plt.suptitle('FIXED LP\n'
+                plt.suptitle(f'FIXED LP - {rocketAttrs.rocketID[wRocket-4]}\n'
                              'Calculated Calibration Current vs Analog Value')
                 plt.legend(['ln(y) = mx + b\n'
                            f'm: {parameters[0]}\n'
@@ -200,6 +203,18 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             else:
                 ni = np.array(data_dict['ni'][0])
                 fixedLPunits = 'ADC'
+
+
+            # apply a quality assurance step:
+            if applyFixedCalCurve:
+                if wRocket == 4:
+                    for i in range(len(ni)):
+                        if np.abs(ni[i]) > 700:
+                            ni[i] = rocketAttrs.epoch_fillVal
+                elif wRocket == 5:
+                    for i in range(len(ni)):
+                        if np.abs(ni[i]) > 1500:
+                            ni[i] = rocketAttrs.epoch_fillVal
 
             data_dict = {**data_dict, **{'fixed_current': [ni, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
@@ -310,6 +325,13 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
         if SECTION_sweptProbe:
 
+            # Calculate the swept current
+            n_i_swept = list(data_dict['ni_swept'][0])
+            n_e_swept = list(data_dict['ne_swept'][0])
+            sweptStep_temp = np.array(data_dict['step_Voltage'][0])
+            Epoch_sweptCurrent_temp = np.array(data_dict['Epoch_step'][0])
+
+            # --- prepare the calibration data ---
             if applySweptCalCurve:
                 prgMsg('Collecting Swept Calibration Fit Data')
                 def sweptCal_Analog_to_Current(analogVal, fitParams):
@@ -326,37 +348,36 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             if removeADCValsOutofCalRange:
                 fitRegions = data_dict_iowaCal['fitRegions'][0]  # format: [[#1], [#2]]
 
+                # remove data out of range: n_i
+                for i in range(len(n_i_swept)):
+                    if (fitRegions[1][0] > n_i_swept[i]) or (fitRegions[1][1] < n_i_swept[i]):
+                        n_i_swept[i] = rocketAttrs.epoch_fillVal
 
-
-
-            # Calculate the swept current
-            n_i_swept = np.array(data_dict['ni_swept'][0])
-            n_e_swept = np.array(data_dict['ne_swept'][0])
-            sweptStep_temp = np.array(data_dict['step_Voltage'][0])
-            Epoch_sweptCurrent_temp = np.array(data_dict['Epoch_step'][0])
-            sweptCurrent_temp = np.zeros(shape=(len(data_dict['ne_swept'][0])))
-
-            for i in range(len(n_i_swept)):
-                sweptCurrent_temp[i] = (n_e_swept[i] - n_i_swept[i])
-
+                # remove data out of range: n_e
+                for i in range(len(n_e_swept)):
+                    if (fitRegions[0][0] > n_e_swept[i]) or (fitRegions[0][1] < n_e_swept[i]):
+                        n_e_swept[i] = rocketAttrs.epoch_fillVal
 
             if breakIntoCurves:
                 Epoch_sweptCurrent = []
-                sweptCurrent = []
+                sweptCurrent_ne = []
+                sweptCurrent_ni = []
                 step_sweptVoltage = []
 
                 # Reduce the sweptCurrent data to only include data with stepVoltage >= targetVoltage_min
                 for i in range(len(data_dict['step_Voltage'][0])):
                     if data_dict['step_Voltage'][0][i] >= targetVoltage_min:
-                        sweptCurrent.append(sweptCurrent_temp[i])
+                        sweptCurrent_ne.append(n_e_swept[i])
+                        sweptCurrent_ni.append(n_i_swept[i])
                         Epoch_sweptCurrent.append(Epoch_sweptCurrent_temp[i])
                         step_sweptVoltage.append(sweptStep_temp[i])
 
                 # Reduce data to only specified epoch range that contains good data
                 epochIndexLow = np.abs(np.array(Epoch_sweptCurrent) - rocketAttrs.startEndLangmuirBreakIntoCurves[wRocket - 4][0]).argmin()
                 epochIndexHigh = np.abs(np.array(Epoch_sweptCurrent) - rocketAttrs.startEndLangmuirBreakIntoCurves[wRocket - 4][1]).argmin()
-                sweptCurrent = sweptCurrent[epochIndexLow:epochIndexHigh+1]
-                step_sweptVoltage = step_sweptVoltage[epochIndexLow:epochIndexHigh+1]
+                sweptCurrent_ne = sweptCurrent_ne[epochIndexLow:epochIndexHigh + 1]
+                sweptCurrent_ni = sweptCurrent_ni[epochIndexLow:epochIndexHigh + 1]
+                step_sweptVoltage = step_sweptVoltage[epochIndexLow:epochIndexHigh + 1]
                 Epoch_sweptCurrent = np.array([pycdf.lib.datetime_to_tt2000(Epoch_sweptCurrent[i]) for i in range(epochIndexLow,epochIndexHigh+1)])
 
                 # Identify Individual sweeps first by the large gap in Epoch value
@@ -378,74 +399,96 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 indvSweepIndicies.append([indvSweepIndicies[-1][1]+1, len(Epoch_sweptCurrent)])
 
                 # Separate each individual sweep into upleg and downleg
-                sweptCurrent_New = []
+                sweptCurrent_ne_New = []
+                sweptCurrent_ni_New = []
                 Epoch_sweptCurrent_New = []
                 sweptStep_New = []
                 for index in range(len(indvSweepIndicies)):
-                    indvCurrent = sweptCurrent[indvSweepIndicies[index][0]:indvSweepIndicies[index][1] + 1]
+                    indvCurrent_ne = sweptCurrent_ne[indvSweepIndicies[index][0]:indvSweepIndicies[index][1] + 1]
+                    indvCurrent_ni = sweptCurrent_ni[indvSweepIndicies[index][0]:indvSweepIndicies[index][1] + 1]
                     indvEpoch = Epoch_sweptCurrent[indvSweepIndicies[index][0]:indvSweepIndicies[index][1] + 1]
                     indvStep = step_sweptVoltage[indvSweepIndicies[index][0]:indvSweepIndicies[index][1] + 1]
+
+                    # # create a temporary n_e - n_i variable that's useful for sorting
+                    # ADCcurrent_temp
 
                     if downSample_RCeffect:
                         # Take the top value of "step" and split the curve based on that
                         middleIndex = np.array(indvStep).argmax()
                     else:
-                        # take the top 9 values of 'indvCurernt' and split the curve at the middle value
-                        countedIndicies = sorted(range(len(indvCurrent)), key=lambda i: indvCurrent[i])[-9:]
+                        # take the top 9 values of 'indvCurrent_ne' and split the curve at the middle value
+                        countedIndicies = sorted(range(len(indvCurrent_ne)), key=lambda i: indvCurrent_ne[i])[-9:]
                         countedIndicies.sort()
                         middleIndex = countedIndicies[int((len(countedIndicies) - 1) / 2)]
 
                     # Break up the curve
-                    currentUpLeg = indvCurrent[0:middleIndex]
+                    currentUpLeg_ne = indvCurrent_ne[0:middleIndex]
+                    currentUpLeg_ni = indvCurrent_ni[0:middleIndex]
                     epochUpLeg = indvEpoch[0:middleIndex]
                     stepUpLeg = indvStep[0:middleIndex]
 
-                    currentDownLeg = indvCurrent[middleIndex:]
+                    currentDownLeg_ne = indvCurrent_ne[middleIndex:]
+                    currentDownLeg_ni = indvCurrent_ni[middleIndex:]
                     epochDownLeg = indvEpoch[middleIndex:]
                     stepDownLeg = indvStep[middleIndex:]
 
                     # Store the broken up curve data
-                    sweptCurrent_New.append(currentUpLeg)
-                    sweptCurrent_New.append(currentDownLeg[::-1])
+                    sweptCurrent_ne_New.append(currentUpLeg_ne)
+                    sweptCurrent_ne_New.append(currentDownLeg_ne[::-1])
+
+                    sweptCurrent_ni_New.append(currentUpLeg_ni)
+                    sweptCurrent_ni_New.append(currentDownLeg_ni[::-1])
+
                     Epoch_sweptCurrent_New.append(epochUpLeg)
                     Epoch_sweptCurrent_New.append(epochDownLeg)
                     sweptStep_New.append(stepUpLeg)
                     sweptStep_New.append(stepDownLeg[::-1])
 
-                sweptCurrent = []
+                # prepare final outputs of the breakCurves algorithm
+                sweptCurrent_ne = []
+                sweptCurrent_ni = []
                 Epoch_sweptCurrent = []
                 step_sweptVoltage = []
 
                 # Flatten the data. np.flatten does not work for some reason
-                for i in range(len(sweptCurrent_New)):
-                    for thing in sweptCurrent_New[i]:
-                        sweptCurrent.append(thing)
+                for i in range(len(Epoch_sweptCurrent_New)):
+                    for thing in sweptCurrent_ne_New[i]:
+                        sweptCurrent_ne.append(thing)
+                    for thing in sweptCurrent_ni_New[i]:
+                        sweptCurrent_ni.append(thing)
                     for thing in Epoch_sweptCurrent_New[i]:
-                        Epoch_sweptCurrent.append( pycdf.lib.tt2000_to_datetime(thing))
+                        Epoch_sweptCurrent.append(pycdf.lib.tt2000_to_datetime(thing))
                     for thing in sweptStep_New[i]:
                         step_sweptVoltage.append(thing)
-
-                sweptCurrent = np.array(sweptCurrent)
-                Epoch_sweptCurrent = np.array(Epoch_sweptCurrent_temp)
-                step_sweptVoltage = np.array(step_sweptVoltage)
 
                 ###########################################################
                 # --- APPLY THE CALIBRATION CURVES FROM SWEPT_PROBE_CAL ---
                 ###########################################################
                 if applySweptCalCurve:
-                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) for analogVal in n_e_swept])
-                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) for analogVal in n_i_swept])
-                    sweptCurrent = np.array(ne_current - ni_current)
+                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) if (analogVal != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for analogVal in sweptCurrent_ne])
+                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) if (analogVal != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for analogVal in sweptCurrent_ni])
+                else:
+                    ne_current = np.array(sweptCurrent_ne)
+                    ni_current = np.array(sweptCurrent_ni)
+                sweptCurrent = np.array(ne_current - ni_current)
+                Epoch_sweptCurrent = np.array(Epoch_sweptCurrent)
+                step_sweptVoltage = np.array(step_sweptVoltage)
             else:
+                if applySweptCalCurve:
+                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) if (analogVal != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for analogVal in n_e_swept])
+                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) if (analogVal != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for analogVal in n_i_swept])
+                    sweptCurrent = np.array([ne_current[i] - ni_current[i] if (ne_current[i] != rocketAttrs.epoch_fillVal) or (ni_current[i] != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for i in range(len(Epoch_sweptCurrent_temp))])
+
+                else:
+                    sweptCurrent = np.array([n_e_swept[i] - n_i_swept[i] if (n_e_swept[i] != rocketAttrs.epoch_fillVal) or (n_i_swept[i] != rocketAttrs.epoch_fillVal) else rocketAttrs.epoch_fillVal for i in range(len(Epoch_sweptCurrent_temp))])
+
                 Epoch_sweptCurrent = np.array(Epoch_sweptCurrent_temp)
                 step_sweptVoltage = np.array(sweptStep_temp)
 
-                if applySweptCalCurve:
-                    ne_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[0]) for analogVal in n_e_swept])
-                    ni_current = np.array([sweptCal_Analog_to_Current(analogVal, fit_params[1]) for analogVal in n_i_swept])
-                    sweptCurrent = np.array(ne_current - ni_current)
-                else:
-                    sweptCurrent = np.array(sweptCurrent_temp)
+            # do a quality assurance check
+            for i, val in enumerate(sweptCurrent):
+                if np.abs(val) > 1E10:
+                    sweptCurrent[i] = rocketAttrs.epoch_fillVal
 
             units = 'nA' if applySweptCalCurve else 'Analog'
             if applySweptCalCurve:
@@ -453,7 +496,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                     units = 'nA'
                     sweptCurrent = np.array(sweptCurrent)
                 else:
-                    units = 'Amps'
+                    units = 'A'
                     sweptCurrent = np.array(sweptCurrent) / unit_conversion
             else:
                 units = 'Analog'

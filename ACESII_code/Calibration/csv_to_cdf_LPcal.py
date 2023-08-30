@@ -35,7 +35,7 @@ getVars = [1, 3, 5, 7] # column index corresponding to the desired variables to 
 
 ### ANALYSIS TOGGLES ###
 
-useNanoAmps = True # all currents in nA, else it's Amps
+useNanoAmps = False # all currents in nA, else it's Amps
 unitConv = 1E9
 
 plotIndividualCurveData = False # plot each individual curve
@@ -57,11 +57,10 @@ polyOrder = 2
 # plot the final calibration curve with the fits
 n_e_fitRange = [0, 1820] # ADC range to fit calibration curve
 n_i_fitRange = [0, 4250] # ADC range to fit calibration curve
-plotCalibrationCurveFitted = False
-
+plotCalibrationCurveFitted = True
 
 # output the data
-outputData = True
+outputData = False
 
 
 
@@ -138,6 +137,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             v_stepped = np.array([4*(R*vStep + (-5)*(1 - R)) for vStep in v_stepped]) # apply function to convert DAC output to v_stepped
             v_stepped_current = np.array(v_stepped / resistanceVal)
 
+
             # --- determine what the ADC would've reported. The ADC was a 12-bit, 5V converter ---
             ni_stepped = np.array(csvData[getVars[2]][:], dtype='float64')
             ne_stepped = np.array(csvData[getVars[3]][:], dtype='float64')
@@ -164,7 +164,7 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                     ax[0].set_xlabel('Datapoint No.')
                     ax[0].set_ylabel('ADC Value')
                     ax[1].set_xlabel('Datapoint No.')
-                    ax[1].set_ylabel('Applied Voltage [V]')
+                    ax[1].set_ylabel('Probe Voltage [V]')
                     plt.show()
 
             # --- store data ---
@@ -226,6 +226,9 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
         cali_dict['ne'] = np.array([item for sublist in deepcopy(cali_dict['ne']) for item in sublist])
         cali_dict['ni'] = np.array([item for sublist in deepcopy(cali_dict['ni']) for item in sublist])
 
+        # --- --- --- --- --- --- --- --- --- -
+        # --- REMOVE THE ==0 ADC ==0 points ---
+        # --- --- --- --- --- --- --- --- --- -
         # we don't care about when n_i/n_e == 0 since the v_applied was pos/neg, respectively, lets remove those points
         # ni
         badIndicies = np.where(cali_dict['ni'] == 0)[0]
@@ -258,7 +261,6 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                 badIndicies = np.where(cali_dict[f'{labels[i]}_knownI'] > 0)[0]
             cali_dict[f'{labels[i]}'] = np.delete(deepcopy(cali_dict[f'{labels[i]}']), badIndicies)
             cali_dict[f'{labels[i]}_knownI'] = np.delete(deepcopy(cali_dict[f'{labels[i]}_knownI']),badIndicies)
-
 
         if plotFlattenedANDCleanedOverlay:
             fig, ax = plt.subplots(2)
@@ -343,6 +345,16 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
                 plt.show()
 
             Done(start_time)
+        else:
+            R1 = 100
+            R2 = 1000
+            testDat =  cali_dict['ni_knownI'][R1:R2]
+            cali_dict['ni_knownI'] = np.array([np.log(-1 * cur) for cur in cali_dict['ni_knownI']])
+            testDat2 = cali_dict['ni_knownI'][R1:R2]
+            cali_dict['ne_knownI'] = np.array([np.log(cur) for cur in cali_dict['ne_knownI']])
+
+            for i in range(len(testDat)):
+                print(testDat[i],testDat2[i])
 
         # --- --- --- --- --- --- -
         # --- LINEARLY FIT DATA ---
@@ -383,6 +395,8 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             xData = np.linspace(min(cali_dict['ne']), max(cali_dict['ne']), 1000)
             yData = [linear(x, *params_ne) for x in xData]
             ax[0].plot(xData, yData, color='purple')
+            ax[0].set_xlabel(r'ADC Value')
+            ax[0].set_ylabel(r'Ln($I_{cal}$)')
 
             #ni
             ax[1].set_title('ni')
@@ -390,6 +404,8 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             xData = np.linspace(min(cali_dict['ni']), max(cali_dict['ni']), 1000)
             yData = [linear(x, *params_ni) for x in xData]
             ax[1].plot(xData, yData, color='purple')
+            ax[1].set_xlabel(r'ADC Value')
+            ax[1].set_ylabel(r'Ln($I_{cal}$)')
 
             if AverageCalCurves:
                 ax[0].plot(cali_dict['ne'], cali_dict['ne_knownI_avg'], color='red')
@@ -398,11 +414,12 @@ def csv_to_cdf_LPcal(wRocket, rocketFolderPath, justPrintFileNames):
             plt.legend([f'Func n_e: A*x + B\n'
                         f'A: {params_ne[0]}\n'
                         f'B: {params_ne[1]}\n',
-                        f'Func n_e: A*x + B\n'
+                        f'Func n_i: A*x + B\n'
                         f'A: {params_ni[0]}\n'
                         f'B: {params_ni[1]}\n'
                         ])
-            plt.suptitle('V/R resistor Current vs Analog Circuit Response')
+            plt.suptitle('V/R resistor Current vs Analog Circuit Response\n'
+                         f'ACESII - {rocketID}')
             plt.show()
 
 

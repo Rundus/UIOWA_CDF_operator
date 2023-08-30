@@ -38,12 +38,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [1] # always set to [1]
 
 modifier = ''
 inputPath_modifier = 'L0' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -53,9 +53,15 @@ outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 applyScales = True
 applyFifthOrderCal = True
 applyRotateToRocket = True
-applyFlipBy = True
+applyFlipBy = False
 applyVectorCals = True
 
+
+# Fix outliers through interpolation
+fixOutliers = True
+percentThreshold = 10000 # change the value if the i+1 value has a percent difference of this percent
+targetTimes = targetTimes = [[dt.datetime(2022,11,20,17,22,00,000000), dt.datetime(2022,11,20,17,27,00,000000)],
+               [dt.datetime(2022,11,20,17,23,45,000000), dt.datetime(2022,11,20,17,27,55,000000)]]# the science region
 
 
 outputData = True
@@ -64,6 +70,7 @@ outputData = True
 # --- IMPORTS ---
 # --- --- --- ---
 from numpy.polynomial import Polynomial
+from scipy.interpolate import CubicSpline
 
 def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -186,6 +193,37 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict_mag['Bx'][0], data_dict_mag['By'][0], data_dict_mag['Bz'][0] = np.array(B[:, 0]), np.array(B[:, 1]), np.array(B[:, 2])
 
         Done(start_time)
+
+        if fixOutliers:
+            # There's an outlier in the High Flyer Bx data. Here we'll identify it and fix it
+            # NOTE: This assumes the outlier is alone! Not surounded by other outliers
+            ttimes = targetTimes[wRocket-4]
+            scienceRegionIndicies = [np.abs(data_dict_mag['Epoch'][0] -  pycdf.lib.datetime_to_tt2000(ttimes[0])).argmin(),
+                                     np.abs(data_dict_mag['Epoch'][0] - pycdf.lib.datetime_to_tt2000(ttimes[1])).argmin()]
+
+            labels = ['Bx','By','Bz']
+            for label in labels:
+
+                for i in range(len(data_dict_mag[label][0])-1):
+
+                    if scienceRegionIndicies[0] <= i <= scienceRegionIndicies[1]:
+
+                        percentChange = 100*(data_dict_mag[label][0][i+1] - data_dict_mag[label][0][i])/(np.abs(data_dict_mag[label][0][i]))
+
+
+                        if np.abs(percentChange) > percentThreshold:
+
+                            # spline interpolate around the problem point, which is the i+1th point
+                            yData_fitpoints = [data_dict_mag[label][0][j] for j in [i-k for k in range(1,40)]]
+                            xData_fitpoints = [data_dict_mag['Epoch'][0][j] for j in [i-k for k in range(1,40)]]
+                            splCub = CubicSpline(xData_fitpoints[::-1], yData_fitpoints[::-1])
+                            data_dict_mag[label][0][i] = splCub(data_dict_mag['Epoch'][0][i])
+
+
+
+
+        # get the magnitude
+        data_dict_mag['Bmag'][0] = np.array([np.linalg.norm([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]]) for i in range(len(data_dict_mag['Epoch'][0]))])
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---

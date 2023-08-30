@@ -14,6 +14,7 @@ from ACESII_code import data_paths
 from cdflib import cdfread
 import os
 from os import environ,remove
+from scipy.signal import butter, filtfilt
 def setupPYCDF():
     environ['HOMEDRIVE'] = data_paths.HOMEDRIVE
     environ['HOMEPATH'] = data_paths.HOMEPATH
@@ -100,6 +101,19 @@ class newCDFvar:
 # ----- FUNCTIONS -----
 # ---------------------
 lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
+
+def butterworth(lowcutoff, highcutoff, fs, order, filtertype):
+    if filtertype.lower() == 'bandpass':
+        return butter(N = order, Wn= [lowcutoff, highcutoff], fs=fs, btype='bandpass')
+    elif filtertype.lower() == 'lowpass':
+        return butter(N=order, Wn = highcutoff, fs=fs, btype='lowpass')
+    elif filtertype.lower() == 'highpass':
+        return butter(N=order, Wn= lowcutoff, fs=fs, btype='highpass')
+def butter_filter(data, lowcutoff, highcutoff, fs, order,filtertype):
+    b, a = butterworth(lowcutoff, highcutoff, fs, order, filtertype)
+    y = filtfilt(b, a, data)
+    return y
+
 def long_to_meter(long,lat):
     return long*(lat_to_meter * np.cos(np.radians(lat)))
 
@@ -169,12 +183,35 @@ def Rx(angle):
                      [0,np.sin(angleRad),np.cos(angleRad)]])
 def Ry(angle):
     angleRad = np.radians(angle)
-    return np.array([[np.cos(angleRad),0,np.sin(angleRad)],[0,1,0],[-np.sin(angleRad),0,np.cos(angleRad)]])
+    return np.array([[np.cos(angleRad),0,np.sin(angleRad)],
+                     [0,1,0],
+                     [-np.sin(angleRad),0,np.cos(angleRad)]])
 def Rz(angle):
     angleRad = np.radians(angle)
     return np.array([[np.cos(angleRad),-np.sin(angleRad),0],
                      [np.sin(angleRad),np.cos(angleRad),0],
                      [0,0,1]])
+
+
+def R_roll(angle):
+    angleRad = np.radians(angle)
+    return np.array([[1,0,0],
+                     [0,np.cos(angleRad),np.sin(angleRad)],
+                     [0,-np.sin(angleRad),np.cos(angleRad)]])
+def R_pitch(angle):
+    angleRad = np.radians(angle)
+    return np.array([[np.cos(angleRad),0,-1*np.sin(angleRad)],
+                     [0,1,0],
+                     [np.sin(angleRad),0,np.cos(angleRad)]])
+def R_yaw(angle):
+    angleRad = np.radians(angle)
+    return np.array([[np.cos(angleRad),np.sin(angleRad),0],
+                     [-1*np.sin(angleRad),np.cos(angleRad),0],
+                     [0,0,1]])
+
+def DCM(roll,pitch,yaw):
+    return np.matmul(R_yaw(yaw),np.matmul(R_pitch(pitch),R_roll(roll)))
+
 
 def Rotation3D(yaw,pitch,roll):
     yawR = np.radians(yaw)

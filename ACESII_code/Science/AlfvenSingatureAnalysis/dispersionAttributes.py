@@ -53,7 +53,7 @@ class dispersionAttributes:
     # NOTE: these indicies assume you're using the full 49 length energy array
     keyDispersionEnergyLimits = np.array([
         24,  # s1
-        27,  # s2
+        26,  # s2
         26,  # s3
         20,  # s4
         19,  # s5
@@ -106,7 +106,7 @@ class dispersionAttributes:
 
         # --- BOX REMOVE ---
         # remove lower left
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 70, -0.1, 0.58
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 75, -0.1, 0.58
         newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
 
         # --- BOX REMOVE ---

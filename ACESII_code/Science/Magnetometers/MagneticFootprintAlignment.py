@@ -33,7 +33,7 @@ wBFile = [0, 0]  # choice of magnetic field data to use [high flyer, low flyer]
 
 modifier = ''
 inputPath_modifier = 'attitude'
-inputPath_modifier_mag = 'mag'
+inputPath_modifier_mag = 'l2'
 outputPath_modifier = 'science'
 
 # angle the two magnetic fields need to be within to be "aligned"

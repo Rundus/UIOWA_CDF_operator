@@ -11,16 +11,9 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import copy
-import itertools
-# --- --- --- --- ---
+import numpy as np
 
-import time
-
-import matplotlib.pyplot as plt
-
-from ACESII_code.class_var_func import Done, setupPYCDF
-
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -47,7 +40,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 ######################################
 # plot all of the dispersion functions over a range of pitch angles (user input)
 plotKeyDispersions = True
-wDispersions = [1] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [2] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitches = [2] # plots specific pitch angles by their index
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature
 fitCurveToData = True
@@ -55,17 +48,9 @@ fitCurveToData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg,outputCDFdata,L1_TRICE_Quick,L2_TRICE_Quick,loadDictFromFile, q0,m_e,Re
-from glob import glob
-from os.path import getsize
 from scipy.optimize import curve_fit
+from ACESII_code.class_var_func import Re
 
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
 
 def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wDispersions):
 
@@ -215,14 +200,14 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                         # --- CURVE FITTING ---
                         # --- --- --- --- --- -
                         def fitFunc(x, A, B, C):
-                            y = (A/(x-B)**2) + C
+                            y = np.cos(np.radians(Pitch[wPitch]))*(0.5*(m_e/q0)*(A/(x-B))**2)
                             return y
 
                         # params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, p0=[400,-1,-80], maxfev=10000)
                         params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, maxfev=10000)
                         xDataFit = np.linspace(xData_for_fitting.min(), xData_for_fitting.max(), 200)
                         yDataFit = np.array([fitFunc(x, *params) for x in xDataFit])
-                        ax.plot(xDataFit, yDataFit, color='black', label=f'$\Delta z$: {round((np.cos(np.radians(Pitch[wPitch])) *np.sqrt((2*q0*params[0])/(m_e)) )/(Re*1000),2)  } $R_E$')
+                        ax.plot(xDataFit, yDataFit, color='red', linewidth=5,label=f'$\Delta z$: {round((params[0]/(1000*Re)),2)  } $R_E$')
                         ax.legend(loc='upper right')
 
                     # keep this line at the end of the row/col loop!

@@ -3,23 +3,14 @@
 # DESCRIPTION: I use Autoplot to create nice spectrograms of the magnetometer data
 # I use this file to clean up/filter the mag data
 
-
-
 # --- bookkeeping ---
 # !/usr/bin/env python
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
-import math
-
-import numpy as np
-
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
-
-
 
 # --- --- --- ---
 # --- TOGGLES ---
@@ -35,33 +26,33 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2] # try to use _Spun.cdf data
+wFiles = [0] # try to use _Spun.cdf data
 
 modifier = ''
-inputPath_modifier = 'mag' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modelIGRF_modifier = 'science/IGRF_interpolated'
 outputPath_modifier = 'science/magSpectrograms' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 # if using ENU coordniates
 useENUcoordinates = False
+
+# additional toggel
+subtractModelIGRF = False
 
 ##################
 # FILTER TOGGLES #
 ##################
 filtOrder = 8 # order of filter
 low_cutoff_Freq = 2 # cut off frequency where gain has reached -3dB
-high_cutoff_Freq = 20
+high_cutoff_Freq = 0
 dataSampleFreq = 128 # sample per second of the data
-plotFilteredData = False
-
-#######################
-# SPECTROGRAM TOGGLES #
-#######################
-plotFreqSpectrogram = True
+filterType = 'highpass'
+plotFilteredData = True
 
 # output the data
 outputData = True
@@ -69,13 +60,8 @@ outputData = True
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from scipy.signal import butter, filtfilt, spectrogram, lfilter
-def butterworth(lowcutoff, highcutoff, fs, order):
-    return butter(N = order, Wn= [lowcutoff, highcutoff], fs=fs, btype='band')
-def butter_filter(data, lowcutoff, highcutoff, fs, order):
-    b, a = butterworth(lowcutoff, highcutoff, fs, order)
-    y = filtfilt(b, a, data)
-    return y
+from ACESII_code.class_var_func import butter_filter
+
 
 def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -86,7 +72,8 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'Science'
     outputModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*RingCore_*')
+    inputFiles_modelIGRF = glob(f'{rocketFolderPath}{inputPath_modelIGRF_modifier}\{fliers[wflyer]}{modifier}\*IGRF*')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
 
@@ -119,14 +106,25 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         # --- FITLER THE DATA ---
         #########################
 
-        # format: [Bx,By,Bz]
         if useENUcoordinates:
             magAxes = ['B_east', 'B_north', 'B_up']
         else:
             magAxes = ['Bx', 'By', 'Bz']
 
+
+        if subtractModelIGRF:
+            prgMsg('Subtracting off IGRF Field')
+            data_dict_IGRF = loadDictFromFile(inputFiles_modelIGRF[0],{})
+            IGRFAxes= ['IGRF_East','IGRF_North','IGRF_Up']
+
+            for j,axes in enumerate(magAxes):
+                data_dict[axes][0] = np.array([data_dict[axes][0][i] - data_dict_IGRF[IGRFAxes[j]][0][i] for i in range(len(data_dict_IGRF['Epoch'][0]))])
+
+            Done(start_time)
+
         # remove fillvals
         badIndicies = []
+
         for i in range(len(data_dict['Epoch'][0])):
             if data_dict['Epoch'][0][i] <= 0:
                 badIndicies.append(i)
@@ -149,11 +147,11 @@ def magSpectrograms(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                           lowcutoff=low_cutoff_Freq,
                           highcutoff=high_cutoff_Freq,
                           fs=dataSampleFreq,
-                          order=filtOrder)
+                          order=filtOrder,
+                          filtertype=filterType)
             for axes in magAxes])
 
         time = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict['Epoch'][0]])
-
 
         if plotFilteredData:
             targetTimeLower = pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 24, 55, 00))

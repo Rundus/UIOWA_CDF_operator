@@ -1,11 +1,12 @@
 # --- myImports.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: There are some common imports that every file uses. In order to de-clutter my code
-# I can place these imports here. Only the impots which EVERY file uses will go here.
+# I can place these imports here. Only the imports which EVERY file uses will go here.
 
 #########################
 # --- IMPORTS IMPORTS ---
 #########################
+import scipy
 import itertools
 import time
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ from copy import deepcopy
 
 from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
 from ACESII_code.class_var_func import color, prgMsg
-from ACESII_code.class_var_func import loadDictFromFile, outputCDFdata, L1_TRICE_Quick,L2_TRICE_Quick,L0_TRICE_Quick
+from ACESII_code.class_var_func import loadDictFromFile, outputCDFdata, L1_TRICE_Quick,L2_TRICE_Quick,L0_TRICE_Quick,L0_ACES_Quick
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
 
 #####################
