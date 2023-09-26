@@ -1,4 +1,4 @@
-# --- template.py ---
+# --- ESA_calibration_3D_vector_plotting.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION:
 
@@ -153,48 +153,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         ax.set_zlabel('z')
         plt.show()
 
-        # --- --- --- --- --- --- ---
-        # --- WRITE OUT THE DATA ---
-        # --- --- --- --- --- --- ---
-
-        if outputData:
-            prgMsg('Creating output file')
-
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
-
-            # --- delete output file if it already exists ---
-            if os.path.exists(outputPath):
-                os.remove(outputPath)
-
-            # --- open the output file ---
-            with pycdf.CDF(outputPath, '') as L2File:
-                L2File.readonly(False)
-
-                # --- write out global attributes ---
-                inputGlobDic = outputModelData.cdfFile.globalattsget()
-                for key, val in inputGlobDic.items():
-                    if key in globalAttrsMod:
-                        L2File.attrs[key] = globalAttrsMod[key]
-                    else:
-                        L2File.attrs[key] = val
-
-                # --- WRITE OUT DATA ---
-                for varKey, varVal in data_dict.items():
-                    if 'Epoch' in varKey: # epoch data
-                        L2File.new(varKey, data=varVal[0], type=33)
-                    else: # other data
-                        L2File.new(varKey, data=varVal[0],type=pycdf.const.CDF_REAL8)
-
-                    # --- Write out the attributes and variable info ---
-                    for attrKey, attrVal in data_dict[varKey][1].items():
-                        if attrKey == 'VALIDMIN':
-                            L2File[varKey].attrs[attrKey] = varVal[0].min()
-                        elif attrKey == 'VALIDMAX':
-                            L2File[varKey].attrs[attrKey] = varVal[0].max()
-                        elif attrVal != None:
-                            L2File[varKey].attrs[attrKey] = attrVal
-
-            Done(start_time)
 
 
 

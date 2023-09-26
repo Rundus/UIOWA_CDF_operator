@@ -1,6 +1,7 @@
 # --- PoyntingFlux.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Determine the PoyntingFLux of the data using E-Field and B-Field Measurements
+# DESCRIPTION: Determine the PoyntingFLux of the data using E-Field and B-Field Measurements.
+# For the low flyer, it ONLY accepts despun data, high flyer has its own case
 
 
 
@@ -24,37 +25,38 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files
-justPrintFileNames = True
+justPrintFileNames = False
 printMagFiles = True
-printElecFiles = True
+printElecFiles = False
 
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
 wRocket = 5
-
-# select which files to convert
-# [] --> all files
-# [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles_elec = [0]
-wFiles_mag = [0]
-
-useSpunData = True
+wFiles_elec = 0
+wFiles_mag = 0
 
 modifier = ''
-inputPath_modifier = 'l1' if useSpunData else 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_elec = 'l1'
+inputPath_modifier_mag = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'science/PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
+# reduce the size of the data
+reduceData = True
+targetTimes = [pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 24, 00, 000)),
+               pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 26, 00, 000))]
+
+plotBFiltered = True
+plotSPoynting = True
 outputData = False
-
-
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-# none
+from scipy.interpolate import CubicSpline
+from ACESII_code.class_var_func import butter_filter, u0
 
-def PoyntingFlux(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def PoyntingFlux(wRocket, wFiles_elec, wFiles_mag, rocketFolderPath, justPrintFileNames, wflyer):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -63,10 +65,10 @@ def PoyntingFlux(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     outputModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*E_Field*')
-    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
+    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*E_Field*')
+    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore*')
 
-    fileoutName = f'ACESII_{rocketID}_PoyntingFlux_spun.cdf' if useSpunData else f'ACESII_{rocketID}_PoyntingFlux_ENU.cdf'
+    fileoutName = f'ACESII_{rocketID}_PoyntingFlux.cdf'
 
     if justPrintFileNames:
         if printMagFiles:
@@ -81,27 +83,99 @@ def PoyntingFlux(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         # --- get the data from the mag file ---
         prgMsg(f'Loading data from mag Files')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[wFiles_mag[0]],{})
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wFiles_mag], {})
         data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_mag['Epoch'][0]])
+
+        if reduceData:
+            indicies = [np.abs(data_dict_mag['Epoch'][0] - targetTimes[0]).argmin(),np.abs(data_dict_mag['Epoch'][0] - targetTimes[1]).argmin()]
+            for key, val in data_dict_mag.items():
+                data_dict_mag[key][0] = deepcopy(data_dict_mag[key][0][indicies[0]:indicies[1]])
+
         Done(start_time)
 
         # --- get the data from the mag file ---
         prgMsg(f'Loading data from Electric Field Files')
-        data_dict_elec = loadDictFromFile(inputFiles_elec[wFiles_elec[0]], {})
+        data_dict_elec = loadDictFromFile(inputFiles_elec[wFiles_elec], {})
         data_dict_elec['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_elec['Epoch'][0]])
+        if reduceData:
+            indicies = [np.abs(data_dict_elec['Epoch'][0] - targetTimes[0]).argmin(),np.abs(data_dict_elec['Epoch'][0] - targetTimes[1]).argmin()]
+            for key, val in data_dict_elec.items():
+                data_dict_elec[key][0] = deepcopy(data_dict_elec[key][0][indicies[0]:indicies[1]])
+
+        E_Field = np.array([ [data_dict_elec['E_east'][0][i],data_dict_elec['E_north'][0][i],data_dict_elec['E_up'][0][i]] for i in range(len(data_dict_elec['Epoch'][0]))])
         Done(start_time)
 
-        ##################################
-        # --- INTERPOLATE MAG ONTO EFI ---
-        ##################################
+        ####################################################
+        # --- INTERPOLATE MAG/ATTITUDE ONTO EFI TIMEBASE ---
+        ####################################################
+
+        prgMsg('Interpolating Mag Data')
+        spline_dict_mag = {}
+        dataInterp_dict_mag = {key: [] for key, val in data_dict_mag.items()}
+        for key, newDataList in data_dict_mag.items():
+            if 'Epoch'.lower() not in key.lower():
+                # --- cubic interpolation ---
+                splCub = CubicSpline(data_dict_mag['Epoch'][0], data_dict_mag[key][0])
+
+                # store the spline information for later
+                spline_dict_mag = {**spline_dict_mag, **{key: splCub}}
+
+                # evaluate the interpolation at all the epoch_mag points
+                dataInterp_dict_mag[key] = np.array([splCub(timeVal) for timeVal in data_dict_elec['Epoch'][0]])
+
+        dataInterp_dict_mag['Epoch'] = np.array(data_dict_elec['Epoch'][0])
+        Done(start_time)
+
 
         #############################
         # --- FILTER B-Field Data ---
         #############################
+        prgMsg('Filtering Mag Data')
+
+        # --- [3] Low-pass Filter the "despun" data ---
+        ftype = 'bandstop'
+        ftype = 'highpass'
+        fs = 128
+        order = 4
+        cutoff = [2, 2]
+        Bcomps = ['B_east','B_north','B_up']
+        B_rkt_filtered_components = []
+        for i in range(3):
+            B_rkt_filtered_components.append(butter_filter(dataInterp_dict_mag[Bcomps[i]], lowcutoff=cutoff[0], highcutoff=cutoff[1], fs=fs, order=order, filtertype=ftype))
+
+        B_rkt_filtered = np.array([[B_rkt_filtered_components[0][i], B_rkt_filtered_components[1][i], B_rkt_filtered_components[2][i]] for i in range(len(B_rkt_filtered_components[0]))])
+
+        if plotBFiltered:
+            Epoch = data_dict_elec['Epoch'][0]
+            fig, ax = plt.subplots(3)
+            fig.suptitle('B_filtered')
+            ax[0].plot(Epoch, B_rkt_filtered[:, 0])
+            ax[0].set_ylabel('$B_{East}$')
+            ax[1].plot(Epoch, B_rkt_filtered[:, 1])
+            ax[1].set_ylabel('$B_{North}$')
+            ax[2].plot(Epoch, B_rkt_filtered[:, 2])
+            ax[2].set_ylabel('$B_{Up}$')
+            plt.show()
+        Done(start_time)
 
         #################################
         # --- CALCULATE POYNTING FLUX ---
         #################################
+        prgMsg('Calculating Poynting Flux')
+        S = np.array([ u0*(np.cross(E_Field[i],B_rkt_filtered[i])) for i in range(len(B_rkt_filtered))])
+        if plotSPoynting:
+            Epoch = data_dict_elec['Epoch'][0]
+            fig, ax = plt.subplots(3)
+            fig.suptitle('B_filtered')
+            ax[0].plot(Epoch, S[:, 0])
+            ax[0].set_ylabel('$S_{East}$')
+            ax[1].plot(Epoch, S[:, 1])
+            ax[1].set_ylabel('$S_{North}$')
+            ax[2].plot(Epoch, S[:, 2])
+            ax[2].set_ylabel('$S_{Up}$')
+            plt.show()
+
+        Done(start_time)
 
 
 
@@ -134,14 +208,12 @@ elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) == 0:
-    print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
+if len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}\*.cdf')) == 0:
+    print(color.RED + 'There are no electric field .cdf files in the specified directory' + color.END)
+elif len(glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}\*.cdf')) == 0:
+    print(color.RED + 'There are no B-field .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
         PoyntingFlux(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
-        for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
-            PoyntingFlux(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
-        for filesNo in wFiles:
-            PoyntingFlux(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+        PoyntingFlux(wRocket, wFiles_elec, wFiles_mag, rocketFolderPath, justPrintFileNames, wflyer)

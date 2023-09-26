@@ -36,12 +36,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1,2]
+wFiles = [1, 3, 5]
 
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_magPitch = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -72,17 +72,12 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
     globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L1'
     outputModelData = L1_TRICE_Quick(wflyer)
-
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
     inputFiles_magPitch = glob(f'{rocketFolderPath}{inputPath_modifier_magPitch}\{fliers[wflyer]}{modifier}\*magPitch*')
-
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
-
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
     input_names_magPitch = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
-
     output_names = [ofile.replace(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\', '') for ofile in outputFiles]
-
     input_names_searchable = [ifile.replace('ACESII_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
 
 
@@ -117,8 +112,6 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             if wInstr[1] in file and 'magPitch' in file:
                 this_magPitchFile = file
 
-        print(this_magPitchFile)
-
         data_dict_magPitch = loadDictFromFile(this_magPitchFile, {})
         data_dict_magPitch['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_magPitch['Epoch_esa'][0][i]) for i in (range(len(data_dict_magPitch['Epoch_esa'][0])))])
         Done(start_time)
@@ -137,19 +130,20 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         esaRanges = [range(len(data_dict_esa[wInstr[1]][0])), range(len(data_dict_esa[wInstr[1]][0][0])), range(len(data_dict_esa[wInstr[1]][0][0][0]))]
         esaData = data_dict_esa[wInstr[1]][0]
         magPitch = data_dict_magPitch['Mag_Calculated_Pitch_Angle'][0]
-        padAngle = data_dict_esa['Pitch_Angle'][0]
+        padAngles = data_dict_esa['Pitch_Angle'][0]
 
         # --- prepare data for re-binning ---
         esaDataSorted = [[[[] for engy in esaRanges[2]] for ptch in esaRanges[1]] for tme in esaRanges[0]]
 
-        # --- --- --- --- --- --- --- --- --
-        # --- GET CHI^2 CALIBRATION DATA ---
-        # --- --- --- --- --- --- --- --- --
+        # --- --- --- --- --- --- --- --- --- --
+        # --- COLLECT CHI^2 CALIBRATION DATA ---
+        # --- --- --- --- --- --- --- --- --- --
 
         # apended data will look like: [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
         calData = []
 
-        # for two datapoints at the same time/energy but different pitch pads whose "True" pitch angle are <5deg differenet, store this data in calData
+        # for two datapoints at the same time/energy but different pitch pads whose "True" pitch angle are <5deg differenet,
+        # store this data in calData
 
         # --- rebin the data and collect calibration ---
         for tme, ptch, engy in tqdm(itertools.product(*esaRanges)):
@@ -159,28 +153,47 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
             if wInstr[1] != 'iepaa':
                 if (0 < ptch < 20): # 0deg - 180 deg case
-                    pad = padAngle[ptch]
+                    pad = padAngles[ptch]
                 elif ptch == 20: # 190 deg case
                     pad = 170
                 elif ptch == 0: # -10 deg case
                     pad = 10
             else:
-                pad = padAngle[ptch]
+                pad = padAngles[ptch]
 
-
-            if (pad - degWidth) <= pitchVal <= (pad + degWidth): # if you're within the right pad, place it where it was
+            if np.abs(pad - pitchVal) <= degWidth: # if you're within the right pad, place it where it was
                 esaDataSorted[tme][ptch][engy].append(esaVal)
-            elif np.abs(pitchVal - pad) > degWidth: # if pitchVal is further than "degWidth" away from its assigned pad
-                index = np.abs(padAngle - pitchVal).argmin() # find which bin to put the value in
-                esaDataSorted[tme][index][engy].append(esaVal)  # put it in the right bin
 
-                # CALIBRATION: check if pitchval_uncal needs to be moved but pitchval_prin doesn't
-                if np.abs(magPitch[tme][index][engy] - padAngle[index]) <= degWidth:
+            elif np.abs(pad - pitchVal) > degWidth: # if pitchVal is further than "degWidth" away from its assigned pad # find which bin to put the value in   # put it in the right bin
+
+                # add step here b/c we don't want the -10deg bin putting data into 20 deg or higher, same for 190deg bin
+                # Thus, we ONLY allow -10deg bin to give to 0deg bin and 190deg bin to 180deg
+                index = np.abs(padAngles - pitchVal).argmin()
+                if ptch not in [0, 20]: # not the -10deg, 190 deg case
+                    esaDataSorted[tme][index][engy].append(esaVal)
+                elif ptch == 0 and index == 1:
+                    esaDataSorted[tme][index][engy].append(esaVal)
+                elif ptch == 20 and index == 19:
+                    esaDataSorted[tme][index][engy].append(esaVal)
+
+                # ChiSquare CALIBRATION collection: check if pitchval_uncal needs to be moved but pitchval_prin doesn't
+                # logic: Since we are looping through all vals, we may have a situation where
+                # the uncal value right now is going to be paired with a principal values
+                # that also needs to be moved. We don't want to pair these. Instead, ensure
+                # the paired prin value is not going to move i.e. it will be within its pad range
+                if np.abs(magPitch[tme][index][engy] - padAngles[index]) <= degWidth:
 
                     # check if values occurs during the time after ACS despun rocket for maiden voyage.
                     if tme >= targetIndexTimes[wRocket - 4]:
                         # [uncalPoint, prinPoint, uncalPad_index, prinPad_index]
-                        calData.append([esaData[tme][ptch][engy], esaData[tme][index][engy], ptch, index])
+                        if ptch not in [0, 20]:  # not the -10deg, 190 deg case
+                            calData.append([esaData[tme][ptch][engy], esaData[tme][index][engy], ptch, index])
+                        elif ptch == 0 and index == 1:
+                            calData.append([esaData[tme][ptch][engy], esaData[tme][index][engy], ptch, index])
+                        elif ptch == 20 and index == 19:
+                            calData.append([esaData[tme][ptch][engy], esaData[tme][index][engy], ptch, index])
+
+
         Done(start_time)
 
 
@@ -203,7 +216,6 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         # --- --- --- --- --- --- --- ---
 
         if outputData:
-
             data_dict = {}
             data_dict = {**data_dict, **{f'{wInstr[1]}':
                                              [esaDataSorted, {'LABLAXIS': f'{wInstr[1]}',
@@ -235,7 +247,6 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             del data_dict
             calData = np.array(calData) if len(calData) > 0 else np.array([[0, 0, 0, 0]])
 
-
             data_dict = {f'ChiSquare_calData': [calData, {'LABLAXIS': 'ChiSquareCalData',
                                                         'DEPEND_0': None, 'DEPEND_1': None,
                                                         'DEPEND_2': None,
@@ -249,11 +260,6 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             outputPath = f'{rocketFolderPath}{outputPath_modifier_chiCal}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
             outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
-
-
-
-
-
 
 
 # --- --- --- ---

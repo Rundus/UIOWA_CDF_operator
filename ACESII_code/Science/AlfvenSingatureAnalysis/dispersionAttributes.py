@@ -120,15 +120,35 @@ class dispersionAttributes:
     def cleanS4(inputData, Energy, Time):  # doesn't need anything
         newData = inputData
 
-        # --- BOX REMOVE ---
-        # remove past 0.7s
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 128, 1000, 0.6, 2
-        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+        # # --- BOX REMOVE ---
+        # # remove bottom left
+        # EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 90, -0.1, 0.28
+        # newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        # --- DIAGONAL REMOVE ---
+        # remove lower right stuff (COARSE)
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 4, -0.1, 0.55
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- BOX REMOVE ---
-        # remove bottom left
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 90, 0, 0.25
+        # remove bottom (COARSE)
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 41, -0.1, 1
         newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        # --- DIAGONAL REMOVE ---
+        # remove lower right stuff (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = -2, 0.5, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        # remove middle top stuff
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = -4, 0.2, 0.6
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+
 
         return newData
 

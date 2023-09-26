@@ -104,11 +104,13 @@ lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
 
 def butterworth(lowcutoff, highcutoff, fs, order, filtertype):
     if filtertype.lower() == 'bandpass':
-        return butter(N = order, Wn= [lowcutoff, highcutoff], fs=fs, btype='bandpass')
+        return butter(N = order, Wn = [lowcutoff, highcutoff], fs=fs, btype='bandpass')
     elif filtertype.lower() == 'lowpass':
         return butter(N=order, Wn = highcutoff, fs=fs, btype='lowpass')
     elif filtertype.lower() == 'highpass':
-        return butter(N=order, Wn= lowcutoff, fs=fs, btype='highpass')
+        return butter(N=order, Wn = lowcutoff, fs=fs, btype='highpass')
+    elif filtertype.lower() == 'bandstop':
+        return butter(N=order, Wn = [lowcutoff, highcutoff], fs=fs, btype='bandstop')
 def butter_filter(data, lowcutoff, highcutoff, fs, order,filtertype):
     b, a = butterworth(lowcutoff, highcutoff, fs, order, filtertype)
     y = filtfilt(b, a, data)
@@ -195,29 +197,38 @@ def Rz(angle):
 
 def R_roll(angle):
     angleRad = np.radians(angle)
-    return np.array([[1,0,0],
-                     [0,np.cos(angleRad),np.sin(angleRad)],
-                     [0,-np.sin(angleRad),np.cos(angleRad)]])
+    return np.array([[1,                0,                0],
+                     [0, np.cos(angleRad), np.sin(angleRad)],
+                     [0,-np.sin(angleRad), np.cos(angleRad)]])
 def R_pitch(angle):
     angleRad = np.radians(angle)
-    return np.array([[np.cos(angleRad),0,-1*np.sin(angleRad)],
-                     [0,1,0],
-                     [np.sin(angleRad),0,np.cos(angleRad)]])
+    return np.array([[np.cos(angleRad), 0, -1*np.sin(angleRad)],
+                     [0,                1, 0],
+                     [np.sin(angleRad), 0, np.cos(angleRad)]])
 def R_yaw(angle):
     angleRad = np.radians(angle)
-    return np.array([[np.cos(angleRad),np.sin(angleRad),0],
-                     [-1*np.sin(angleRad),np.cos(angleRad),0],
-                     [0,0,1]])
+    return np.array([[np.cos(angleRad),    np.sin(angleRad), 0],
+                     [-1*np.sin(angleRad), np.cos(angleRad), 0],
+                     [0,                   0,                1]])
 
 def DCM(roll,pitch,yaw):
     return np.matmul(R_yaw(yaw),np.matmul(R_pitch(pitch),R_roll(roll)))
 
 
-def Rotation3D(yaw,pitch,roll):
+def Rotation3D(yaw, pitch, roll):
     yawR = np.radians(yaw)
     pitchR = np.radians(pitch)
     rollR = np.radians(roll)
     return np.array([[np.cos(yawR)*np.cos(pitchR), np.cos(yawR)*np.sin(pitchR)*np.sin(rollR) - np.sin(yawR)*np.cos(rollR), np.cos(yawR)*np.sin(pitchR)*np.cos(rollR) + np.sin(yawR)*np.sin(rollR) ], [np.sin(yawR)*np.cos(pitchR), np.sin(yawR)*np.sin(pitchR)*np.sin(rollR) + np.cos(yawR)*np.cos(rollR), np.sin(yawR)*np.sin(pitchR)*np.cos(rollR) - np.cos(yawR)*np.sin(rollR)], [-1*np.sin(pitchR), np.cos(pitchR)*np.sin(rollR), np.cos(pitchR)*np.cos(rollR)]])
+
+def RotationAboutAxes(theta, axX,axY,axZ):
+    thetaR = np.radians(theta)
+    return np.array([
+    [np.cos(thetaR) + (axX*axX)*(1 - np.cos(thetaR)),    axX*axY*(1-np.cos(thetaR)) - axZ*np.sin(thetaR), axX*axZ*(1-np.cos(thetaR)) + axY*np.sin(thetaR)],
+    [axY*axX*(1- np.cos(thetaR)) + axZ*np.sin(thetaR), np.cos(thetaR) + axY*axY*(1- np.cos(thetaR)),    axY*axZ*(1- np.cos(thetaR)) - axX*np.sin(thetaR)],
+    [axZ*axX*(1- np.cos(thetaR)) - axY*np.sin(thetaR), axZ*axY*(1- np.cos(thetaR))+ axX*np.sin(thetaR), np.cos(thetaR)+axZ*axZ*(1- np.cos(thetaR))]
+        ])
+
 
 
 def calcChiSquare(yData, fitData, yData_errors, fitData_Errors, nu):

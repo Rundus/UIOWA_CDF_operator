@@ -171,7 +171,7 @@ class ESAmovie:
 
     # "Zoom" into energy range
     EnergyStart = 12
-    EnergyEnd = 48
+    EnergyEnd = 41
 
     ########################
     # --- TRAJECT PLOT --- #
@@ -209,8 +209,9 @@ class ESAmovie:
     size_of_axis_orderOfMagnitude = 30
 
     #### if plotDistFunc ###
-    vth_e = (2*(1000)*(1.602176565 * 10**(-19)) / (9.11 * 10**(-31)))**(1/2)
-    Vmin_dist, Vmax_dist = 1E-18, 1E-12
+    T_e = 1000
+    vth_e = (2*(T_e)*(1.602176565 * 10**(-19)) / (9.11 * 10**(-31)))**(1/2)
+    Vmin_dist, Vmax_dist = 1E-18, 1E-14
     dist_cmap_style = dict(cmap='turbo', vmin=Vmin_dist, vmax=Vmax_dist, norm='log')
     normalizedXLimits_dist = [-1.25, 1.25] # values chosen based on Te = 1000eV for vthermal
     normalizedYLimits_dist = [-0.25, 1.25] # values chosen based on Te = 1000eV for vthermal

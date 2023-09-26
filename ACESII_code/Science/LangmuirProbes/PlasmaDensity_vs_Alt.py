@@ -34,7 +34,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -164,12 +164,12 @@ def PlasmaDensity_vs_Alt(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
         labels= ['Upleg','Downleg']
         for i in range(2):
             fig, ax = plt.subplots()
-            fig.suptitle(f'ACESII {labels[i]}\n'
+            fig.suptitle(f'ACESII {rocketID} {labels[i]}\n'
                          r'$T_{i}$ = 0.1eV')
             ax.scatter(xData[i],yData[i])
             ax.set_xlabel('Density [cm$^{-3}$]')
             ax.set_ylabel('Altitude [km]')
-            ax.set_ylim(70, 410)
+            ax.set_ylim(70, 410) if wRocket ==4 else ax.set_ylim(70, 200)
             ax.set_xlim(1E1, 1E7)
             ax.set_xscale('log')
             ax.grid(True)

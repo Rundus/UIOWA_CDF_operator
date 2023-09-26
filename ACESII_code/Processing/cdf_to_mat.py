@@ -1,6 +1,6 @@
-# --- template.py ---
+# --- cdf_to_mat.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION:
+# DESCRIPTION: script to convert .cdfs to .mat by looking into a directory or naming a specific file
 
 
 
@@ -10,12 +10,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import itertools
-# --- --- --- --- ---
-
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF
-
+from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -26,7 +21,7 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files
-justPrintFileNames = True
+justPrintFileNames = False
 
 # --- Select the Rocket ---
 # 0 -> Integration High Flier
@@ -35,34 +30,21 @@ justPrintFileNames = True
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [3]
+wFiles = [11]
 
 modifier = ''
-inputPath_modifier = 'tmCDF' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'tmCDF' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'l1' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import numpy as np
-import os
-from tqdm import tqdm
-from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
-from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, prgMsg, L0_ACES_Quick,L0_TRICE_Quick
-from glob import glob
-from os.path import getsize
-
-setupPYCDF()
-from spacepy import pycdf
-pycdf.lib.set_backward(False)
-
 from scipy.io import savemat
 
 
@@ -108,10 +90,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         # --- get the data from the tmCDF file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = {}
-        with pycdf.CDF(inputFiles[wFile]) as inputDataFile:
-            for key, val in inputDataFile.items():
-                data_dict = {**data_dict, **{key : [inputDataFile[key][...] , {key:val for key,val in inputDataFile[key].attrs.items()  }  ]  }  }
+        data_dict = loadDictFromFile(inputFiles[wFile], {})
 
         # convert epoch to tt2000
         data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in range(len(data_dict['Epoch'][0]))])
@@ -119,15 +98,13 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         Done(start_time)
 
 
-
         #####################################
         # --- prepare dictionary for .mat ---
         #####################################
-
+        # remove the attributes attached to the dictonary
         mdic = {}
-        for key,val in data_dict.items():
+        for key, val in data_dict.items():
             mdic = {**mdic, **{key:val[0]}}
-
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---

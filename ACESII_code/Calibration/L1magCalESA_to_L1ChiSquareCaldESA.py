@@ -35,7 +35,7 @@ justPrintChiFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
@@ -48,8 +48,8 @@ outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 modifier = ''
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
-viewPadPairData_numOfPairs = False
-plotPadPairData = False
+viewPadPairData_numOfPairs = True
+plotPadPairData = True
 outlierThresh = 30 # (nominally 30) determine threshold to remove datapoints that are considered outliers
 ChiTheshold = [0.42, 2] # bounds that ChiSquare must be to be allowed to adjust the data. Inclusive
 

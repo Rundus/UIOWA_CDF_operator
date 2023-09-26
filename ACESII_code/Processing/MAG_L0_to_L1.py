@@ -56,13 +56,11 @@ applyRotateToRocket = True
 applyFlipBy = False
 applyVectorCals = True
 
-
 # Fix outliers through interpolation
 fixOutliers = True
 percentThreshold = 10000 # change the value if the i+1 value has a percent difference of this percent
-targetTimes = targetTimes = [[dt.datetime(2022,11,20,17,22,00,000000), dt.datetime(2022,11,20,17,27,00,000000)],
+targetTimes = [[dt.datetime(2022,11,20,17,22,00,000000), dt.datetime(2022,11,20,17,27,00,000000)],
                [dt.datetime(2022,11,20,17,23,45,000000), dt.datetime(2022,11,20,17,27,55,000000)]]# the science region
-
 
 outputData = True
 
@@ -88,7 +86,9 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     input_names_searchable = [ifile.replace('ACESII_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('.cdf','') for ifile in input_names]
 
     fileoutName = f'ACESII_{rocketID}_{outputPath_modifier.lower()}_{input_names_searchable[wFile]}.cdf'
-    fileoutName = fileoutName.replace('_magFrm', '_rktFrm')
+
+    fileoutName = fileoutName.replace('_magFrm', '_rktFrm') if applyRotateToRocket else fileoutName
+
 
     # determine which instrument the file corresponds to:
     mags = ['RingCore', 'Tesseract']
@@ -201,7 +201,7 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             scienceRegionIndicies = [np.abs(data_dict_mag['Epoch'][0] -  pycdf.lib.datetime_to_tt2000(ttimes[0])).argmin(),
                                      np.abs(data_dict_mag['Epoch'][0] - pycdf.lib.datetime_to_tt2000(ttimes[1])).argmin()]
 
-            labels = ['Bx','By','Bz']
+            labels = ['Bx', 'By', 'Bz']
             for label in labels:
 
                 for i in range(len(data_dict_mag[label][0])-1):
@@ -219,9 +219,6 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                             splCub = CubicSpline(xData_fitpoints[::-1], yData_fitpoints[::-1])
                             data_dict_mag[label][0][i] = splCub(data_dict_mag['Epoch'][0][i])
 
-
-
-
         # get the magnitude
         data_dict_mag['Bmag'][0] = np.array([np.linalg.norm([data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]]) for i in range(len(data_dict_mag['Epoch'][0]))])
 
@@ -230,13 +227,18 @@ def MAG_L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # --- --- --- --- --- --- ---
 
         if outputData:
-            data_dict_mag['Bx'][1]['UNITS'] = 'nT'
-            data_dict_mag['By'][1]['UNITS'] = 'nT'
-            data_dict_mag['Bz'][1]['UNITS'] = 'nT'
+            if applyScales == False and applyVectorCals == False and applyFifthOrderCal == False:
+                data_dict_mag['Bx'][1]['UNITS'] = 'ADC'
+                data_dict_mag['By'][1]['UNITS'] = 'ADC'
+                data_dict_mag['Bz'][1]['UNITS'] = 'ADC'
+            else:
+                data_dict_mag['Bx'][1]['UNITS'] = 'nT'
+                data_dict_mag['By'][1]['UNITS'] = 'nT'
+                data_dict_mag['Bz'][1]['UNITS'] = 'nT'
 
             prgMsg('Creating output file')
 
-            for key,val in data_dict_mag.items():
+            for key, val in data_dict_mag.items():
                 data_dict_mag[key][0] = np.array(data_dict_mag[key][0])
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'

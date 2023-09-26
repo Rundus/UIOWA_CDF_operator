@@ -1,7 +1,7 @@
 # --- L1_to_magPitchAngle.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: For each rocket and each insrument, use the spun magnetometer data
-# IN THE ROCKET FRAME as well as the oreientation of the ESAs to determine a pitch angle
+# IN THE ROCKET FRAME as well as the orientation of the ESAs to determine a pitch angle
 # for every time, pitch pad and energy of the instrument. Will use this to calibrate
 # the ESAs.
 
@@ -36,10 +36,10 @@ wRocket = 4
 
 # select which files to convert
 # [] --> all files, [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [2]
-wMagFiles = [1] # use spun data!
+wFiles = [1, 3, 5]
+wMagFiles = [0] # use spun data!
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_mag = 'mag'
+inputPath_modifier_mag = 'l1'
 outputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 modifier = ''
 
@@ -63,7 +63,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
 
-    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore*')
 
     outputFiles = glob(f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\*.cdf')
 
@@ -100,20 +100,14 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-
         data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
-
         data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
-
         Done(start_time)
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from Mag Files')
-
         data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {})
-
         data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_mag['Epoch'][0][i]) for i in (range(len(data_dict_mag['Epoch'][0])))])
-
         Done(start_time)
 
         ################################################

@@ -11,6 +11,9 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 from ACESII_code.myImports import *
 from ACESII_code.class_var_func import Re
 
@@ -21,7 +24,7 @@ start_time = time.time()
 # --- --- --- --- --- --- --- ---
 # --- ALFVEN VELOCITY TOGGLES ---
 # --- --- --- --- --- --- --- ---
-SECTION_AlfvenVelocityPlot = True
+SECTION_AlfvenVelocityPlot = False
 
 # assume the kinetic term is just 2^-0.5
 simplifyKinetic = True
@@ -35,19 +38,20 @@ yscaling= 1E7 # how to scale the yaxis of the plot. Nominally: (1E4)*(1E3)
 plotylabel = '$V_{A}$ [10,000 km/s]' # nominally: [10,000 km/s]
 plotxlabel = 'Altitude [$R_{E}$]'
 ylimits = (0,1)
-xlimits = (0.1,-0.1) # the x-axis is inverted remember
+xlimits = (4,-0.1) # the x-axis is inverted remember
 
 
 # --- --- --- --- --- --- --- ---
 # --- ALFVEN RESONANCE TOGGLES ---
 # --- --- --- --- --- --- --- ---
 SECTION_AlfvenResonancePlot = True
+energyScaling = 1000 # converst eV to keV
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 import pyIGRF
-from ACESII_code.class_var_func import lightSpeed,u0
+from ACESII_code.class_var_func import lightSpeed,u0, m_e, q0
 
 
 
@@ -104,9 +108,33 @@ def main(AltLow, AltHigh):
     LaunchLong = 16.020833
     alfvenAxis = np.sqrt(2)*np.array([AlfvenSpeed(z, LaunchLat, LaunchLong, year, wkperp, simplifyKinetic) for z in altitudeAxis])
 
+    # Resonance Bands
+    potentials = [10, 100, 500]
+    acceleration = []
+    centerEnergy = []
+    deceleration = []
+
+    for i, potential in enumerate(potentials):
+
+        atemp, ctemp, dtemp = [], [], []
+
+        for j in range(len(alfvenAxis)):
+            atemp.append(0.5 * (m_e / q0) * ((alfvenAxis[j] - np.sqrt(2 * q0 * potential / m_e))**2))
+            dtemp.append(0.5 * (m_e / q0) * ((alfvenAxis[j] + np.sqrt(2 * q0 * potential / m_e))**2))
+            ctemp.append(0.5*(m_e/q0) * (alfvenAxis[j]**2))
+
+        acceleration.append(atemp)
+        deceleration.append(dtemp)
+        centerEnergy.append(ctemp)
+
+
     # normalize the data to whatever you wish
     xData = altitudeAxis/(xscaling) # to 1000 km
     yData = alfvenAxis/(yscaling) # to 10,000 km/s
+
+    acceleration = np.array(acceleration)/energyScaling
+    deceleration = np.array(deceleration) / energyScaling
+    centerEnergy = np.array(centerEnergy) / energyScaling
 
     if SECTION_AlfvenVelocityPlot:
         # --- --- --- ---
@@ -122,7 +150,36 @@ def main(AltLow, AltHigh):
         ax.set_xlim(*xlimits)
         plt.show()
         
-    # if SECTION_AlfvenResonancePlot:
+    if SECTION_AlfvenResonancePlot:
+
+
+        # --- --- --- ---
+        # --- PLOTTING ---
+        # --- --- --- ---
+        fig, ax = plt.subplots(len(potentials) + 1, sharex=True)
+        plt.subplots_adjust(wspace=0, hspace=0)
+
+        # --- alfven Speed Plot ---
+        ax[0].set_ylabel(plotylabel)
+        fig.suptitle('Alfven Speed ($V_{A}$) vs Altitude')
+        ax[0].plot(xData, yData)
+        ax[0].invert_xaxis()
+        # ax[0].set_ylim(*ylimits)
+        ax[0].set_xlim(*xlimits)
+
+        # --- Resonance Plot ---
+        for i in range(len(potentials)):
+            ax[i+1].plot(xData, acceleration[i], color='green',linestyle='--')
+            ax[i+1].plot(xData, centerEnergy[i],label=f'$\phi =$ {potentials[i]}')
+            ax[i+1].plot(xData, deceleration[i], color='red', linestyle='--')
+            ax[i+1].set_xlim(*xlimits)
+            ax[i+1].set_ylabel('Parallel Energy [keV]')
+            ax[i+1].grid()
+            ax[i+1].legend()
+
+        ax[len(potentials)].set_xlabel(plotxlabel)
+        plt.show()
+
 
 
 

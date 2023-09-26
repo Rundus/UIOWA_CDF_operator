@@ -1,6 +1,7 @@
-# --- csv_to_cdf_attitude.py ---
+# --- ESAmovie.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Turn the .cdf files of the TRICE attitude data into cdf files
+# DESCRIPTION: Produce a movie of ESA data in either (1) DiffEFlux (2) DiffNFlux or (3) Distribution Function
+# for the EEPAA, IEPAA or LEESA (Depending on the rocket).
 
 
 # --- --- --- --- ---
@@ -11,15 +12,22 @@ start_time = time.time()
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
-frame_skips = 2 # 1 is no skip i.e. all frames used, 5 is use only every 5th frame, 10 etc...
+frame_skips = 1 # 1 is no skip i.e. all frames used, 5 is use only every 5th frame, 10 etc...
 wInstr_movie = 'eepaa'
-plotSpecificLocations = False
-specific_locations = [6000 + i for i in range(0,100)]
 
-# -- parameters involved in plotting the interpolated distribution function --
-wDataPlot = [1] # 0 - Counts, 1 - DiffEFlux, 2 - Dist. Func
+# plot specifc locations
+plotSpecificLocations = False
+specific_locations = [6000 + i for i in range(0, 100)]
+
+# --- reduce dataset ---
+plotSpecificTimeRange = True
+targetTimes = [pycdf.lib.datetime_to_tt2000(dt.datetime(2022,11,20,17,24,54,000)), pycdf.lib.datetime_to_tt2000(dt.datetime(2022,11,20,17,25,11,000))]
+
+# -- parameters involved in plotting the interpolated distribution function/DiffNFlux --
+wDataPlot = [2] # 0 - Counts, 1 - DiffEFlux, 2 - Dist. Func
 N = 200 # number of points for NxN interpolation grid
 fillvalue = 0 # interpolated plots fillvalue
+
 normalizeToThermal = True # normalize ESA plots to the electron thermal velocity, Te = 0.1
 
 
@@ -62,7 +70,7 @@ def storeData(inputDict, dataPaths):
 
 def ACESIIplotting():
 
-    rocketAttrs,b,c = ACES_mission_dicts()
+    rocketAttrs, b, c = ACES_mission_dicts()
 
 
     # Trajectory Data
@@ -116,49 +124,7 @@ def ACESIIplotting():
     prgMsg('Collecting Distribution Function data')
     data_dicts_template = {'eepaa': [], 'iepaa': [], 'leesa': []}
     data_dicts_dist = storeData(data_dicts_template,dataPath_Dist)
-
-    ####################################################################
-    # --- find the points 100s, 200s ... 600s in the Trajectory data ---
-    ####################################################################
-    prgMsg('Finding Target Times')
-    timeTargets = [[100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600], [100, 150, 200, 250, 300, 350, 400]]
-
-    timeTargetsIndices = [[], []]
-    timeTargetsEpoch = []
-    for i in range(len(timeTargets)):
-        for timeTarg in timeTargets[i]:
-            timeTargetsIndices[i].append(np.abs(data_dicts_traj[i]['Epoch_esa'][0] - (rocketAttrs.Launch_Times[i] + timeTarg * (10 ** (9)))).argmin())
-
-        target_in_Epoch = [pycdf.lib.tt2000_to_datetime(data_dicts_traj[i]['Epoch_esa'][0][index]) for index in timeTargetsIndices[i]]
-        timeTargetsEpoch.append([targetTime.strftime("%H:%M:%S") for targetTime in target_in_Epoch])
-
-    timeTargetsData = {
-        'Epoch': [[pycdf.lib.tt2000_to_datetime(data_dicts_traj[0]['Epoch_esa'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[0]],
-                  [pycdf.lib.tt2000_to_datetime(data_dicts_traj[1]['Epoch_esa'][0][index]).time().strftime("%H:%M:%S") for index in timeTargetsIndices[1]]],
-        'geoAlt': [[data_dicts_traj[0]['geoAlt'][0][index] for index in timeTargetsIndices[0]],
-                   [data_dicts_traj[1]['geoAlt'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLat': [[data_dicts_traj[0]['geoLat'][0][index] for index in timeTargetsIndices[0]],
-                   [data_dicts_traj[1]['geoLat'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLong': [[data_dicts_traj[0]['geoLong'][0][index] for index in timeTargetsIndices[0]],
-                    [data_dicts_traj[1]['geoLong'][0][index] for index in timeTargetsIndices[1]]],
-        'geomagLat': [[data_dicts_traj[0]['geomagLat'][0][index] for index in timeTargetsIndices[0]],
-                      [data_dicts_traj[1]['geomagLat'][0][index] for index in timeTargetsIndices[1]]],
-        'geomagLong': [[data_dicts_traj[0]['geomagLong'][0][index] for index in timeTargetsIndices[0]],
-                       [data_dicts_traj[1]['geomagLong'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLat_km': [[data_dicts_traj[0]['geoLat_km'][0][index] for index in timeTargetsIndices[0]],
-                      [data_dicts_traj[1]['geoLat_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoLong_km': [[data_dicts_traj[0]['geoLong_km'][0][index] for index in timeTargetsIndices[0]],
-                       [data_dicts_traj[1]['geoLong_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILat': [[data_dicts_traj[0]['geoILat'][0][index] for index in timeTargetsIndices[0]],
-                    [data_dicts_traj[1]['geoILat'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILong': [[data_dicts_traj[0]['geoILong'][0][index] for index in timeTargetsIndices[0]],
-                     [data_dicts_traj[1]['geoILong'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILat_km': [[data_dicts_traj[0]['geoILat_km'][0][index] for index in timeTargetsIndices[0]],
-                       [data_dicts_traj[1]['geoILat_km'][0][index] for index in timeTargetsIndices[1]]],
-        'geoILong_km': [[data_dicts_traj[0]['geoILong_km'][0][index] for index in timeTargetsIndices[0]],
-                        [data_dicts_traj[1]['geoILong_km'][0][index] for index in timeTargetsIndices[1]]]}
     Done(start_time)
-
 
     ########################
     # --- MAKE THE MOVIE ---
@@ -183,12 +149,16 @@ def ACESIIplotting():
     # Get the data
     Energy = data_dicts_movie[0]['Energy'][0]
     Pitch = data_dicts_movie[0]['Pitch_Angle'][0]
-    geoAlt = [data_dicts_traj[0]['geoAlt'][0],data_dicts_traj[1]['geoAlt'][0]]
-    geoLat = [data_dicts_traj[0]['geoLat'][0],data_dicts_traj[1]['geoLat'][0]]
-    geoLong = [data_dicts_traj[0]['geoLong'][0],data_dicts_traj[1]['geoLong'][0]]
-    EpochData = [np.array(data_dicts_movie[0]['Epoch_esa'][0]),np.array(data_dicts_movie[1]['Epoch_esa'][0])]
+    geoAlt = [data_dicts_traj[0]['geoAlt'][0], data_dicts_traj[1]['geoAlt'][0]]
+    geoLat = [data_dicts_traj[0]['geoLat'][0], data_dicts_traj[1]['geoLat'][0]]
+    geoLong = [data_dicts_traj[0]['geoLong'][0], data_dicts_traj[1]['geoLong'][0]]
+    EpochData = [np.array(data_dicts_movie[0]['Epoch_esa'][0]), np.array(data_dicts_movie[1]['Epoch_esa'][0])]
+    locMin = np.abs(np.array(data_dicts_movie[0]['Epoch_esa'][0]) - targetTimes[0]).argmin()
+    locMax = np.abs(np.array(data_dicts_movie[0]['Epoch_esa'][0]) - targetTimes[1]).argmin()
+    locations = [i for i in range(locMin, locMax, frame_skips)]
+
     EpochData_dates = [np.array([pycdf.lib.tt2000_to_datetime(EpochData[0][i]).strftime("%H:%M:%S:%f") for i in range(len(EpochData[0]))]), np.array([pycdf.lib.tt2000_to_datetime(EpochData[1][i]).strftime("%H:%M:%S:%f") for i in range(len(EpochData[1]))]),]
-    ESAData = [data_dicts_movie[0][wInstr_movie][0],data_dicts_movie[1][wInstr_movie][0]]
+    ESAData = [data_dicts_movie[0][wInstr_movie][0], data_dicts_movie[1][wInstr_movie][0]]
 
     ##################################################
     # --- RESIZE LOW FLYER DATA TO MATCH HIGHFLYER ---
@@ -225,7 +195,7 @@ def ACESIIplotting():
     # --- FORMAT DATA FOR PLOTTING ---
     ##################################
 
-    if wDataPlot[0] in [1,2]: # Handles Distribution Function and DiffEFlux case
+    if wDataPlot[0] in [1, 2]: # Handles Distribution Function and DiffEFlux case
 
         # --- Velocity Space coordinate transformation ---
         modelData = ESAData[0]
@@ -305,11 +275,11 @@ def ACESIIplotting():
             for tme in range(1, len(ESAData[i])):
                 all_Z_data[i].append(np.array([ESAData[i][tme][ptch][ESAmovie.EnergyStart:ESAmovie.EnergyEnd] for ptch in range(len(Pitch))]).transpose())
 
-    prgMsg('Initializing Figure')
 
     ##########################
     # --- SETUP THE FIGURE ---
     ##########################
+    prgMsg('Initializing Figure')
     fig = plt.figure()
     fig.set_figwidth(ESAmovie.figure_width)
     fig.set_figheight(ESAmovie.figure_height)
@@ -351,7 +321,7 @@ def ACESIIplotting():
     # --- Initialize the plots ---
     ##############################
 
-    title = fig.suptitle(f'{wInstr_movie.upper()}\n{EpochData_dates[0][0]}', **ESAmovie.title_style)
+    title = fig.suptitle(f'{wInstr_movie.upper()} (T_th,e ={ESAmovie.T_e} eV)\n{EpochData_dates[0][0]}', **ESAmovie.title_style)
 
     # --- INITIALIZE TRAJECTORY DATA ---
     latAltMarker_high = ax1.scatter(geoLat[0][0], geoAlt[1][0], **ESAmovie.marker_style[0])
@@ -429,7 +399,6 @@ def ACESIIplotting():
             cmap1 = axes[0].pcolormesh(X, Y, all_Z_data[0][0], **ESAmovie.dist_cmap_style)
             cmap2 = axes[1].pcolormesh(X, Y, all_Z_data[1][0], **ESAmovie.dist_cmap_style)
             cmap_style = dict(cmap='turbo', vmin=ESAmovie.Vmin_dist, vmax=ESAmovie.Vmax_dist, norm='log')
-
         elif wDataPlot[0] == 1:
             # PLOT THE DIFFERENTIAL FLUX DATA
             cmap1 = axes[0].pcolormesh(X, Y, all_Z_data[0][0], **ESAmovie.diff_cmap_style)
@@ -524,7 +493,7 @@ def ACESIIplotting():
     def animatePlot(i):
 
         # update Epoch title
-        title.set_text(f'{wInstr_movie.upper()}\n{EpochData_dates[0][i]}')
+        title.set_text(f'{wInstr_movie.upper()} (T_th,e ={ESAmovie.T_e} eV)\n{EpochData_dates[0][i]}')
 
         # update ESA DATA
         cmap1.set_array(all_Z_data[0][i])
@@ -553,14 +522,19 @@ def ACESIIplotting():
         latlongText_low.set_y(geoLong[1][i])
         latlongText_low.set_text(f'({round(geoLat[1][i], ESAmovie.altrounding)}' + '$^{\circ}$' + f', {round(geoLong[1][i], ESAmovie.altrounding)}' + '$^{\circ}$)')
 
+
     if plotSpecificLocations:
-        locations = [i for i in range(len(specific_locations))]
+        locations = specific_locations
+    elif plotSpecificTimeRange:
+        # find the closest match in the high flyer data
+        locMin = np.abs(np.array(data_dicts_movie[0]['Epoch_esa'][0]) - targetTimes[0]).argmin()
+        locMax = np.abs(np.array(data_dicts_movie[0]['Epoch_esa'][0]) - targetTimes[1]).argmin()
+        locations = [i for i in range(locMin, locMax, frame_skips)]
     else:
         locations = [i for i in range(0, int(len(EpochData_dates[0])), frame_skips)]  # NEEDS TO BE THE HIGH FLYER LENGTH
 
     anim = animation.FuncAnimation(fig=fig, func=animatePlot, interval= 1000/ESAmovie.fps, frames=locations)
-    anim.save(f'C:\Data\ACESII\\trajectories\\trajectory_plots\\ACESII_{wInstr_movie}.mp4')
-
+    anim.save(f'C:\Data\ACESII\\trajectories\\trajectory_plots\\movies\\ACESII_{wInstr_movie}.mp4')
     Done(start_time)
 
 

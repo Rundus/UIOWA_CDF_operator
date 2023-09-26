@@ -11,10 +11,12 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from ACESII_code.myImports import *
 start_time = time.time()
+from ACESII_code.class_var_func import Re
 # --- --- --- --- ---
 
 
@@ -40,20 +42,40 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 ######################################
 # plot all of the dispersion functions over a range of pitch angles (user input)
 plotKeyDispersions = True
-wDispersions = [2] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [1] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitches = [2] # plots specific pitch angles by their index
+# ---------------------------
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature
+# ---------------------------
 fitCurveToData = True
+# ---------------------------
+useInteractiveFit = True # if fitCurvetoData but you want to mess with the fit parameters
+# ---------------------------
+removeWeightingByCounts = True
+# ---------------------------
+useWeightingThreshold = True
+# ---------------------------
+scale = 'linear'
+# ---------------------------
+
+#FORMAT: [A_param, B_param, WeightingThresholdVal]
+# don't include fitting pairs with count values less than WeightingThresholdVal amount
+P0guesses={
+    's1':[0.7*Re*1000,    0, 3],
+    's2':[0.5*Re*1000, -0.4, 0],
+    's3':[0.5*Re*1000, -0.4, 0],
+    's4':[0.5*Re*1000,    0, 10],
+}
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
+from matplotlib.widgets import Slider
 from scipy.optimize import curve_fit
-from ACESII_code.class_var_func import Re
+
 
 
 def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wDispersions):
-
 
     wDispersions = [dispersionNo-1 for dispersionNo in wDispersions]
 
@@ -159,12 +181,14 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                     ########################
                     # create the x/y dataset
                     ########################
-                    xData, yData, zData, xData_for_fitting, yData_for_fitting = [], [], [], [], []  # time, energy, counts
+                    xData, yData, zData, xData_for_fitting, yData_for_fitting, zData_for_threshold = [], [], [], [], [], []  # time, energy, counts
                     for tme in range(len(esaDataOneDis)):
                         for engy in range(len(esaDataOneDis[0])):
                             for j in range(int(esaDataOneDis[tme][engy])): # collect the data for the fitting
                                 xData_for_fitting.append(EpochOneDis[tme])
                                 yData_for_fitting.append(Energy[engy])
+                                zData_for_threshold.append(int(esaDataOneDis[tme][engy]))
+
 
                             if int(esaDataOneDis[tme][engy]) != 0: # collect the data for the colorplot
                                 xData.append(EpochOneDis[tme])
@@ -176,6 +200,25 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                     ###############
                     xData, yData, zData = map(np.array, zip(*sorted(zip(xData, yData, zData))))
                     xData_for_fitting, yData_for_fitting = map(np.array, zip(*sorted(zip(xData_for_fitting,yData_for_fitting))))
+                    zData_for_threshold = np.array(zData_for_threshold)
+
+                    if removeWeightingByCounts:
+
+                        if useWeightingThreshold:
+                            badIndicies = []
+                            # remove the datapoints that have too few counts
+                            for i in range(len(zData_for_threshold)):
+                                if zData_for_threshold[i] < P0guesses['s'+str(wDispersion+1)][2]:
+                                    badIndicies.append(i)
+
+                            xData_for_fitting,yData_for_fitting = np.delete(xData_for_fitting,badIndicies),np.delete(yData_for_fitting,badIndicies)
+
+
+
+                        # we don't care about how many counts a bin has, only that it does it have counts, so we remove repeats in the xData,yData
+                        uniquePairs = np.array(list(set(zip(xData_for_fitting,yData_for_fitting))))
+                        xData_for_fitting, yData_for_fitting = uniquePairs[:,0],uniquePairs[:,1]
+
 
                     ########################
                     # --- CREATE SUBPLOT ---
@@ -184,9 +227,9 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                     axes.append(ax)
 
                     xx, yy = np.meshgrid(EpochOneDis,Energy)
-                    cmap = ax.pcolormesh(xx, yy, esaDataOneDis.T, vmin=1, vmax=40, cmap='turbo')
-                    # ax.set_yscale('log')
-                    # cmap = ax.scatter(xData, yData, c=zData, vmin=0, vmax=20, cmap='plasma')
+                    cmap = ax.pcolormesh(xx, yy, esaDataOneDis.T, vmin=-1, vmax=40, cmap='turbo')
+                    ax.set_yscale(scale)
+                    ax.set_ylim(min(yData),max(yData))
 
                     if rowI == 0:
                         ax.set_title(f's{wDispersion + 1}', fontsize=15)
@@ -199,15 +242,56 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                         # --- --- --- --- --- -
                         # --- CURVE FITTING ---
                         # --- --- --- --- --- -
-                        def fitFunc(x, A, B, C):
-                            y = np.cos(np.radians(Pitch[wPitch]))*(0.5*(m_e/q0)*(A/(x-B))**2)
+
+                        def fitFunc(x, A, B):
+                            y = (0.5*(m_e/q0)*(A/(x-B))**2)
                             return y
 
                         # params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, p0=[400,-1,-80], maxfev=10000)
-                        params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, maxfev=10000)
+                        params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, p0=[P0guesses['s'+str(wDispersion+1)][0],P0guesses['s'+str(wDispersion+1)][1]], maxfev=10000)
+                        # params, cov = curve_fit(fitFunc, xData_for_fitting, yData_for_fitting, maxfev=100000)
                         xDataFit = np.linspace(xData_for_fitting.min(), xData_for_fitting.max(), 200)
                         yDataFit = np.array([fitFunc(x, *params) for x in xDataFit])
-                        ax.plot(xDataFit, yDataFit, color='red', linewidth=5,label=f'$\Delta z$: {round((params[0]/(1000*Re)),2)  } $R_E$')
+
+
+                        if useInteractiveFit:
+
+                            # adjust plot to fit slider
+                            fig.subplots_adjust(left=0.25, bottom=0.25)
+
+                            # initialize slider value
+                            yDataFitPlotted, = ax.plot(xDataFit, yDataFit, color='red', linewidth=5, label=f'$\Delta z$: {round((params[0] / (1000 * Re)), 2)} $R_E$ \n $t_0$ = {params[1]}')
+
+                            axZobs = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+                            Zobs_slider = Slider(
+                                ax=axZobs,
+                                label='$z_{obs}$',
+                                valmin=0.01,
+                                valmax=3,
+                                valinit=1,
+                            )
+
+                            axDeltat = fig.add_axes([0.25, 0.15, 0.65, 0.03])
+                            Deltat_slider = Slider(
+                                ax=axDeltat,
+                                label='$t_{0}$',
+                                valmin=-2,
+                                valmax=2,
+                                valinit=0,
+                            )
+
+                            def update(val):
+                                newData = np.array([fitFunc(xDataFit[i],Zobs_slider.val*1000*Re,Deltat_slider.val) for i in range(len(xDataFit))])
+                                yDataFitPlotted.set_ydata(newData)
+                                fig.canvas.draw_idle()
+
+                            Zobs_slider.on_changed(update)
+                            Deltat_slider.on_changed(update)
+
+                        else:
+                            ax.plot(xDataFit, yDataFit, color='red', linewidth=5, label=f'$\Delta z$: {round((params[0] / (1000 * Re)), 2)} $R_E$ \n $t_0$ = {params[1]}')
+
+                        ax.scatter(xData_for_fitting, yData_for_fitting, color='black',s=5,alpha=0.7)
                         ax.legend(loc='upper right')
 
                     # keep this line at the end of the row/col loop!

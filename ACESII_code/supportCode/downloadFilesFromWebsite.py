@@ -1,4 +1,4 @@
-# # --- scratchPaper.py ---
+# # --- MAG_InteractiveFiltering_Despin.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: downloads all the files from a specific webpage
 from tqdm import tqdm

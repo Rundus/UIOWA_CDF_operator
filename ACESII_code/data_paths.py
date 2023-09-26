@@ -31,7 +31,7 @@ else: # Local Disk space
 HOMEDRIVE = 'C:'
 HOMEPATH = 'C:\\'
 CDF_LIB = rf"C:/Users/{user}/PycharmProjects/UIOWA_CDF_operator/CDF/lib" # location to directory that contains the dllcdf.dll needed for pycdf the library
-fliers = ['high','low']
+fliers = ['high', 'low']
 
 
 # --- --- --- --- --- ---
