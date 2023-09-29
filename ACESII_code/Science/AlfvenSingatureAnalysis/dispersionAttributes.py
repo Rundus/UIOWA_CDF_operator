@@ -72,8 +72,7 @@ class dispersionAttributes:
         [dt.datetime(2022, 11, 20, 17, 24, 31, 193000), dt.datetime(2022, 11, 20, 17, 24, 32, 656000)], # sa1 near the beginning of the flight
         [dt.datetime(2022, 11, 20, 17, 25, 23, 500000), dt.datetime(2022, 11, 20, 17, 24, 24, 461000)], # sa2 at the beginnig edge of the largest inverted V
         [dt.datetime(2022, 11, 20, 17, 26, 10, 107000), dt.datetime(2022, 11, 20, 17, 26, 11, 159000)],  # sa3 near the south edge of inverted V, almost undernearth it. NORTH side of Big Inverted V
-        [dt.datetime(2022, 11, 20, 17, 26, 20, 603000), dt.datetime(2022, 11, 20, 17, 26, 21, 308000)], # sa4 underneath an inverted  V on the northernmost edge of the big inverted V
-        [dt.datetime(2022, 11, 20, 17, 26, 20, 603000), dt.datetime(2022, 11, 20, 17, 26, 21, 308000)]
+        [dt.datetime(2022, 11, 20, 17, 26, 20, 603000), dt.datetime(2022, 11, 20, 17, 26, 21, 308000)] # sa4 underneath an inverted  V on the northernmost edge of the big inverted V
         # sa3 underneath an inverted  V on the northernmost edge of the big inverted V
     ]
 

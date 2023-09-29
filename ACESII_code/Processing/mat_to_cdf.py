@@ -40,14 +40,13 @@ wFiles = [0]
 
 convertBData = False
 convertEData = True
-
 rotateIntoRingCoreFrame = False
 flipYAxis = False
 useENU = False
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' if convertBData else 'E_field_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'science' if convertBData else 'E_field' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+outputPath_modifier = 'science' if convertBData else 'l2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
 
@@ -72,10 +71,11 @@ if convertBData:
                     'Bz': {'UNITS': 'nT', 'LABLAXIS': 'Bz'},
                     }
 elif convertEData:
-    special_mods = {'Epoch': {'UNITS':'ns', 'LABLAXIS':'Epoch'},
-                    'E_east': {'UNITS': 'V/m', 'LABLAXIS': 'E_east'},
-                    'E_north': {'UNITS': 'V/m', 'LABLAXIS': 'E_north'},
-                    'E_up': {'UNITS': 'V/m', 'LABLAXIS': 'E_up'},
+    special_mods = {
+                    'E_East': {'UNITS': 'V/m', 'LABLAXIS': 'E_East'},
+                    'E_North': {'UNITS': 'V/m', 'LABLAXIS': 'E_North'},
+                    'E_Up': {'UNITS': 'V/m', 'LABLAXIS': 'E_Up'},
+                    'Epoch': {'UNITS': 'ns', 'LABLAXIS': 'Epoch'}
                     }
 
 
@@ -110,9 +110,9 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     dataFile_name = inputFiles[wFile].replace(f'{inputrocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '')
 
-    fileoutName = dataFile_name.replace(f'{inputrocketFolderPath}\\{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', "").replace('.mat','.cdf')
+    fileoutName = dataFile_name.replace(f'{inputrocketFolderPath}\\{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', "").replace('.mat','.cdf').replace('l1','l2')
 
-    for index, instr in enumerate(['RingCore','Tesseract','E_field']):
+    for index, instr in enumerate(['RingCore', 'Tesseract', 'E_field']):
         if instr.lower() in dataFile_name.lower():
             wInstr = [index, instr]
 
@@ -160,6 +160,7 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             iterAble = {**iterAble,**{key: np.array(mat['output'][0][0][counter]).flatten()}}
             counter += 1
 
+
         # Reformat files into CDF format.
         for key, val in iterAble.items():
             # put .mat data into data_dict
@@ -171,13 +172,14 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
             # Insert the special modifications
             if key in special_mods:
 
-                for attrNam,attrVal in special_mods[key].items():
+                for attrNam, attrVal in special_mods[key].items():
 
                     if attrNam in data_dict[key][1]: # if attribute already exists, overwrite it
                         data_dict[key][1][attrNam] = attrVal
 
                     else: # if attribute doesn't exist yet
-                        data_dict[key][1] = {**data_dict[key][1],**{attrNam:attrVal}}
+                        data_dict[key][1] = {**data_dict[key][1], **{attrNam:attrVal}}
+
 
 
         # --- Handle the Time variable ---
@@ -200,65 +202,74 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
             data_dict = {**data_dict, **{'Bmag': [Bmag, BmagAttrs]}}
 
+            if flipYAxis:
+                data_dict['By'][0] = np.array([-1 * data_dict['By'][0][i] for i in range(len(data_dict['By'][0]))])
+
+            # --- --- --- --- --- ---
+            # --- ROTATE THE DATA ---
+            # --- --- --- --- --- ---
+            if rotateIntoRingCoreFrame:
+                # Robert put the mag data into the payload frame to make his life easier. I need to convert it back to it's original frame
+                from ACESII_code.class_var_func import Rz
+
+                Bvec = np.array([
+                    [data_dict['Bx'][0][i],
+                     data_dict['By'][0][i],
+                     data_dict['Bz'][0][i]]
+                    for i in range(len(data_dict['Bmag'][0]))]
+                )
+
+                # rotate the components back. The -1 is multiplied to account for the point of view perspective.
+                # I like to think in terms of rotating the axes themselves, with is the OPPOSITE angle change as the vector changing.
+                Bcomps_rotated = np.array([
+                    np.matmul(Rz(-1 * -90), Bvec[i]) for i in range(len(data_dict['Bmag'][0]))
+                ]
+                )
+
+                # rename Bx,By,Bz to what they really are: B in the payload coordinates
+                data_dict['Bx_payload'] = data_dict.pop('Bx')
+                data_dict['By_payload'] = data_dict.pop('By')
+                data_dict['Bz_payload'] = data_dict.pop('Bz')
+
+                # store new "RingCore" B. The coordinates are now aligned to the RingCore instrument frame
+                data_dict = {**data_dict, **{
+                    'Bx': [np.array([Bcomps_rotated[i][0] for i in range(len(Bcomps_rotated))]),
+                           data_dict['Bx_payload'][1]]}}
+                data_dict = {**data_dict, **{
+                    'By': [np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))]),
+                           data_dict['By_payload'][1]]}}
+                data_dict = {**data_dict, **{
+                    'Bz': [np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))]),
+                           data_dict['Bz_payload'][1]]}}
+
+            if useENU:
+                data_dict['Bx'][1]['LABLAXIS'] = 'B_east'
+                data_dict['B_east'] = data_dict.pop('Bx')
+                data_dict['By'][1]['LABLAXIS'] = 'B_north'
+                data_dict['B_north'] = data_dict.pop('By')
+                data_dict['Bz'][1]['LABLAXIS'] = 'B_up'
+                data_dict['B_up'] = data_dict.pop('Bz')
+
         elif convertEData:
             EmagAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
                          'FORMAT': 'I5', 'UNITS': 'nT', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
-                         'SCALETYP': 'linear', 'LABLAXIS': 'Emag'}
+                         'SCALETYP': 'linear', 'LABLAXIS': 'E_mag'}
 
             # Real data
             Emag = np.array(
                 [
-                    np.linalg.norm([data_dict['E_east'][0][i], data_dict['E_north'][0][i], data_dict['E_up'][0][i]])
-                    for i in range(len(data_dict['E_east'][0]))
+                    np.linalg.norm([data_dict['E_East'][0][i], data_dict['E_North'][0][i], data_dict['E_Up'][0][i]])
+                    for i in range(len(data_dict['E_East'][0]))
                 ])
 
-            data_dict = {**data_dict, **{'Emag': [Emag, EmagAttrs]}}
+            data_dict = {**data_dict, **{'E_mag': [Emag, EmagAttrs]}}
+
+
 
 
         Done(start_time)
 
-        if flipYAxis:
-            data_dict['By'][0] = np.array([-1*data_dict['By'][0][i] for i in range(len(data_dict['By'][0]))])
 
-        # --- --- --- --- --- ---
-        # --- ROTATE THE DATA ---
-        # --- --- --- --- --- ---
-        if rotateIntoRingCoreFrame:
-
-            # Robert put the mag data into the payload frame to make his life easier. I need to convert it back to it's original frame
-            from ACESII_code.class_var_func import Rz
-
-            Bvec = np.array([
-                    [data_dict['Bx'][0][i],
-                     data_dict['By'][0][i],
-                     data_dict['Bz'][0][i]]
-                 for i in range(len(data_dict['Bmag'][0]))]
-            )
-
-            # rotate the components back. The -1 is multiplied to account for the point of view perspective.
-            # I like to think in terms of rotating the axes themselves, with is the OPPOSITE angle change as the vector changing.
-            Bcomps_rotated =np.array([
-                np.matmul(Rz(-1*-90),Bvec[i]) for i in range(len(data_dict['Bmag'][0]))
-                ]
-            )
-
-            # rename Bx,By,Bz to what they really are: B in the payload coordinates
-            data_dict['Bx_payload'] = data_dict.pop('Bx')
-            data_dict['By_payload'] = data_dict.pop('By')
-            data_dict['Bz_payload'] = data_dict.pop('Bz')
-
-            # store new "RingCore" B. The coordinates are now aligned to the RingCore instrument frame
-            data_dict = {**data_dict, **{'Bx': [np.array([Bcomps_rotated[i][0] for i in range(len(Bcomps_rotated))]), data_dict['Bx_payload'][1]]}}
-            data_dict = {**data_dict, **{'By': [np.array([Bcomps_rotated[i][1] for i in range(len(Bcomps_rotated))]), data_dict['By_payload'][1]]}}
-            data_dict = {**data_dict, **{'Bz': [np.array([Bcomps_rotated[i][2] for i in range(len(Bcomps_rotated))]), data_dict['Bz_payload'][1]]}}
-
-        if useENU:
-            data_dict['Bx'][1]['LABLAXIS'] = 'B_east'
-            data_dict['B_east'] = data_dict.pop('Bx')
-            data_dict['By'][1]['LABLAXIS'] = 'B_north'
-            data_dict['B_north'] = data_dict.pop('By')
-            data_dict['Bz'][1]['LABLAXIS'] = 'B_up'
-            data_dict['B_up'] = data_dict.pop('Bz')
 
 
         # --- --- --- --- --- --- ---

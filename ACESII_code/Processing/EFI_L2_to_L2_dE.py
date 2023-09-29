@@ -1,16 +1,12 @@
-# # --- RingCore_L1_to_L2_despin.py ---
+# # --- EFI_L2_to_L2_dE.py ---
 # # --- Author: C. Feltman ---
 # # DESCRIPTION:
-
-
 
 # --- bookkeeping ---
 # !/usr/bin/env python
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
-import matplotlib.pyplot as plt
 
 from ACESII_code.myImports import *
 start_time = time.time()
@@ -26,7 +22,7 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -34,15 +30,13 @@ wRocket = 4
 wFiles = [0]
 
 modifier = ''
-inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_attitude = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-outputPath_modifier_despin = 'l2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
-outputPath_modifier_db = 'science\deltaB'
+outputPath_modifier = 'science\deltaE' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 
 # --- --- --- Time region --- --- ---
 useAlfvenRegion = False
-
 if useAlfvenRegion:
     scienceRegions = [
         [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 18, 000000)],
@@ -60,19 +54,15 @@ SSA_window_Size = 1001
 calculateSSA = False # calculate the SSA components and store them. THIS TOGGLE REQUIRES unSpinData and filterData both == True
 ###################
 subSECTION_groupSSAData = True if not calculateSSA else False
-wAxesSSA = 0 # 0 -> X, 1 -> Y, 2 -> Z
+wAxesSSA = 2 # 0 -> X, 1 -> Y, 2 -> Z
 justPrintSSAFiles = False # TELLS YOU WHICH SSA FILES TO LOAD for the plotting
 wSSAFile = 0  # select a specific SSA file to plot
-reduceTimePercent = 1 # kill this percent of data on either end AFTER the SSA has been calculated
-plotGroupedComponents = True
+reduceTimePercent = 2 # kill this percent of data on either end AFTER the SSA has been calculated
+plotGroupedComponents = False
 plotENUSpectrogram = False
 plotwCorMatrix = False
-# --- --- --- unSPIN --- --- ---
-SECTION_unSpinData = False if not calculateSSA else True
-plotIGRFcompare = False
-outputData_despin = False
 # --- --- --- FILTERING --- --- ---
-SECTION_filterData = False if not calculateSSA else True
+SECTION_filterData = True if not calculateSSA else True
 plotFilteredAxes = False
 # lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 1.5, 'Highpass', 4 # filter toggles HIGH FLYER
 lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 63, 'Bandpass', 4 # filter toggles LOW FLYER
@@ -82,19 +72,10 @@ overlap = int(npersegN*(7/8)) # hanning filter overlap
 outputData_dB = True if not calculateSSA else False
 # --- --- --- --- --- ---
 
-
-# --- FIT RESULTS ---
-fitResults = {
-    'Bx': {'Spin Amp': 25.42873940404161, 'Spin Freq': 0.6463295881639182, 'Spin Phase': 91.9759995936283, 'Cone Amp': 625.8772357084948, 'Cone Freq': 0.05294818121871208, 'Cone Phase': -138.77308595997619, 'Offset': -44919.748937299344},
-    'By': {'Spin Amp': 7.378420193701481, 'Spin Freq': 0.6442248190622027, 'Spin Phase': 109.20255873087793, 'Cone Amp': 1380.5616077430786, 'Cone Freq': 0.02700105226961604, 'Cone Phase': 109.87799606103452, 'Offset': -139.74554466082876},
-    'Bz': {'Spin Amp': 8.095746809541962, 'Spin Freq': 0.6442537451458561, 'Spin Phase': 19.11852573798773, 'Cone Amp': 1257.0313161879794, 'Cone Freq': 0.026874206798816504, 'Cone Phase': -69.78175516947503, 'Offset': 32.456720919269245}
-}
-
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 import pandas as pd
-from pyIGRF import igrf_value
 from ACESII_code.myImports import *
 from matplotlib.widgets import Slider
 from ACESII_code.class_var_func import butter_filter
@@ -103,9 +84,7 @@ from scipy.interpolate import CubicSpline
 from ACESII_code.supportCode.Support_Libraries.pymssa import MSSA
 from scipy.signal import spectrogram
 
-
-
-def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -118,11 +97,8 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
     inputFiles_attitude = glob(f'{rocketFolderPath}{inputPath_modifier_attitude}\{fliers[wflyer]}{modifier}\*.cdf')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
-
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
-
-    fileoutName_despin = f'ACESII_{rocketID}_l2_RingCore_DeSpun'
-    fileoutName_dB = f'ACESII_{rocketID}_l2_RingCore_dB'
+    fileoutName_dB = f'ACESII_{rocketID}_l2_E_Field_dB'
 
 
     if justPrintFileNames:
@@ -130,12 +106,12 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, input_names_searchable[i], round(getsize(file) / (10 ** 6), 1)))
     else:
         print('\n')
-        print(color.UNDERLINE + f'DeSpining RingCore Data' + color.END)
+        print(color.UNDERLINE + f'Isolating Electric Field Instruments' + color.END)
         print('[' + str(wFile) + ']   ' + str(round(getsize(inputFiles[wFile]) / (10 ** 6), 1)) + 'MiB')
 
         # --- get the data from the Magnetometer file ---
-        prgMsg(f'Loading data from {inputPath_modifier} RingCore Files')
-        data_dict_mag = loadDictFromFile(inputFiles[wFile],{})
+        prgMsg(f'Loading data from {inputPath_modifier} Electric Field Files')
+        data_dict_elec = loadDictFromFile(inputFiles[wFile], {})
         Done(start_time)
 
         # --- get the data from the Magnetometer file ---
@@ -150,14 +126,14 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
         targetTimes = scienceRegions[wRocket - 4]
 
-        # --- apply reduction to mag data ---
-        lowCutoff, highCutoff = np.abs(data_dict_mag['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_mag['Epoch'][0] - targetTimes[1]).argmin()
-        for key, val in data_dict_mag.items():
-            data_dict_mag[key][0] = np.array(data_dict_mag[key][0][lowCutoff:highCutoff])
+        # --- apply reduction to E_Field data ---
+        lowCutoff, highCutoff = np.abs(data_dict_elec['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_elec['Epoch'][0] - targetTimes[1]).argmin()
+        for key, val in data_dict_elec.items():
+            data_dict_elec[key][0] = np.array(data_dict_elec[key][0][lowCutoff:highCutoff])
 
-        data_dict_mag['Epoch'][0] = np.array([ pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_mag['Epoch'][0]])
-        Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
-        Epoch_dt = np.array([ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_mag['Epoch'][0]])
+        data_dict_elec['Epoch'][0] = np.array([ pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_elec['Epoch'][0]])
+        Epoch_seconds = np.array([(tme - data_dict_elec['Epoch'][0][0]) / 1E9 for tme in data_dict_elec['Epoch'][0]])
+        Epoch_dt = np.array([ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_elec['Epoch'][0]])
 
         # --- apply reduction to attitude data ---
         lowCutoff, highCutoff = np.abs(data_dict_attitude['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_attitude['Epoch'][0] - targetTimes[1]).argmin()
@@ -171,16 +147,9 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         # --- interpolate attitude data up to magnetometer epoch ---
         # --- --- --- --- --- --- --- --- --- --- --- --- --- --- --
         prgMsg('Interpolating Attitude Data')
-
-        # results from RinCore_L1_DetermineAdjustments_Before_Despin that suggest a linear offset of the attitude data in time
-        # offsetResults_intercept = [104944444.44444445, 117000000]
-        offsetResults_intercept = [0, 117000000]
-        # offsetResults_VectorScalar = np.array([[0, 0, -234.47368421052633],[0,0,-355.47368421052633]])
-        offsetResults_VectorScalar = np.array([[0, 0, 0], [0, 0, 0]])
-        Epoch_attitude_loop = np.array([int(tme + offsetResults_intercept[wRocket - 4]) for tme in data_dict_attitude['Epoch'][0]])
-
+        Epoch_attitude_loop = data_dict_attitude['Epoch'][0]
         dataKeys = ['Epoch', 'Alt', 'Latgd', 'Long', 'Y_Az', 'a11', 'a12', 'a13', 'a21', 'a22', 'a23', 'a31', 'a32', 'a33']
-        dataKeysVal = [deepcopy(data_dict_mag['Epoch'][0]), [], [], [], [], [], [], [], [], [], [], [], [], []]
+        dataKeysVal = [deepcopy(data_dict_elec['Epoch'][0]), [], [], [], [], [], [], [], [], [], [], [], [], []]
         attitudeData = [deepcopy(data_dict_attitude[key][0]) for key in dataKeys]  # a list to contain the attitude only the data that I care about
         dataInterp_dict_attitude = {key: value for key, value in zip(dataKeys, dataKeysVal)}
 
@@ -194,102 +163,17 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                 dataInterp_dict_attitude[key] = np.array([splCub(timeVal) for timeVal in dataInterp_dict_attitude['Epoch']])
             counter += 1
 
-        # FORMAT: [Bx, By, Bz]
-        coneFreq = sum([fitResults['By']['Cone Freq'], fitResults['Bz']['Cone Freq']]) / 2
+        # --- form a single variable containing the EFI data ---
+        data_for_output = np.array([ [data_dict_elec['E_East'][0][i],data_dict_elec['E_North'][0][i], data_dict_elec['E_Up'][0][i]] for i in range(len(data_dict_elec['Epoch'][0]))])
+
+
+        # --- get the rocket's spin frequency for SSA work ---
+        fitResults = {
+            'Bx': {'Spin Amp': 25.42873940404161, 'Spin Freq': 0.6463295881639182, 'Spin Phase': 91.9759995936283, 'Cone Amp': 625.8772357084948, 'Cone Freq': 0.05294818121871208, 'Cone Phase': -138.77308595997619, 'Offset': -44919.748937299344},
+            'By': {'Spin Amp': 7.378420193701481, 'Spin Freq': 0.6442248190622027, 'Spin Phase': 109.20255873087793, 'Cone Amp': 1380.5616077430786, 'Cone Freq': 0.02700105226961604, 'Cone Phase': 109.87799606103452, 'Offset': -139.74554466082876},
+            'Bz': {'Spin Amp': 8.095746809541962, 'Spin Freq': 0.6442537451458561, 'Spin Phase': 19.11852573798773, 'Cone Amp': 1257.0313161879794, 'Cone Freq': 0.026874206798816504, 'Cone Phase': -69.78175516947503, 'Offset': 32.456720919269245}
+        }
         spinFreq = sum([fitResults['Bz']['Spin Freq'], fitResults['By']['Spin Freq'], fitResults['Bz']['Spin Freq']]) / 3 if wRocket == 4 else 0.55
-        Done(start_time)
-
-        if SECTION_unSpinData:
-
-            # --- --- --- --- --- --- --- --- --- -
-            # --- REVERSE ROTATE TO REMOVE SPIN ---
-            # --- --- --- --- --- --- --- --- --- -
-
-            # define the Yaw,Pitch,Roll angles to use over the timeseries. USE DEGREES since DCM does a radian conversion
-            B_rkt = np.array([[data_dict_mag['Bx'][0][i], data_dict_mag['By'][0][i], data_dict_mag['Bz'][0][i]] for i in range(len(Epoch_seconds))])
-
-            DCMmat = np.array([
-                [[dataInterp_dict_attitude['a11'][i], dataInterp_dict_attitude['a12'][i], dataInterp_dict_attitude['a13'][i]],
-                 [dataInterp_dict_attitude['a21'][i], dataInterp_dict_attitude['a22'][i], dataInterp_dict_attitude['a23'][i]],
-                 [dataInterp_dict_attitude['a31'][i], dataInterp_dict_attitude['a32'][i], dataInterp_dict_attitude['a33'][i]]]
-                for i in range(len(Epoch_seconds))
-            ])
-
-            B_noSpin = np.array([np.matmul(DCMmat[i], B_rkt[i]) for i in range(len(Epoch_seconds))]) + offsetResults_VectorScalar[wRocket-4]
-            mapping = [0, 1, 2]
-
-            # --- --- --- --- --- --- --- --- --- --- --
-            # --- ADJUST INITIAL PHASE TO MATCH IGRF ---
-            # --- --- --- --- --- --- --- --- --- --- --
-
-            # --- get IGRF ENU ---
-            date = 2022 + 323 / 365  # Corresponds to 11/20/2022
-            ### IGRF info ###
-            # [3] North Comp (+ N | - S)
-            # [4] East Comp (+ E | - W)
-            # [5] Vertical Comp (+ D | - U)
-            # [6] Total Field
-
-            IGRF = np.array([igrf_value(dataInterp_dict_attitude['Latgd'][i], dataInterp_dict_attitude['Long'][i],dataInterp_dict_attitude['Alt'][i]/1000, date) for i in range(len(dataInterp_dict_attitude['Epoch']))])
-            IGRF_ENU = np.array([[vec[4], vec[3], -1 * vec[5]] for vec in IGRF])
-
-            if plotIGRFcompare:
-                # compare ENU IGRF to my unspun rocket data
-                comps_IGRF = ['B_East', 'B_North', 'B_Up']
-                fig, ax = plt.subplots(3)
-                fig.suptitle('Attitude DCM')
-
-                # East (B_rkt_Y)
-                B_rkt_east_plot, = ax[0].plot(Epoch_seconds, B_noSpin[:, mapping[0]])
-                ax[0].plot(Epoch_seconds, IGRF_ENU[:, 0],label='IGRF East')
-                ax[0].set_ylabel(f'Rkt_X [nT]')
-                # ax[0].set_ylim(-10000, 10000)
-
-                # North (B_rkt_Z)
-                i = 1
-                B_rkt_north_plot, = ax[1].plot(Epoch_seconds, B_noSpin[:, mapping[1]])
-                ax[1].plot(Epoch_seconds, IGRF_ENU[:, 1], label='IGRF North')
-                ax[1].set_ylabel(f'Rkt_Y [nT]')
-                # ax[1].set_ylim(-10000, 10000)
-
-                # Up (B_rkt_X)
-                B_rkt_up_plot, = ax[2].plot(Epoch_seconds, B_noSpin[:, mapping[2]])
-                ax[2].plot(Epoch_seconds, IGRF_ENU[:, 2], label='IGRF Up')
-                ax[2].set_ylabel(f'Rkt_Z [nT]')
-                ax[2].set_xlabel('Seconds From 17:24:00')
-
-                plt.show()
-
-            # prepare data for further processing
-            data_for_output = B_noSpin
-
-            if outputData_despin:
-                prgMsg('Creating despin output file')
-
-                # create the output data_dict
-                data_dict = deepcopy(data_dict_mag)
-                comps = ['Bx', 'By', 'Bz', 'Bmag']
-                newComps = ['B_east', 'B_north', 'B_up', 'Bmag']
-                data_for_output_despin = np.array([[B_noSpin[i][0],B_noSpin[i][1],B_noSpin[i][2], np.linalg.norm(B_noSpin[i])] for i in range(len(data_for_output))])
-
-                # --- Magnetic Components ---
-                # get the attributes of the old components and replace them
-                for i, key in enumerate(comps):
-                    newAttrs = deepcopy(data_dict[key][1])
-                    newAttrs['LABLAXIS'] = newComps[i]
-
-                    # remove the old key
-                    del data_dict[key]
-
-                    # append the new key
-                    data_dict = {**data_dict, **{newComps[i]: [data_for_output_despin[:, i], newAttrs]}}
-
-                outputPath = f'{rocketFolderPath}{outputPath_modifier_despin}\{fliers[wflyer]}\\{fileoutName_despin}.cdf'
-
-                outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'RingCore')
-
-                Done(start_time)
-
         if SECTION_filterData:
             # --- --- --- --- -
             # --- FILTERING ---
@@ -297,14 +181,13 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             prgMsg('Filtering Data')
 
             # Apply Highpass filter to data
-            B_noSpin = data_for_output # get the data
-            B_rkt_filtered = []
+            E_ENU = data_for_output # get the data
+            E_filtered = []
             for i in range(3):
-                B_rkt_filtered.append(butter_filter(B_noSpin[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128))
+                E_filtered.append(butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128))
 
-            B_rkt_filtered = np.array(B_rkt_filtered)
-
-            comps = ['B_east', 'B_north', 'B_up']
+            E_filtered = np.array(E_filtered)
+            comps = ['E_East', 'E_North', 'E_Up']
 
             if plotFilteredAxes:
 
@@ -314,21 +197,21 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     ###############################
                     fig, ax = plt.subplots(nrows=4,ncols=1,constrained_layout=True)
 
-                    ax[0].plot(Epoch_dt, B_noSpin[:, i], label='noSpin')
+                    ax[0].plot(Epoch_dt, E_ENU[:, i], label='noSpin')
                     ax[0].set_ylabel(f'{comps[i]}')
 
                     # --- FFT noSpin ---
-                    N, T = len(B_noSpin[:, i]), 1 / 128
-                    yf_rawData = rfft(B_noSpin[:, i])
+                    N, T = len(E_ENU[:, i]), 1 / 128
+                    yf_rawData = rfft(E_ENU[:, i])
 
                     # --- Highpass Filter ---
-                    filteredData = butter_filter(B_noSpin[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128)
+                    filteredData = butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128)
                     filteredDataPlot, = ax[1].plot(Epoch_dt, filteredData, color='red')
                     ax[1].set_ylabel(f'{comps[i]}_filtered')
                     ax[1].set_xlabel('Time [s]')
 
                     # --- FFT filtered ---
-                    N, T = len(B_noSpin[:, i]), 1 / 128
+                    N, T = len(E_ENU[:, i]), 1 / 128
                     yf_filtered = rfft(filteredData)
                     xf = fftfreq(N, T)[:N // 2]
                     FFT_filtered_plot, = ax[2].plot(xf, 2.0 / N * np.abs(yf_filtered[0:N // 2]))
@@ -368,7 +251,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     slider_filter_order = Slider(ax=axfilter_order, label='order', valmin=1, valmax=15, valinit=1, orientation="vertical")
 
                     def f(cutoff_low, cutoff_high, order):
-                        updated_filteredData = butter_filter(B_noSpin[:, i], lowcutoff=cutoff_low, highcutoff=cutoff_high, order=int(order), filtertype=filttype_toggle, fs=128)
+                        updated_filteredData = butter_filter(E_ENU[:, i], lowcutoff=cutoff_low, highcutoff=cutoff_high, order=int(order), filtertype=filttype_toggle, fs=128)
                         yf = rfft(updated_filteredData)
                         f, t, Sxx = spectrogram(updated_filteredData, fs=128,
                                                 window=windowType,
@@ -400,7 +283,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     plt.show()
 
             # format data for output
-            data_for_output = np.array([ [B_rkt_filtered[0][i],B_rkt_filtered[1][i],B_rkt_filtered[2][i]] for i in range(len(B_rkt_filtered[0]))])
+            data_for_output = np.array([ [E_filtered[0][i],E_filtered[1][i],E_filtered[2][i]] for i in range(len(E_filtered[0]))])
             Done(start_time)
 
         if SECTION_SSA:
@@ -408,7 +291,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # output file location for MSSA
 
             outputPathSSA = f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\{fileoutName_dB}_SSAcomponents_WL{SSA_window_Size}'
-
 
             if useAlfvenRegion:
                 outputPathSSA = outputPathSSA + '_Alfven.cdf'
@@ -502,7 +384,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                             percentLow, percentHigh = int((percent)*len(plotThisData)), int((1-percent)*len(plotThisData))
                             plotThisData = plotThisData[percentLow:percentHigh]
 
-                            Epoch_dt = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_mag['Epoch'][0]])
+                            Epoch_dt = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_elec['Epoch'][0]])
                             Epoch_dt = Epoch_dt[percentLow:percentHigh]
 
                             # plot the component
@@ -550,7 +432,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                             # reduce the last "X" percent of the data on either end to eliminate the SSA effect
                             percent = reduceTimePercent / 100
                             percentLow, percentHigh = int((percent) * len(plotThisData)), int((1 - percent) * len(plotThisData))
-                            Epoch_dt = [ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_mag['Epoch'][0][percentLow:percentHigh]]
+                            Epoch_dt = [ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_elec['Epoch'][0][percentLow:percentHigh]]
 
 
                             # append "noise" data to "groupedData"
@@ -638,7 +520,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                         percentLow, percentHigh = int((percent) * len(formattedData)), int((1 - percent) * len(formattedData))
                         data_for_output.append(formattedData[percentLow:percentHigh])
 
-                    Epoch_SSA = data_dict_mag['Epoch'][0][percentLow:percentHigh]
+                    Epoch_SSA = data_dict_elec['Epoch'][0][percentLow:percentHigh]
 
                     # calculate dBmag
                     data_for_output.append(np.array([np.linalg.norm([data_for_output[0][i],data_for_output[1][i],data_for_output[2][i]]) for i in range(len(data_for_output[0]))]))
@@ -656,16 +538,15 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                 prgMsg('Creating dB output file')
 
                 # create the output data_dict
-                data_dict = deepcopy(data_dict_mag)
+                data_dict = deepcopy(data_dict_elec)
                 comps = ['Bx', 'By', 'Bz', 'Bmag']
-                newComps = ['dB_East', 'dB_North', 'dB_Up', 'dB_mag']
-                newLabels = ['&delta;B!BEast!n', '&delta;B!BNorth!n', '&delta;B!BUp!n', '&delta;B!Bmag!n']
+                newComps = ['dB_east', 'dB_north', 'dB_up','dBmag']
 
                 # --- Magnetic Components ---
                 # get the attributes of the old components and replace them
                 for i, key in enumerate(comps):
                     newAttrs = deepcopy(data_dict[key][1])
-                    newAttrs['LABLAXIS'] = newLabels[i]
+                    newAttrs['LABLAXIS'] = newComps[i]
 
                     # remove the old key
                     del data_dict[key]
@@ -676,17 +557,11 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                 if subSECTION_groupSSAData:
                     data_dict['Epoch'][0] = Epoch_SSA
 
-                outputPath = f'{rocketFolderPath}{outputPath_modifier_db}\{fliers[wflyer]}\\{fileoutName_dB}.cdf'
-                print(outputPathSSA)
+                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_dB}.cdf'
 
                 outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'RingCore')
 
                 Done(start_time)
-
-
-
-
-
 
 
 # --- --- --- ---
@@ -703,10 +578,10 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        RingCore_L1_to_L2_Despin(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        EFI_L2_to_L2_dE(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
     elif not wFiles:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
-            RingCore_L1_to_L2_Despin(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
+            EFI_L2_to_L2_dE(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
         for filesNo in wFiles:
-            RingCore_L1_to_L2_Despin(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+            EFI_L2_to_L2_dE(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

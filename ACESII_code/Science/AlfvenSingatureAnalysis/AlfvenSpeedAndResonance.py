@@ -170,7 +170,7 @@ def main(AltLow, AltHigh):
         # --- Resonance Plot ---
         for i in range(len(potentials)):
             ax[i+1].plot(xData, acceleration[i], color='green',linestyle='--')
-            ax[i+1].plot(xData, centerEnergy[i],label=f'$\phi =$ {potentials[i]}')
+            ax[i+1].plot(xData, centerEnergy[i], label=f'$\phi =$ {potentials[i]}')
             ax[i+1].plot(xData, deceleration[i], color='red', linestyle='--')
             ax[i+1].set_xlim(*xlimits)
             ax[i+1].set_ylabel('Parallel Energy [keV]')
