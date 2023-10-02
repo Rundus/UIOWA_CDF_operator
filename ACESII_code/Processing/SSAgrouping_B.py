@@ -12,13 +12,13 @@ def groupings(wRocket,SSA_window_Size,useAlfvenRegion):
             if useAlfvenRegion:
                 # # identify the harmonic components (maybe 10,11,16,17 harmonic or no)
                 grouping = [
-                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11, 12, 13, 15, 16, 18, 19, 46, 47, 48, 49, 68, 69, 76,
-                     79, 82, 83, 85, 86, 88, 89, 94, 95, 98, 99, 100, 101, 102, 103,104, 106, 108,109, 110, 111, 112, 113, 117,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18, 46, 47, 48, 49, 68, 69, 76,
+                     79, 82, 83, 85, 86, 88, 89, 94, 95, 98, 99, 100, 101, 102, 103, 104, 106, 108,109, 110, 111, 112, 113, 117,
                     119, 120, 121, 122,125, 128, 129, 130]
                 ]
 
                 # investigate other components
-                # grouping += [[i] for i in range(10,18)]
+                # grouping += [[i] for i in range(37, 48)]
 
                 # the "noise" data
                 limit = 130
@@ -126,18 +126,19 @@ def groupings(wRocket,SSA_window_Size,useAlfvenRegion):
                 # [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 18, 000000)]  # ACTUAL WINDOW for WL 501 Low Flyer
                 # identify the harmonic components
                 grouping = [
-                    [0, 1, 4, 5, 15, 16]
+                    [0,1,2,3,4,5,6]
                 ]
 
                 # investigate other components
-                # grouping += [[i] for i in range(70,81)]
+                grouping += [[i] for i in range(36,41)]
 
                 # show the "noise"
-                grouping += [[i for i in range(150,3*SSA_window_Size)]]
+                limit = 120
+                grouping += [[i for i in range(limit,3*SSA_window_Size)]]
 
                 # get the good stuff
                 goodStuff = []
-                for i in range(150):  # should be 150
+                for i in range(limit):  # should be 150
                     if i not in grouping[0]:
                         goodStuff.append(i)
 

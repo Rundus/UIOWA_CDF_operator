@@ -36,7 +36,8 @@ outputPath_modifier = 'science\deltaE' # e.g. 'L2' or 'Langmuir'. It's the name 
 
 
 # --- --- --- Time region --- --- ---
-useAlfvenRegion = False
+useAlfvenRegion = True
+
 if useAlfvenRegion:
     scienceRegions = [
         [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 18, 000000)],
@@ -47,14 +48,16 @@ else:
         [dt.datetime(2022, 11, 20, 17, 24, 00, 000000), dt.datetime(2022, 11, 20, 17, 27, 50, 000000)]
     ]
 
+EFIsampleFreq = 4000
+convertTomVpm = True # converts from V/m to mV/m
 
 # --- --- --- SSA --- --- ---
 SECTION_SSA = True
-SSA_window_Size = 1001
+SSA_window_Size = 501
 calculateSSA = False # calculate the SSA components and store them. THIS TOGGLE REQUIRES unSpinData and filterData both == True
 ###################
 subSECTION_groupSSAData = True if not calculateSSA else False
-wAxesSSA = 2 # 0 -> X, 1 -> Y, 2 -> Z
+wAxesSSA = 0 # 0 -> X, 1 -> Y, 2 -> Z
 justPrintSSAFiles = False # TELLS YOU WHICH SSA FILES TO LOAD for the plotting
 wSSAFile = 0  # select a specific SSA file to plot
 reduceTimePercent = 2 # kill this percent of data on either end AFTER the SSA has been calculated
@@ -62,14 +65,13 @@ plotGroupedComponents = False
 plotENUSpectrogram = False
 plotwCorMatrix = False
 # --- --- --- FILTERING --- --- ---
-SECTION_filterData = True if not calculateSSA else True
+SECTION_filterData = False if not calculateSSA else True
 plotFilteredAxes = False
-# lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 1.5, 'Highpass', 4 # filter toggles HIGH FLYER
-lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 63, 'Bandpass', 4 # filter toggles LOW FLYER
-windowType, npersegN, scalingType  = 'hann', 128, 'density' # spectrogram toggles
+lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 63, 'Bandpass', 3 # filter toggles LOW FLYER
+windowType, npersegN, scalingType  = 'hann', EFIsampleFreq, 'density' # spectrogram toggles
 overlap = int(npersegN*(7/8)) # hanning filter overlap
 # --- --- --- OUTPUT --- --- ---
-outputData_dB = True if not calculateSSA else False
+outputData_dE = True if not calculateSSA else False
 # --- --- --- --- --- ---
 
 # --- --- --- ---
@@ -93,12 +95,12 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     outputModelData = L0_ACES_Quick(wflyer)
 
-    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
+    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*E_Field*')
     inputFiles_attitude = glob(f'{rocketFolderPath}{inputPath_modifier_attitude}\{fliers[wflyer]}{modifier}\*.cdf')
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
-    fileoutName_dB = f'ACESII_{rocketID}_l2_E_Field_dB'
+    fileoutName_dE = f'ACESII_{rocketID}_l2_dE'
 
 
     if justPrintFileNames:
@@ -131,9 +133,10 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         for key, val in data_dict_elec.items():
             data_dict_elec[key][0] = np.array(data_dict_elec[key][0][lowCutoff:highCutoff])
 
-        data_dict_elec['Epoch'][0] = np.array([ pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_elec['Epoch'][0]])
+        Epoch_dt = np.array([tme for tme in deepcopy(data_dict_elec['Epoch'][0])])
+        data_dict_elec['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_elec['Epoch'][0]])
         Epoch_seconds = np.array([(tme - data_dict_elec['Epoch'][0][0]) / 1E9 for tme in data_dict_elec['Epoch'][0]])
-        Epoch_dt = np.array([ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_elec['Epoch'][0]])
+
 
         # --- apply reduction to attitude data ---
         lowCutoff, highCutoff = np.abs(data_dict_attitude['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_attitude['Epoch'][0] - targetTimes[1]).argmin()
@@ -166,6 +169,8 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         # --- form a single variable containing the EFI data ---
         data_for_output = np.array([ [data_dict_elec['E_East'][0][i],data_dict_elec['E_North'][0][i], data_dict_elec['E_Up'][0][i]] for i in range(len(data_dict_elec['Epoch'][0]))])
 
+        if convertTomVpm:
+            data_for_output = 1000*data_for_output
 
         # --- get the rocket's spin frequency for SSA work ---
         fitResults = {
@@ -174,6 +179,8 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             'Bz': {'Spin Amp': 8.095746809541962, 'Spin Freq': 0.6442537451458561, 'Spin Phase': 19.11852573798773, 'Cone Amp': 1257.0313161879794, 'Cone Freq': 0.026874206798816504, 'Cone Phase': -69.78175516947503, 'Offset': 32.456720919269245}
         }
         spinFreq = sum([fitResults['Bz']['Spin Freq'], fitResults['By']['Spin Freq'], fitResults['Bz']['Spin Freq']]) / 3 if wRocket == 4 else 0.55
+        Done(start_time)
+
         if SECTION_filterData:
             # --- --- --- --- -
             # --- FILTERING ---
@@ -184,10 +191,11 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             E_ENU = data_for_output # get the data
             E_filtered = []
             for i in range(3):
-                E_filtered.append(butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128))
+                E_filtered.append(butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=EFIsampleFreq))
 
             E_filtered = np.array(E_filtered)
-            comps = ['E_East', 'E_North', 'E_Up']
+            unit = 'mV/m' if convertTomVpm else 'V/m'
+            comps = [f'E_East [{unit}]', f'E_North [{unit}]', f'E_Up [{unit}]']
 
             if plotFilteredAxes:
 
@@ -201,37 +209,37 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                     ax[0].set_ylabel(f'{comps[i]}')
 
                     # --- FFT noSpin ---
-                    N, T = len(E_ENU[:, i]), 1 / 128
+                    N, T = len(E_ENU[:, i]), 1 / EFIsampleFreq
                     yf_rawData = rfft(E_ENU[:, i])
 
                     # --- Highpass Filter ---
-                    filteredData = butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=128)
+                    filteredData = butter_filter(E_ENU[:, i], lowcutoff=lowCut_toggle, highcutoff=highcut_toggle, filtertype=filttype_toggle, order=order_toggle, fs=EFIsampleFreq)
                     filteredDataPlot, = ax[1].plot(Epoch_dt, filteredData, color='red')
                     ax[1].set_ylabel(f'{comps[i]}_filtered')
                     ax[1].set_xlabel('Time [s]')
 
                     # --- FFT filtered ---
-                    N, T = len(E_ENU[:, i]), 1 / 128
+                    N, T = len(E_ENU[:, i]), 1 / EFIsampleFreq
                     yf_filtered = rfft(filteredData)
                     xf = fftfreq(N, T)[:N // 2]
                     FFT_filtered_plot, = ax[2].plot(xf, 2.0 / N * np.abs(yf_filtered[0:N // 2]))
                     ax[2].plot(xf, 2.0 / N * np.abs(yf_rawData[0:N // 2]), color='orange')
                     ax[2].set_ylabel('FFT Power')
                     ax[2].set_xlabel('Frequency [Hz]')
-                    ax[2].set_xlim(-0.1, 5)
-                    ax[2].set_ylim(-0.1, 5)
+                    ax[2].set_xlim(-0.1, 50)
+                    ax[2].set_ylim(-0.01, 0.5)
 
                     # --- PERIODOGRAM ---
-                    f, t, Sxx = spectrogram(filteredData, fs=128,
+                    f, t, Sxx = spectrogram(filteredData, fs=EFIsampleFreq,
                                 window=windowType,
                                 nperseg=npersegN, # note: if ==None default size is 256
                                 noverlap=overlap,
                                 scaling=scalingType) # scaling = density or scaling = spectrum
-                    spectrogramPlot = ax[3].pcolormesh(t, f, Sxx, shading='nearest',vmin=0,vmax=10,cmap='turbo')
+                    spectrogramPlot = ax[3].pcolormesh(t, f, Sxx, shading='nearest',vmin=0,vmax=0.07,cmap='turbo')
                     cbar = plt.colorbar(spectrogramPlot,ax=ax[3])
-                    ax[3].set_ylim(-0.1, 15)
+                    ax[3].set_ylim(-0.1, 100)
                     ax[3].set_ylabel('Frequency [Hz]')
-                    ax[3].set_xlabel('Time [Sec]')
+                    ax[3].set_xlabel('Epoch')
 
                     fig.subplots_adjust(left=0.1, bottom=0.1)
                     fig.suptitle(f'{comps[i]}\n'
@@ -245,15 +253,15 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                     slider_cutoff_low = Slider(ax=axfilter_cutoff_low, label='lowFq', valmin=0.0001, valmax=8, valinit=1, orientation="vertical")
 
                     axfilter_cutoff_high = fig.add_axes([0.97, 0.3, 0.02, 0.63])
-                    slider_cutoff_high = Slider(ax=axfilter_cutoff_high, label='highFq', valmin=0.001, valmax=63, valinit=1.5, orientation="vertical")
+                    slider_cutoff_high = Slider(ax=axfilter_cutoff_high, label='highFq', valmin=0.001, valmax=highcut_toggle, valinit=1.5, orientation="vertical")
 
                     axfilter_order = fig.add_axes([0.945, 0.3, 0.02, 0.56])
                     slider_filter_order = Slider(ax=axfilter_order, label='order', valmin=1, valmax=15, valinit=1, orientation="vertical")
 
                     def f(cutoff_low, cutoff_high, order):
-                        updated_filteredData = butter_filter(E_ENU[:, i], lowcutoff=cutoff_low, highcutoff=cutoff_high, order=int(order), filtertype=filttype_toggle, fs=128)
+                        updated_filteredData = butter_filter(E_ENU[:, i], lowcutoff=cutoff_low, highcutoff=cutoff_high, order=int(order), filtertype=filttype_toggle, fs=EFIsampleFreq)
                         yf = rfft(updated_filteredData)
-                        f, t, Sxx = spectrogram(updated_filteredData, fs=128,
+                        f, t, Sxx = spectrogram(updated_filteredData, fs=EFIsampleFreq,
                                                 window=windowType,
                                                 nperseg=npersegN,  # note: if ==None default size is 256
                                                 noverlap=overlap,
@@ -287,19 +295,16 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             Done(start_time)
 
         if SECTION_SSA:
-
             # output file location for MSSA
-
-            outputPathSSA = f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\{fileoutName_dB}_SSAcomponents_WL{SSA_window_Size}'
+            outputPathSSA = f'{rocketFolderPath}\\science\SSAcomponents_E\\{fliers[wflyer]}\\{fileoutName_dE}_SSAcomponents_WL{SSA_window_Size}'
 
             if useAlfvenRegion:
                 outputPathSSA = outputPathSSA + '_Alfven.cdf'
             else:
                 outputPathSSA = outputPathSSA + '.cdf'
 
-
             # name of the components
-            compNames = ['B_east_SSA', 'B_north_SSA', 'B_up_SSAcomps']
+            compNames = ['E_East_SSA', 'E_North_SSA', 'E_Up_SSA']
 
             # create the MSSA object
             mssa = MSSA(n_components=None, window_size=SSA_window_Size, verbose=False)
@@ -311,9 +316,9 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                 # convert data to pandas dataframe
                 dataFormatted = {
-                    'Bx': data_for_output[:, 0],
-                    'By': data_for_output[:, 1],
-                    'Bz': data_for_output[:, 2]}
+                    'E_East': data_for_output[:, 0],
+                    'E_North': data_for_output[:, 1],
+                    'E_Up': data_for_output[:, 2]}
 
                 data = pd.DataFrame(dataFormatted)
 
@@ -340,13 +345,15 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                 outputCDFdata(outputPathSSA, data_dict_SSAcomps, outputModelData, globalAttrsMod, 'RingCore')
                 Done(start_time)
+
+
             elif subSECTION_groupSSAData:
 
                 # load components data from file
-                SSAFiles = glob(f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\*.cdf*')
+                SSAFiles = glob(f'{rocketFolderPath}\\science\SSAcomponents_E\\{fliers[wflyer]}\\*.cdf*')
 
                 if justPrintSSAFiles:
-                    ssa_names = [ssafile.replace(f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\', '') for ssafile in SSAFiles]
+                    ssa_names = [ssafile.replace(f'{rocketFolderPath}\\science\SSAcomponents_E\\{fliers[wflyer]}\\', '') for ssafile in SSAFiles]
 
                     for i, file in enumerate(ssa_names):
                         print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, ssa_names[i], round(getsize(SSAFiles[i]) / (10 ** 6), 1)))
@@ -357,11 +364,11 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                     data_dict_SSA = loadDictFromFile(SSAFiles[wSSAFile],{})
 
                     prgMsg('Grouping mSSA elements')
-                    from ACESII_code.Processing.SSAgrouping import groupings
+                    from ACESII_code.Processing.SSAgrouping_E import groupings
                     groupings = groupings(wRocket=wRocket, SSA_window_Size=windowSize, useAlfvenRegion=useAlfvenRegion)
 
                     # get all the SSA components for the three axes
-                    B_SSA = [data_dict_SSA[compNames[0]][0], data_dict_SSA[compNames[1]][0], data_dict_SSA[compNames[2]][0]]
+                    E_SSA = [data_dict_SSA[compNames[0]][0], data_dict_SSA[compNames[1]][0], data_dict_SSA[compNames[2]][0]]
 
                     # --- Plot the FFT and groupings for one wAxes axes ---
                     if plotGroupedComponents:
@@ -372,7 +379,7 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                         # loop over all the groups in grouping
                         for i in range(len(groupings)):
-                            data = np.array(B_SSA[wAxesSSA])
+                            data = np.array(E_SSA[wAxesSSA])
 
                             # combine the groupings
                             plotThisData = np.array([0 for i in range(len(data[:,0]))],dtype='float64')
@@ -404,12 +411,12 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                                 ax[i, 0].set_ylabel('F{}'.format(i))
 
                             # calculate the FFT and plot it
-                            N, T = len(plotThisData), 1 / 128
+                            N, T = len(plotThisData), 1 / EFIsampleFreq
                             yf, xf = rfft(plotThisData), fftfreq(N, T)[:N // 2]
                             FFT = 2.0 / N * np.abs(yf[0:N // 2])
                             ax[i, 1].plot(xf, FFT)
                             ax[i, 1].vlines([spinFreq*(i+1) for i in range(50)],ymin=min(FFT), ymax=max(FFT),alpha=0.5, color='red')
-                            ax[i, 1].set_xlim(-0.1, 10)
+                            ax[i, 1].set_xlim(-0.1, 30)
                             ax[i, 1].set_ylim(0, max(FFT))
 
                         plt.show()
@@ -422,7 +429,7 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                         for i in range(3):# loop over all three axes
 
-                            data = np.array(B_SSA[i]) # get the SSA data for this axes
+                            data = np.array(E_SSA[i]) # get the SSA data for this axes
 
                             # --- collect the group info for the LAST (noise) grouping ---
                             plotThisData = np.array([0 for i in range(len(data[:, 0]))], dtype='float64')
@@ -434,10 +441,8 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                             percentLow, percentHigh = int((percent) * len(plotThisData)), int((1 - percent) * len(plotThisData))
                             Epoch_dt = [ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_elec['Epoch'][0][percentLow:percentHigh]]
 
-
                             # append "noise" data to "groupedData"
                             groupedData.append(plotThisData[percentLow:percentHigh])
-
 
                         # --- Plot the Data ---
                         fig, ax = plt.subplots(nrows=2, ncols=3, sharex=True,layout='constrained')
@@ -452,7 +457,7 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                             ax[0, i].set_ylim(-12,12)
 
                             # plot the spectrogram of the data
-                            f, t, Sxx = spectrogram(groupedData[i], fs=128,
+                            f, t, Sxx = spectrogram(groupedData[i], fs=EFIsampleFreq,
                                                     window=windowType,
                                                     nperseg=npersegN,  # note: if ==None default size is 256
                                                     noverlap=overlap,
@@ -471,8 +476,6 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                             ax[1, i].set_ylim(-0.1, 15)
                             ax[1, i].set_xticklabels(ax[1, i].get_xticklabels(), rotation=45, ha='right')
-
-
 
                         plt.show()
 
@@ -502,13 +505,12 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                             plt.clim(0, 1)
                             plt.show()
 
-
                     # --- format the data for output ---
                     data_for_output = []
-                    newComps = ['dB_east', 'dB_north', 'dB_up']
+                    newComps = ['dE_east', 'dE_north', 'dE_up']
                     for k in range(len(newComps)): # loop through all the components, but only take the last grouping
 
-                        data = np.array(B_SSA[k])
+                        data = np.array(E_SSA[k])
 
                         # combine the groupings of the last group set only
                         formattedData = np.array([0 for i in range(len(data[:, 0]))], dtype='float64')
@@ -522,44 +524,45 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
                     Epoch_SSA = data_dict_elec['Epoch'][0][percentLow:percentHigh]
 
-                    # calculate dBmag
-                    data_for_output.append(np.array([np.linalg.norm([data_for_output[0][i],data_for_output[1][i],data_for_output[2][i]]) for i in range(len(data_for_output[0]))]))
+
+                    # calculate dEmag
+                    Emag = np.array([np.linalg.norm([data_for_output[0][i],data_for_output[1][i],data_for_output[2][i]]) for i in range(len(Epoch_SSA))])
 
                     # reformat the data for output
-                    data_for_output = np.array([  [data_for_output[0][i],data_for_output[1][i],data_for_output[2][i],data_for_output[3][i]] for i in range(len(data_for_output[0])) ])
+                    data_for_output = np.array([  [data_for_output[0][i],data_for_output[1][i],data_for_output[2][i], Emag[i]] for i in range(len(Epoch_SSA)) ])
 
                 Done(start_time)
 
             # --- --- --- --- --- --- ---
             # --- WRITE OUT THE DATA ---
             # --- --- --- --- --- --- ---
-
-            if outputData_dB:
+            if outputData_dE:
                 prgMsg('Creating dB output file')
 
                 # create the output data_dict
                 data_dict = deepcopy(data_dict_elec)
-                comps = ['Bx', 'By', 'Bz', 'Bmag']
-                newComps = ['dB_east', 'dB_north', 'dB_up','dBmag']
+                comps = ['E_East', 'E_North', 'E_Up', 'E_mag']
+                newCompsLabels = ['dE_East', 'dE_North', 'dE_Up', 'dE_mag']
+                newLabels = ['&delta;E!BEast!n', '&delta;E!BNorth!n', '&delta;E!BUp!n', '&delta;E!Bmag!n']
 
                 # --- Magnetic Components ---
                 # get the attributes of the old components and replace them
                 for i, key in enumerate(comps):
                     newAttrs = deepcopy(data_dict[key][1])
-                    newAttrs['LABLAXIS'] = newComps[i]
+                    newAttrs['LABLAXIS'] = newLabels[i]
 
                     # remove the old key
                     del data_dict[key]
 
                     # append the new key
-                    data_dict = {**data_dict, **{newComps[i] : [data_for_output[:, i], newAttrs]}}
+                    data_dict = {**data_dict, **{newCompsLabels[i]: [data_for_output[:, i], newAttrs]}}
 
                 if subSECTION_groupSSAData:
                     data_dict['Epoch'][0] = Epoch_SSA
 
-                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_dB}.cdf'
+                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_dE}.cdf'
 
-                outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'RingCore')
+                outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'EFI')
 
                 Done(start_time)
 

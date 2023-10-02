@@ -41,8 +41,7 @@ outputPath_modifier_db = 'science\deltaB'
 
 
 # --- --- --- Time region --- --- ---
-useAlfvenRegion = False
-
+useAlfvenRegion = True
 if useAlfvenRegion:
     scienceRegions = [
         [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 18, 000000)],
@@ -56,14 +55,14 @@ else:
 
 # --- --- --- SSA --- --- ---
 SECTION_SSA = True
-SSA_window_Size = 1001
+SSA_window_Size = 501
 calculateSSA = False # calculate the SSA components and store them. THIS TOGGLE REQUIRES unSpinData and filterData both == True
 ###################
 subSECTION_groupSSAData = True if not calculateSSA else False
 wAxesSSA = 0 # 0 -> X, 1 -> Y, 2 -> Z
 justPrintSSAFiles = False # TELLS YOU WHICH SSA FILES TO LOAD for the plotting
-wSSAFile = 0  # select a specific SSA file to plot
-reduceTimePercent = 1 # kill this percent of data on either end AFTER the SSA has been calculated
+wSSAFile = 2  # select a specific SSA file to plot
+reduceTimePercent = 2 # kill this percent of data on either end AFTER the SSA has been calculated
 plotGroupedComponents = True
 plotENUSpectrogram = False
 plotwCorMatrix = False
@@ -75,7 +74,7 @@ outputData_despin = False
 SECTION_filterData = False if not calculateSSA else True
 plotFilteredAxes = False
 # lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 1.5, 'Highpass', 4 # filter toggles HIGH FLYER
-lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 63, 'Bandpass', 4 # filter toggles LOW FLYER
+lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 1, 63, 'Bandpass', 3 # filter toggles LOW FLYER
 windowType, npersegN, scalingType  = 'hann', 128, 'density' # spectrogram toggles
 overlap = int(npersegN*(7/8)) # hanning filter overlap
 # --- --- --- OUTPUT --- --- ---
@@ -407,7 +406,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
             # output file location for MSSA
 
-            outputPathSSA = f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\{fileoutName_dB}_SSAcomponents_WL{SSA_window_Size}'
+            outputPathSSA = f'{rocketFolderPath}\\science\SSAcomponents_B\\{fliers[wflyer]}\\{fileoutName_dB}_SSAcomponents_WL{SSA_window_Size}'
 
 
             if useAlfvenRegion:
@@ -461,10 +460,10 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             elif subSECTION_groupSSAData:
 
                 # load components data from file
-                SSAFiles = glob(f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\*.cdf*')
+                SSAFiles = glob(f'{rocketFolderPath}\\science\SSAcomponents_B\\{fliers[wflyer]}\\*.cdf*')
 
                 if justPrintSSAFiles:
-                    ssa_names = [ssafile.replace(f'{rocketFolderPath}\\science\despinSSAcomponents\\{fliers[wflyer]}\\', '') for ssafile in SSAFiles]
+                    ssa_names = [ssafile.replace(f'{rocketFolderPath}\\science\SSAcomponents_B\\{fliers[wflyer]}\\', '') for ssafile in SSAFiles]
 
                     for i, file in enumerate(ssa_names):
                         print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, ssa_names[i], round(getsize(SSAFiles[i]) / (10 ** 6), 1)))
@@ -475,7 +474,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     data_dict_SSA = loadDictFromFile(SSAFiles[wSSAFile],{})
 
                     prgMsg('Grouping mSSA elements')
-                    from ACESII_code.Processing.SSAgrouping import groupings
+                    from ACESII_code.Processing.SSAgrouping_B import groupings
                     groupings = groupings(wRocket=wRocket, SSA_window_Size=windowSize, useAlfvenRegion=useAlfvenRegion)
 
                     # get all the SSA components for the three axes
@@ -677,7 +676,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     data_dict['Epoch'][0] = Epoch_SSA
 
                 outputPath = f'{rocketFolderPath}{outputPath_modifier_db}\{fliers[wflyer]}\\{fileoutName_dB}.cdf'
-                print(outputPathSSA)
 
                 outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'RingCore')
 

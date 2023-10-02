@@ -11,9 +11,6 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 from ACESII_code.myImports import *
 start_time = time.time()
 from ACESII_code.class_var_func import Re
@@ -131,7 +128,7 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
 
         # Plot the key dispersion colormaps
         if plotKeyDispersions:
-            from ACESII_code.Science.AlfvenSingatureAnalysis.dispersionAttributes import dispersionAttributes
+            from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
 
             if len(wDispersions) == 0:
                 nColumns = 3
