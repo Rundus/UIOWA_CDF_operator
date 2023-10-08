@@ -7,6 +7,8 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import matplotlib.pyplot as plt
 # -------------------
 
 import numpy as np,time
@@ -214,6 +216,28 @@ def R_yaw(angle):
 def DCM(roll,pitch,yaw):
     return np.matmul(R_yaw(yaw),np.matmul(R_pitch(pitch),R_roll(roll)))
 
+def ENUtoECEF(Lat,Long):
+    angleLat = np.radians(Lat)
+    angleLong = np.radians(Long)
+
+    R = np.array([
+        [-np.sin(angleLong), -np.cos(angleLong)*np.sin(angleLat), np.cos(angleLong)*np.cos(angleLat)],
+        [ np.cos(angleLong), -np.sin(angleLong)*np.sin(angleLat), np.sin(angleLong)*np.cos(angleLat)],
+        [0,                   np.cos(angleLat),                   np.sin(angleLat)]
+    ])
+
+    return R
+
+def sphereToCartesian(r,theta,phi):
+    thetaRad = np.radians(theta)
+    phiRad = np.radians(phi)
+
+    R = np.array([
+        [np.sin(thetaRad)*np.cos(phiRad), np.cos(thetaRad)*np.cos(phiRad), -np.sin(phiRad)],
+        [np.sin(thetaRad)*np.sin(phiRad), np.cos(thetaRad)*np.sin(phiRad),  np.cos(phiRad)],
+        [               np.cos(thetaRad),                np.sin(thetaRad),               0]
+    ])
+    return R
 
 def Rotation3D(yaw, pitch, roll):
     yawR = np.radians(yaw)
@@ -241,6 +265,18 @@ def calcChiSquare(yData, fitData, yData_errors, fitData_Errors, nu):
             chiSum.append( ((yData[i] - fitData[i])**2) / (yData_errors[i] + fitData_Errors[i])  )
 
     return (1/nu) * sum(chiSum)
+
+# General plot for the ability to quickly plot three axes
+def plot3Axis(Epoch, AxesData, ylabels):
+
+    fig, ax = plt.subplots(3)
+
+    for i in range(3):
+        ax[i].plot(Epoch,AxesData[:, i])
+        ax[i].set_ylabel(ylabels[i])
+
+    ax[2].set_xlabel('Epoch')
+    plt.show()
 
 # ---------------------
 # ----- VARIABLES -----
@@ -285,3 +321,63 @@ def L2_TRICE_Quick(flier):
     return Initialize_cdfFile(data_paths.TRICE_L2_files[flier][0])
 def L2_ACES_Quick(flier):
     return Initialize_cdfFile(data_paths.ACES_L2_files[flier][0])
+
+
+def CHAOS(lat, long, alt, times):
+
+    # imports
+    import datetime as dt
+    from glob import glob
+    from chaosmagpy import load_CHAOS_matfile
+    from chaosmagpy.data_utils import mjd2000
+
+    FILEPATH_CHAOS = glob(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\supportCode\CHAOS/CHAOS-*.mat')[0]
+
+    R_REF = 6371.2
+
+    # give inputs
+    theta = np.array([90 - lat[i] for i in range(len(lat))]) # colat in deg
+    phi = np.array(long)
+    radius = np.array(alt) + R_REF
+
+    # convert datetime date to mjd2000
+    if not isinstance(times[0], dt.date):
+        raise Exception('Input times are not datetimes. Convert to python datetime')
+    else:
+        time = np.array([mjd2000(date.year, date.month, date.day, date.hour) for date in times])  # year, month, day
+
+    # load the CHAOS model
+    model = load_CHAOS_matfile(FILEPATH_CHAOS)
+
+    # print('Computing core field.')
+    B_core = model.synth_values_tdep(time, radius, theta, phi)
+
+    # print('Computing crustal field up to degree 110.')
+    B_crust = model.synth_values_static(radius, theta, phi, nmax=110)
+
+    # complete internal contribution
+    B_radius_int = B_core[0] + B_crust[0]
+    B_theta_int = B_core[1] + B_crust[1]
+    B_phi_int = B_core[2] + B_crust[2]
+
+    # print('Computing field due to external sources, incl. induced field: GSM.')
+    B_gsm = model.synth_values_gsm(time, radius, theta, phi, source='all')
+
+
+    # print('Computing field due to external sources, incl. induced field: SM.')
+    B_sm = model.synth_values_sm(time, radius, theta, phi, source='all')
+
+    # complete external field contribution
+    B_radius_ext = B_gsm[0] + B_sm[0]
+    B_theta_ext = B_gsm[1] + B_sm[1]
+    B_phi_ext = B_gsm[2] + B_sm[2]
+
+    # complete forward computation
+    B_radius = B_radius_int + B_radius_ext
+    B_theta = B_theta_int + B_theta_ext
+    B_phi = B_phi_int + B_phi_ext
+
+    # output CHAOS_ENU
+    B_ENU = np.array([[B_phi[i],-1*B_theta[i], B_radius[i]] for i in range(len(B_radius))])
+
+    return B_ENU

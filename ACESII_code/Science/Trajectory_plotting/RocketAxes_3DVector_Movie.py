@@ -14,7 +14,7 @@ start_time = time.time()
 # --- --- --- ---
 wRocket = 4
 
-unSpinRocket = True # toggle to "reverse spin" the rocket to see how effective the RingCore_L1_to_L2_despin.py code is
+unSpinRocket = True # toggle to "reverse spin" the rocket to see how effective the RingCore_L1_to_L2_despin_FieldAligned.py code is
 
 # --- --- --- ---
 # --- import ---

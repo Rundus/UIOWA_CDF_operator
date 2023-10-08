@@ -100,7 +100,7 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
-    fileoutName_dE = f'ACESII_{rocketID}_l2_dE'
+    fileoutName_dE = f'ACESII_{rocketID}_l2_dE_Alfven' if useAlfvenRegion else f'ACESII_{rocketID}_l2_dE'
 
 
     if justPrintFileNames:
@@ -550,6 +550,10 @@ def EFI_L2_to_L2_dE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                 for i, key in enumerate(comps):
                     newAttrs = deepcopy(data_dict[key][1])
                     newAttrs['LABLAXIS'] = newLabels[i]
+
+                    if convertTomVpm:
+                        newAttrs['UNITS'] = 'mV/m'
+
 
                     # remove the old key
                     del data_dict[key]

@@ -130,10 +130,10 @@ def groupings(wRocket,SSA_window_Size,useAlfvenRegion):
                 ]
 
                 # investigate other components
-                grouping += [[i] for i in range(36,41)]
+                # grouping += [[i] for i in range(36,41)]
 
                 # show the "noise"
-                limit = 120
+                limit = 140
                 grouping += [[i for i in range(limit,3*SSA_window_Size)]]
 
                 # get the good stuff
@@ -144,9 +144,29 @@ def groupings(wRocket,SSA_window_Size,useAlfvenRegion):
 
                 grouping += [goodStuff]
             else:
+                # grouping = [
+                #     [i] for i in range(20)
+                # ]
+
                 grouping = [
-                    [i] for i in range(20)
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
                 ]
+
+                # investigate other components
+                grouping += [[i] for i in range(15,21)]
+
+                # show the "noise"
+                limit = 400
+                grouping += [[i for i in range(limit, 3 * SSA_window_Size)]]
+
+                # get the good stuff
+                goodStuff = []
+                for i in range(limit):  # should be 150
+                    if i not in grouping[0]:
+                        goodStuff.append(i)
+
+                grouping += [goodStuff]
+
         elif SSA_window_Size == 1001:
             grouping = [
                 [0,1,2,3,4,5, 6, 7, 8, 9, 14, 15, 18, 19,20, 26, 29, 30, 31]
@@ -156,22 +176,39 @@ def groupings(wRocket,SSA_window_Size,useAlfvenRegion):
             # grouping += [[i] for i in range(36,45)]
 
             # show the "noise"
-            grouping += [[i for i in range(200, 3 * SSA_window_Size)]]
+            limit = 250
+            grouping += [[i for i in range(limit, 3 * SSA_window_Size)]]
 
             # get the good stuff
             goodStuff = []
-            for i in range(200):  # should be 150
+            for i in range(limit):  # should be 150
                 if i not in grouping[0]:
                     goodStuff.append(i)
 
             grouping += [goodStuff]
+        elif SSA_window_Size == 101:
+            grouping = [
+                # [0, 1, 2, 3, 4, 5,6]
+            ]
+
+            # investigate other components
+            grouping += [[i] for i in range(10)]
+
+            # show the "noise"
+            # limit = 3*SSA_window_Size-1
+            # grouping += [[i for i in range(limit, 3 * SSA_window_Size)]]
+
+            # get the good stuff
+            # goodStuff = []
+            # for i in range(limit):  # should be 150
+            #     if i not in grouping[0]:
+            #         goodStuff.append(i)
+            #
+            # grouping += [goodStuff]
 
         else:
             grouping = [
                 [i] for i in range(20)
             ]
-
-
-
 
     return group + grouping

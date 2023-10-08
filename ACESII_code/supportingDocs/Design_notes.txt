@@ -1,8 +1,0 @@
-The cdf operator must be able to efficiently:
-[1] Load in CDF files
-[2] Display all the variables in the CDF file
-[3] Easily gain access to all the zVariables in the dataso they can be modified
-[4] Interface with a universal variables file
-[5] Allow new files to read/write to variables file
-[6] Write data to new CDF files
-[7] Efficiently manage multiple variables. For example: EEPAA_file_high may have counts, counts flux, energy flux, pitch, epoch..etc
