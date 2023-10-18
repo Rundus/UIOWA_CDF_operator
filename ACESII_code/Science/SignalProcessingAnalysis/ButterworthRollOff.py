@@ -16,21 +16,21 @@ if __name__ == "__main__":
 
     # Sample rate and desired cutoff frequencies (in Hz).
     fs = 128
-    lowcut = 1
-    highcut = 63
-    orderVal = 3
+    lowcut = 0.5
+    highcut = 20
+    orderVal = 4
 
     # Plot the frequency response for a few different orders.
     plt.figure(1)
     plt.clf()
-    for order in [3]:
+    for order in [orderVal]:
         b, a = butter_bandpass(lowcut, highcut, fs, order=order)
         w, h = freqz(b, a, fs=fs, worN=20000)
         plt.plot(w, abs(h), label="order = %d" % order)
 
     plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
              '--', label='sqrt(0.5)')
-    plt.xlim(-0.1,64)
+    plt.xlim(-0.1,20)
     plt.title('Butterworth Filter RollOff\n'
               f'Sample Freq: {fs}\n'
               f'Order: {orderVal}\n'

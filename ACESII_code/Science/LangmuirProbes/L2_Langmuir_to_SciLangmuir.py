@@ -61,9 +61,6 @@ unit_conversion = 1E9  # 1 for Amps 10**9 for nano amps, etc
 # Exponential case: 40, 100, 70,90, 150
 # Linear Cases: 130
 
-
-
-
 # --- TRADITIONAL FIT TOGGLES ---
 SECTION_SweptProbeniTe = False
 wSweeps = []  # [] --> all sweeps, [#1,#2,...] specific sweeps
@@ -86,7 +83,7 @@ gridSearchFit = False # the toggle parameters are in LP_gridSearch_toggles
 showGridSearchFitting = False # shows the best gridsearch fit
 
 # --- OutputData ---
-outputData = True
+outputData = False
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -112,7 +109,7 @@ def saturationFunc(x, a0, a1, a2):
 #######################
 # --- MAIN FUNCTION ---
 #######################
-def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
+def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
     rocketID = rocketAttrs.rocketID[wflyer]
@@ -129,9 +126,9 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
     input_names_searchable = [ifile.replace(inputPath_modifier.lower() + '_', '').replace('_v00', '') for ifile in input_names]
     output_names_searchable = [ofile.replace(outputPath_modifier.lower() + '_', '').replace('_v00', '').replace('__', '_') for ofile in output_names]
 
-    dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\',
-                                              '')
-    fileoutName = f'ACESII_{rocketID}_langmuir_Temp&Density.cdf'
+    dataFile_name = inputFiles[wFile].replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\','')
+    fileoutName_fixed = f'ACESII_{rocketID}_langmuir_fixed.cdf'
+    fileoutName_swept = f'ACESII_{rocketID}_langmuir_swept.cdf'
 
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
@@ -145,7 +142,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
         # --- get the data from the L2 file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
         data_dict = {}
-        data_dict = loadDictFromFile(inputFiles[wFile],data_dict)
+        data_dict = loadDictFromFile(inputFiles[wFile],data_dict,reduceData=False,targetTimes=[])
         if SECTION_SweptProbeniTe:
             data_dict['Epoch_swept_Current'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_swept_Current'][0][i]) for i in (range(len(data_dict['Epoch_swept_Current'][0])))])
         Done(start_time)
@@ -154,7 +151,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
         prgMsg(f'Loading ERROR data from {inputPath_modifier} Files')
         data_dict_errors = {}
         errorsPath = glob(f'{ACES_data_folder}{errorPath_modifier}\{fliers[wflyer]}\*Iowa*')
-        data_dict_errors = loadDictFromFile(errorsPath[0],data_dict_errors)
+        data_dict_errors = loadDictFromFile(errorsPath[0],data_dict_errors,reduceData=False,targetTimes=[])
         Done(start_time)
 
 
@@ -177,10 +174,10 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
                 if np.abs(val) > 1E20:
                     ni_density[i] = rocketAttrs.epoch_fillVal
 
-            del data_dict['fixed_current']
 
-            data_dict = {**data_dict, **{'fixed_ni_density': [ni_density, {'LABLAXIS': 'plasma density',
-                                                                           'DEPEND_0': 'fixed_Epoch',
+            # create an output data_dict for the fixed data
+
+            varAttrs = {'LABLAXIS': 'plasma density', 'DEPEND_0': 'Epoch',
                                                                            'DEPEND_1': None,
                                                                            'DEPEND_2': None,
                                                                            'FILLVAL': rocketAttrs.epoch_fillVal,
@@ -188,7 +185,25 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
                                                                            'UNITS': '!Ncm!A-3!N',
                                                                            'VALIDMIN': ni_density.min(),
                                                                            'VALIDMAX': ni_density.max(),
-                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+                                                                           'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
+
+            data_dict = {**data_dict, **{'ni': [ni_density, ]}}
+
+            data_dict_fixed = {'ni': [ni_density, varAttrs],
+                               'Epoch': data_dict['fixed_Epoch'],
+                               'Fixed_Boom_Monitor': data_dict['Fixed_Boom_Monitor'],
+                               'Epoch_Fixed_Boom_Monitor': data_dict['Epoch_Fixed_Boom_Monitor']}
+
+
+            # --- ---- QUALTIY ASSURANCE --- ----
+            # some of the Epoch values are fillvals. Lets remove these datapoints
+            data_dict_fixed['Epoch'][0] = np.delete(data_dict_fixed['Epoch'][0],np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0)[0])
+            data_dict_fixed['ni'][0] = np.delete(data_dict_fixed['ni'][0],np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0)[0])
+
+            print(np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0))
+            print(len(data_dict_fixed['Epoch'][0]))
+            print(len(data_dict_fixed['ni'][0]))
+
             Done(start_time)
 
         if SECTION_SweptProbeniTe:
@@ -309,7 +324,6 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
                                  f'{EpochStamp.strftime("%H:%M:%S")}\n'
                                  f'Sweep No: {sweep}')
                     plt.show()
-
 
             # use a grid-search technique and chiSquare fitting to get the plasma parameters
             if gridSearchFit:
@@ -466,10 +480,39 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
             sweeps_n0 = np.array(sweeps_n0)
             sweeps_Te = np.array(sweeps_Te)
 
+            varAttrs = {'LABLAXIS': 'plasma density', 'DEPEND_0': 'Epoch',
+                        'DEPEND_1': None,
+                        'DEPEND_2': None,
+                        'FILLVAL': rocketAttrs.epoch_fillVal,
+                        'FORMAT': 'E12.2',
+                        'UNITS': '!Ncm!A-3!N',
+                        'VALIDMIN': ni_density.min(),
+                        'VALIDMAX': ni_density.max(),
+                        'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
-            del data_dict['swept_Current'],data_dict['swept_Voltage'],data_dict['errorInProbeVoltage'],\
-                data_dict['fixed_current'],data_dict['step_Voltage'], \
-                data_dict['Epoch_step'],data_dict['Epoch_swept_Current']
+            data_dict_swept = {'Epoch':[sweeps_Epoch,data_dict['fixed_Epoch'][1]],
+                               'Swept_Boom_Monitor':data_dict['Fixed_Boom_Monitor'],
+                               'step_Voltage':data_dict['step_Voltage'],
+                               'Epoch_step':data_dict['Epoch_step'],
+                               'Epoch_Swept_Boom_Monitor':data_dict['Epoch_Swept_Boom_Monitor']}
+
+            # add payload potential
+            tempAttrs = varAttrs
+            tempAttrs['LABLAXIS'] = 'Payload Potential'
+            tempAttrs['UNITS'] = 'Volts'
+            data_dict_swept = {**data_dict_swept, **{'Vsp':[sweeps_Vsp, tempAttrs]}}
+
+            # add sweepts n0
+            tempAttrs = varAttrs
+            tempAttrs['LABLAXIS'] = 'Swept Density'
+            tempAttrs['UNITS'] = '!Ncm!A-3!N'
+            data_dict_swept = {**data_dict_swept, **{'n0': [sweeps_n0, tempAttrs]}}
+
+            # add electron swept Temp
+            tempAttrs = varAttrs
+            tempAttrs['LABLAXIS'] = 'Electron Temperature'
+            tempAttrs['UNITS'] = 'eV'
+            data_dict_swept = {**data_dict_swept, **{'T_e': [sweeps_Te, tempAttrs]}}
 
 
         if outputData:
@@ -480,8 +523,14 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
             prgMsg('Creating output file')
 
 
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
-            outputCDFdata(outputPath,data_dict,outputModelData,globalAttrsMod,'Langmuir Probe')
+            if SECTION_calculateFixedni:
+
+                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_fixed}'
+                outputCDFdata(outputPath, data_dict_fixed, outputModelData, globalAttrsMod, 'Langmuir Probe')
+
+            if SECTION_SweptProbeniTe:
+                outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_swept}'
+                outputCDFdata(outputPath,data_dict_swept,outputModelData,globalAttrsMod,'Langmuir Probe')
 
             Done(start_time)
 
@@ -489,19 +538,7 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer,wSweeps):
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if wRocket == 0:  # ACES II Integration High
-    rocketFolderPath = Integration_data_folder
-    wflyer = 0
-elif wRocket == 1:  # ACES II Integration Low
-    rocketFolderPath = Integration_data_folder
-    wflyer = 1
-elif wRocket == 2:  # TRICE II High
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 0
-elif wRocket == 3:  # TRICE II Low
-    rocketFolderPath = TRICE_data_folder
-    wflyer = 1
-elif wRocket == 4:  # ACES II High
+if wRocket == 4:  # ACES II High
     rocketFolderPath = ACES_data_folder
     wflyer = 0
 elif wRocket == 5:  # ACES II Low
@@ -512,6 +549,6 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        main(wRocket, 0, rocketFolderPath, justPrintFileNames, wflyer,wSweeps)
+        L2_Langmuir_to_SciLangmuir(wRocket, 0, rocketFolderPath, justPrintFileNames, wflyer,wSweeps)
     else:
-        main(wRocket, 0, rocketFolderPath, justPrintFileNames, wflyer,wSweeps)
+        L2_Langmuir_to_SciLangmuir(wRocket, 0, rocketFolderPath, justPrintFileNames, wflyer,wSweeps)

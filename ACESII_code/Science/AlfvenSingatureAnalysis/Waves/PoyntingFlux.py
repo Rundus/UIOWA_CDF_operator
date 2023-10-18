@@ -4,13 +4,13 @@
 # For the low flyer, it ONLY accepts despun data, high flyer has its own case
 
 
-
 # --- bookkeeping ---
 # !/usr/bin/env python
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from ACESII_code.myImports import *
@@ -27,31 +27,39 @@ start_time = time.time()
 # Just print the names of files
 justPrintFileNames = False
 printMagFiles = True
-printElecFiles = False
+printElecFiles = True
 
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 modifier = ''
-inputPath_modifier_elec = 'l1'
-inputPath_modifier_mag = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_elec = 'science/deltaB'
+wMagFile = 1
+inputPath_modifier_mag = 'science/deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+wEFIFile = 1
 outputPath_modifier = 'science/PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
-# reduce the size of the data
-reduceData = True
-targetTimes = [pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 24, 26, 000)),
-               pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 25, 15, 000))]
 
+# --- --- --- Which Data --- -- ---
+useDelta_E_B = True # use the deltaB, deltaE data
+# --- --- --- reduce data --- --- ---
+from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import timeWindow
+reduceData = True
+targetTimes = timeWindow(wTargetTimes=0, wRocket=wRocket)
+
+# --- --- --- PLOT --- --- ---
 plotSPoynting = False
+
+# --- --- --- OUTPUT --- --- ---
 outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from scipy.interpolate import CubicSpline
-from ACESII_code.class_var_func import butter_filter, u0, IonMasses
+
+from ACESII_code.class_var_func import u0, IonMasses, InterpolateDataDict,dateTimetoTT2000
 
 def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -62,34 +70,52 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     outputModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*E_Field*')
+    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*.cdf*')
     inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore*')
 
-    fileoutName = f'ACESII_{rocketID}_PoyntingFlux.cdf'
+    # determine which coordinates system its in based on magnetic field data
+    FileName = inputFiles_mag[wMagFile].replace('.cdf','')
+
+    if 'ENU' in FileName:
+        wCoordinate = 'ENU'
+        perpCoordinates = [0,1]
+        parCoordinates = [2]
+    elif 'Field_Aligned' in FileName:
+        wCoordinate = 'Field_Aligned'
+        perpCoordinates = [0, 2]
+        parCoordinates = [1]
+
+
+    fileoutName = f'ACESII_{rocketID}_PoyntingFlux_deltaS_{wCoordinate}.cdf' if useDelta_E_B else f'ACESII_{rocketID}_PoyntingFlux_flight_{wCoordinate}.cdf'
+
 
     if justPrintFileNames:
         if printMagFiles:
+            print('--- B-FIELD FILES ---')
             for i, file in enumerate(inputFiles_mag):
                 print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, inputFiles_mag[i], round(getsize(file) / (10 ** 6), 1)))
-        elif printElecFiles:
+            print('\n')
+
+        if printElecFiles:
+            print('--- E-FIELD FILES ---')
             for i, file in enumerate(inputFiles_elec):
                 print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, inputFiles_elec[i], round(getsize(file) / (10 ** 6), 1)))
+            print('\n')
     else:
         print('\n')
         print(color.UNDERLINE + f'Calculating Poynting flux for ACESII {rocketID}' + color.END)
 
         # --- get the data from the mag file ---
         prgMsg(f'Loading data from mag Files')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[0], {})
-        data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_mag['Epoch'][0]])
-        indicies = [np.abs(data_dict_mag['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_mag['Epoch'][0] - targetTimes[1]).argmin()]
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {},reduceData,targetTimes=targetTimes)
 
-        for key, val in data_dict_mag.items():
-            data_dict_mag[key][0] = data_dict_mag[key][0][indicies[0]:indicies[1]]
+        # component names for the magnetic field
+        compNames_mag = [ key for key, val in data_dict_mag.items() if key.lower() not in ['epoch','db_mag','alt', 'lat', 'long', 'alt_geom', 'lat_geom', 'long_geom']]
+
+        # component names for the poynting flux
+        compNamesS = [name.replace('B','S') for name in compNames_mag]
 
         # create vector variable and convert to tesla
-        dB = np.array([np.array([data_dict_mag['dB_east'][0][i], data_dict_mag['dB_north'][0][i], data_dict_mag['dB_up'][0][i]])*(1E-9) for i in range(len(data_dict_mag['Epoch'][0]))])
-
         Done(start_time)
 
         if wRocket == 4:
@@ -97,28 +123,39 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             # collect the Magnitude of B from L1 spun data
             prgMsg('Getting Bmag')
             inputFileBmag = glob('C:\Data\ACESII\L1\high\*RingCore_rktFrm*')
-            data_dict_Bmag = loadDictFromFile(inputFileBmag[0], {})
-            data_dict_Bmag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_Bmag['Epoch'][0]])
+            data_dict_Bmag = loadDictFromFile(inputFileBmag[0], {}, reduceData, targetTimes=targetTimes)
+            badIndicies = [i for i, val in enumerate(data_dict_Bmag['Bmag'][0]) if not np.isfinite(val)] # quality assurance step to remove and NAN values
+            data_dict_Bmag['Epoch'][0] = np.delete(data_dict_Bmag['Epoch'][0],badIndicies)
+            data_dict_Bmag['Bmag'][0] = np.delete(data_dict_Bmag['Bmag'][0], badIndicies)
             Done(start_time)
 
             prgMsg('Getting Plasma Density')
-            inputFileBmag = glob('C:\Data\ACESII\science\Langmuir\high\*Temp&Density*')
-            data_dict_density = loadDictFromFile(inputFileBmag[0], {})
-            data_dict_density['fixed_Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_density['fixed_Epoch'][0]])
+            inputFileDensity = glob('C:\Data\ACESII\science\Langmuir\high\*fixed*')
+            data_dict_density = loadDictFromFile(inputFileDensity[0], {}, reduceData, targetTimes=targetTimes)
             Done(start_time)
 
-            # reduce the datasets:
-            prgMsg('Reducing Data')
+            #########################
+            # --- DownSample Data ---
+            #########################
+            prgMsg('DownSampling Density Data')
 
-            # Bmag
-            indicies = [np.abs(data_dict_Bmag['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_Bmag['Epoch'][0] - targetTimes[1]).argmin()]
-            for key, val in data_dict_Bmag.items():
-                data_dict_Bmag[key][0] = deepcopy(data_dict_Bmag[key][0][indicies[0]:indicies[1]])
 
-            # Density
-            indicies = [np.abs(data_dict_density['fixed_Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_density['fixed_Epoch'][0] - targetTimes[1]).argmin()]
-            for key, val in data_dict_density.items():
-                data_dict_density[key][0] = deepcopy(data_dict_density[key][0][indicies[0]:indicies[1]])
+            data_dict_BmagInterp = InterpolateDataDict(InputDataDict= data_dict_Bmag,
+                                                       InputEpochArray= dateTimetoTT2000(data_dict_Bmag['Epoch'][0], False),
+                                                       wKeys=['Bmag'],
+                                                       targetEpochArray=dateTimetoTT2000(data_dict_mag['Epoch'][0], False))
+
+            data_dict_densityInterp = InterpolateDataDict(InputDataDict=data_dict_density,
+                                                       InputEpochArray=dateTimetoTT2000(data_dict_density['Epoch'][0], False),
+                                                       wKeys=['ni', 'Epoch'],
+                                                       targetEpochArray=dateTimetoTT2000(data_dict_mag['Epoch'][0], False))
+
+            # --- prepare some variables ---
+            plasmaDensity = (100**3)*data_dict_densityInterp['ni'][0]
+            B_perp = np.array([
+                [(1E-9)*data_dict_mag[compNames_mag[perpCoordinates[0]]][0][i],(1E-9)*data_dict_mag[compNames_mag[perpCoordinates[1]]][0][i]]
+                for i in range(len(data_dict_mag['Epoch'][0]))
+            ])
 
             Done(start_time)
 
@@ -127,32 +164,34 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             #################################
             prgMsg('Calculating Poynting Flux using EigenFunction')
 
-            # down sample the density data onto the magnetometer data
-            indiciesDownsampled = [np.abs(data_dict_density['fixed_Epoch'][0] - data_dict_mag['Epoch'][0][i]).argmin() for i in range(len(data_dict_mag['Epoch'][0]))]
-            plasmaDensity = np.array([data_dict_density['fixed_ni_density'][0][index] for index in indiciesDownsampled])
-
             # calculate Alfven Velocity
-            AlfvenVelocity = np.array([((1E-9)*data_dict_Bmag['Bmag'][0][i])/np.sqrt(u0*plasmaDensity[i]*IonMasses[0]) for i in range(len(plasmaDensity))])
+            AlfvenVelocity = np.array([((1E-9)*data_dict_BmagInterp['Bmag'][0][i])/np.sqrt(u0*plasmaDensity[i]*IonMasses[0]) for i in range(len(plasmaDensity))])
 
+            # calculate TOTAL Poyning Flux
+            S_tot = np.array([(AlfvenVelocity[i]/(2*u0))*np.dot(B_perp[i],B_perp[i]) for i in range(len(data_dict_mag['Epoch'][0]))])
 
-            # calculate Alfven eigenfunction E
+            # construct the Poynting Flux vector
+            S = []
+            for i in range(len(S_tot)):
+                temp = [0,0,0]
+                temp[perpCoordinates[0]] = 0
+                temp[perpCoordinates[1]] = 0
+                temp[parCoordinates[0]] = S_tot[i]
+                S.append(temp)
 
-
-            # calculate Poyning Flux
-            S = np.array([(AlfvenVelocity[i]/(2*u0))*np.array([dB[i][0]**2, dB[i][1]**2, dB[i][2]**2]) for i in range(len(data_dict_mag['Epoch'][0])) ])
+            S = np.array(S)
 
             Done(start_time)
 
             if plotSPoynting:
                 prgMsg('Plotting HF Poynting Flux')
-                Epoch = [ pycdf.lib.tt2000_to_datetime(tme) for tme in data_dict_mag['Epoch'][0]]
+                Epoch = data_dict_mag['Epoch'][0]
                 fig, ax = plt.subplots(3)
                 fig.suptitle('Alfven EigenFunction')
-                compNames = ['$S_{East}$', '$S_{North}$', '$S_{up}$']
                 for i in range(3):
                     ax[i].plot(Epoch, S[:, i])
-                    ax[i].set_ylabel(compNames[i] + '[$W/m^{2}$]')
-                    ax[i].set_ylim(-0.01, 0.15)
+                    ax[i].set_ylabel(compNamesS[i] + '[$W/m^{2}$]')
+
 
                 plt.show()
                 Done(start_time)
@@ -161,100 +200,91 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             # --- get the data from the electric file ---
             prgMsg(f'Loading data from Electric Field Files')
-            data_dict_elec = loadDictFromFile(inputFiles_elec[0], {})
-            data_dict_elec['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_elec['Epoch'][0]])
+            data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile], {},reduceData,targetTimes=targetTimes)
+            data_dict_elec['Epoch'][0] = np.array([int(pycdf.lib.datetime_to_tt2000(tme)+ (0.1157*1E9)) for tme in data_dict_elec['Epoch'][0]])
+            compNames_elec = [key for key, val in data_dict_elec.items() if key.lower() not in ['epoch', 'de_mag']]
 
-            # --- reduce each dataset ---
-            indicies = [np.abs(data_dict_elec['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_elec['Epoch'][0] - targetTimes[1]).argmin()]
-            for key, val in data_dict_elec.items():
-                data_dict_elec[key][0] = deepcopy(data_dict_elec[key][0][indicies[0]:indicies[1]])
-
-            E_Field = np.array([ [data_dict_elec['E_east'][0][i], data_dict_elec['E_north'][0][i],data_dict_elec['E_up'][0][i]] for i in range(len(data_dict_elec['Epoch'][0]))])
             Done(start_time)
 
-            ####################################################
-            # --- INTERPOLATE MAG/ATTITUDE ONTO EFI TIMEBASE ---
-            ####################################################
+            ###########################################
+            # --- INTERPOLATE EFI ONTO MAG TIMEBASE ---
+            ###########################################
 
-            prgMsg('Interpolating Mag Data')
-            spline_dict_mag = {}
-            dataInterp_dict_mag = {key: [] for key, val in data_dict_mag.items()}
-            for key, newDataList in data_dict_mag.items():
-                if 'Epoch'.lower() not in key.lower():
-                    # --- cubic interpolation ---
-                    splCub = CubicSpline(data_dict_mag['Epoch'][0], data_dict_mag[key][0])
+            prgMsg('Downsampling via Interpolate the EFI Data')
+            data_dict_elec_interp = InterpolateDataDict(InputDataDict=data_dict_elec,
+                                                        InputEpochArray=data_dict_elec['Epoch'][0],
+                                                        wKeys=[],
+                                                        targetEpochArray=data_dict_mag['Epoch'][0])
 
-                    # store the spline information for later
-                    spline_dict_mag = {**spline_dict_mag, **{key: splCub}}
-
-                    # evaluate the interpolation at all the epoch_mag points
-                    dataInterp_dict_mag[key] = np.array([splCub(timeVal) for timeVal in data_dict_elec['Epoch'][0]])
-
-            dataInterp_dict_mag['Epoch'] = np.array(data_dict_elec['Epoch'][0])
-
-            # create a magnetic vector variable
-            B_interp = np.array([ [dataInterp_dict_mag['B_east'][i],dataInterp_dict_mag['B_north'][i],dataInterp_dict_mag['B_up'][i]] for i in range(len(dataInterp_dict_mag['Epoch']))])
-
+            # get the electric field and convert it to V/m, get the magnetic field and convert it to T
+            B_Field = (1E-9) * np.array([np.array([data_dict_mag[compNames_mag[0]][0][i], data_dict_mag[compNames_mag[1]][0][i], data_dict_mag[compNames_mag[2]][0][i]]) for i in range(len(data_dict_mag['Epoch'][0]))])
+            E_Field = (1/1000)*np.array([[data_dict_elec_interp[compNames_elec[0]][0][i], data_dict_elec_interp[compNames_elec[1]][0][i], data_dict_elec_interp[compNames_elec[2]][0][i]] for i in range(len(data_dict_mag['Epoch'][0]))])
             Done(start_time)
 
             #################################
             # --- CALCULATE POYNTING FLUX ---
             #################################
             prgMsg('Calculating Poynting Flux')
-            S = np.array([ u0*(np.cross(E_Field[i], B_interp[i])) for i in range(len(E_Field))])
+
+            S = np.array([(1/u0)*(np.cross(E_Field[i], B_Field[i])) for i in range(len(data_dict_mag['Epoch'][0]))])
+
+
+            Done(start_time)
             if plotSPoynting:
                 Epoch = data_dict_elec['Epoch'][0]
                 fig, ax = plt.subplots(3)
                 fig.suptitle('B_filtered')
                 ax[0].plot(Epoch, S[:, 0])
-                ax[0].set_ylabel('$S_{East}$')
+                ax[0].set_ylabel(compNamesS[0])
                 ax[1].plot(Epoch, S[:, 1])
-                ax[1].set_ylabel('$S_{North}$')
+                ax[1].set_ylabel(compNamesS[1])
                 ax[2].plot(Epoch, S[:, 2])
-                ax[2].set_ylabel('$S_{Up}$')
+                ax[2].set_ylabel(compNamesS[2])
                 plt.show()
 
 
-        prgMsg('Preparing Data')
+
         # --- prepare data for output ---
-        if wRocket == 4:
-            data_for_output = np.array([[S[i][0], S[i][1], S[i][2], np.linalg.norm(S[i])] for i in range(len(dB))])
-        elif wRocket == 5:
-            data_for_output = np.array([[S[i][0],S[i][1],S[i][2],np.linalg.norm(S[i])] for i in range(len(E_Field))])
-
-        data_dict = deepcopy(data_dict_mag)
-        comps = ['dB_east', 'dB_north', 'dB_up', 'dBmag']
-        newComps = ['S_east', 'S_north', 'S_up', 'S_tot']
-
-        # --- Magnetic Components ---
-        # get the attributes of the old components and replace them
-        for i, key in enumerate(comps):
-            newAttrs = deepcopy(data_dict[key][1])
-            newAttrs['LABLAXIS'] = newComps[i]
-
-            # remove the old key
-            del data_dict[key]
-
-            # append the new key
-            data_dict = {**data_dict, **{newComps[i]: [data_for_output[:, i], newAttrs]}}
-
-        if wRocket == 5:
-            data_dict['Epoch'][0] = data_dict_elec['Epoch'][0]
-
+        prgMsg('Preparing Data')
+        data_for_output = np.array([[S[i][0], S[i][1], S[i][2], np.linalg.norm(S[i])] for i in range(len(S))])
+        newComps = compNamesS + ['dS_tot'] if useDelta_E_B else compNamesS + ['S_tot']
+        print(newComps)
         Done(start_time)
-
-
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
         # --- --- --- --- --- --- ---
 
         if outputData:
-            prgMsg('Creating output file')
+            prgMsg('creating output file')
+
+            data_dict_output = {}
+
+            for i in range(len(newComps)):
+                data = data_for_output[:,i]
+                varAttrs = {'LABLAXIS': newComps[i], 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None,
+                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'W/m!A2!N',
+                            'VALIDMIN': data.min(), 'VALIDMAX': data.max(),
+                            'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
+
+                data_dict_output = {**data_dict_output, **{newComps[i]:[data,varAttrs]}}
+
+            Epoch_output = deepcopy(data_dict_mag['Epoch'])
+
+
+            Epoch_output[1]['VAR_TYPE'] = 'support_data'
+
+            data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
+
+
+            # add in the attitude data
+            keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom']
+            for key in keys:
+                data_dict_output = {**data_dict_output, **{key:data_dict_mag[key]}}
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'PoyntingFlux')
+            outputCDFdata(outputPath, data_dict_output, outputModelData, globalAttrsMod, 'Attitude')
 
             Done(start_time)
 
@@ -274,12 +304,12 @@ elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}\*.cdf')) == 0:
+if len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}\*.cdf')) == 0 and wRocket ==5:
     print(color.RED + 'There are no electric field .cdf files in the specified directory' + color.END)
 elif len(glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}\*.cdf')) == 0:
     print(color.RED + 'There are no B-field .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        PoyntingFlux(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames,wflyer)
     else:
         PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer)

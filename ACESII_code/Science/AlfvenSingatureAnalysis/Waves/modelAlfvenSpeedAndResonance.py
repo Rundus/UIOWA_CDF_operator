@@ -56,7 +56,7 @@ from ACESII_code.class_var_func import lightSpeed,u0, m_e, q0
 
 
 # profile taken from Kletzing: Alfven Wave Electron Acceleration
-def density(z): # returns density for altitude "z [km]" in cm^-3
+def density(z): # returns density for altitude "z [km]" in m^-3
     h = 0.06*Re # in km from E's surface
     n0 = 6E4
     n1 = 1.34E7
@@ -90,6 +90,9 @@ def AlfvenSpeed(z,lat,long,year,kperp,simplify):
     else:
         V = V_A*kineticTerm(kperp, z, simplify)
     return V
+
+
+print(AlfvenSpeed(182,15.06,71.567,2022,1,True))
 
 
 def main(AltLow, AltHigh):

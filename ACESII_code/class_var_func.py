@@ -17,6 +17,7 @@ from cdflib import cdfread
 import os
 from os import environ,remove
 from scipy.signal import butter, filtfilt
+import datetime as dt
 def setupPYCDF():
     environ['HOMEDRIVE'] = data_paths.HOMEDRIVE
     environ['HOMEPATH'] = data_paths.HOMEPATH
@@ -124,6 +125,9 @@ def long_to_meter(long,lat):
 def meter_to_long(lat_km):
     return np.degrees(np.arccos(lat_km/lat_to_meter))
 
+def calculateLong_to_meter(Lat): # determines the meters/long conversion for each input lattitude using earth's radius as a perfect sphere
+    return (np.pi/180) * Re * np.cos(np.radians(Lat))
+
 def prgMsg(message):
     print(f'{message}: ',end='')
 
@@ -132,10 +136,19 @@ def Done(start_time):
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
-def loadDictFromFile(inputFilePath,data_dict):
+def loadDictFromFile(inputFilePath,data_dict,reduceData,targetTimes):
+
+    # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:
         for key, val in inputDataFile.items():
             data_dict = {**data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
+
+    if reduceData:
+        lowerIndex,higherIndex = np.abs(data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(data_dict['Epoch'][0] - targetTimes[1]).argmin()
+
+        for key,val in data_dict.items():
+            data_dict[key][0] = data_dict[key][0][lowerIndex:higherIndex]
+
     return data_dict
 
 def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
@@ -253,7 +266,9 @@ def RotationAboutAxes(theta, axX,axY,axZ):
     [axZ*axX*(1- np.cos(thetaR)) - axY*np.sin(thetaR), axZ*axY*(1- np.cos(thetaR))+ axX*np.sin(thetaR), np.cos(thetaR)+axZ*axZ*(1- np.cos(thetaR))]
         ])
 
+def GreatCircleDistance(lat1,lat2,long1,long2):
 
+    return 2*Re*np.arcsin(np.sqrt( np.sin(np.radians( (lat2-lat1)/2  ))**2 + np.cos(np.radians(lat1))*np.cos(np.radians(lat2))*np.sin(np.radians( (long2-long1)/2  ))**2  ))
 
 def calcChiSquare(yData, fitData, yData_errors, fitData_Errors, nu):
     chiSum = []
@@ -277,6 +292,66 @@ def plot3Axis(Epoch, AxesData, ylabels):
 
     ax[2].set_xlabel('Epoch')
     plt.show()
+
+def dateTimetoTT2000(InputEpoch,inverse):
+
+    if inverse: # tt2000 to datetime
+        if isinstance(InputEpoch[0], dt.datetime):
+            raise Exception(TypeError, "Input Epoch Array is datetime array!")
+        else:
+            return np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in InputEpoch])
+    else: # datetime to tt2000
+        if isinstance(InputEpoch[0], (int, float, complex)):
+            raise Exception(TypeError, "Input Epoch Array is TT2000 array!")
+        else:
+            return np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in InputEpoch])
+
+
+
+def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
+
+
+    # InputDataDict --> Contains a data_dict of the data which will be interpolated onto the new dataset
+    # InputEpoch --> The epoch that InputDataDict uses
+    # wKes --> Keys of the variables in InputDataDict that we want to interpolate. If wKeys == [], do all the keys
+    # targetEpoch --> Epoch that the data will be interpolated onto (MUST BE IN TT2000)
+
+    from scipy.interpolate import CubicSpline
+    import datetime as dt
+
+    # get the keys to interpolate
+    if wKeys == []:
+        wKeys = [key for key, val in InputDataDict.items()]
+
+    # Ensure the inputEpoch is in tt2000
+    if isinstance(InputEpochArray[0], dt.datetime):
+        InputEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in InputEpochArray])
+    if isinstance(targetEpochArray[0], dt.datetime):
+        # raise Exception(TypeError, "Target Epoch Array is Datetime array. Convert to tt2000")
+        targetEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in targetEpochArray])
+
+
+    # --- Do the interpolation ---
+    data_dict_interpolated = {}
+
+    # interpolate over all the keys and store them in new dictonary
+    for key in wKeys:
+        if 'Epoch'.lower() not in key.lower():
+
+            # --- cubic interpolation ---
+            splCub = CubicSpline(InputEpochArray, InputDataDict[key][0])
+
+            # --- evaluate the interpolation at all the new Epoch points ---
+            newData = np.array([splCub(timeVal) for timeVal in targetEpochArray])
+
+            # --- store the data in the interpolated data_dict ---
+            data_dict_interpolated = {**data_dict_interpolated, **{key:[newData,InputDataDict[key][1]]}}
+
+        else:
+            newEpoch = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in targetEpochArray])
+            data_dict_interpolated = {**data_dict_interpolated, **{key:[newEpoch,InputDataDict[key][1]]}}
+
+    return data_dict_interpolated
 
 # ---------------------
 # ----- VARIABLES -----
@@ -362,7 +437,6 @@ def CHAOS(lat, long, alt, times):
 
     # print('Computing field due to external sources, incl. induced field: GSM.')
     B_gsm = model.synth_values_gsm(time, radius, theta, phi, source='all')
-
 
     # print('Computing field due to external sources, incl. induced field: SM.')
     B_sm = model.synth_values_sm(time, radius, theta, phi, source='all')

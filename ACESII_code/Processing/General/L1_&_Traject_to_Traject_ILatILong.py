@@ -32,13 +32,6 @@ useAndoya = True
 outputDataFile = True
 
 
-
-
-
-
-
-
-
 # --- --- --- ---
 # --- import ---
 # --- --- --- ---

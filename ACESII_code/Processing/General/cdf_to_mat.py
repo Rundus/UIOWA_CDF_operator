@@ -35,10 +35,10 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1]
+wFiles = [0]
 
 modifier = ''
-inputPath_modifier = 'science\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
 outputPath_modifier = 'l1' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
@@ -95,8 +95,9 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
         # convert epoch to tt2000
         data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in range(len(data_dict['Epoch'][0]))])
 
+        data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in range(len(data_dict['Epoch_esa'][0]))])
+        data_dict['Epoch_monitors'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_monitors'][0][i]) for i in range(len(data_dict['Epoch_monitors'][0]))])
         Done(start_time)
-
 
         #####################################
         # --- prepare dictionary for .mat ---

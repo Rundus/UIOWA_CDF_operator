@@ -36,17 +36,17 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [1]
 
-convertBData = False
-convertEData = True
+convertBData = True
+convertEData = False
 rotateIntoRingCoreFrame = False
 flipYAxis = False
-useENU = False
+useENU = True
 
 modifier = ''
 inputPath_modifier = 'mag_formatted' if convertBData else 'E_field_formatted' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'science' if convertBData else 'l2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+outputPath_modifier = 'l2' if convertBData else 'l2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
 
@@ -243,12 +243,12 @@ def mat_to_cdf(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
                            data_dict['Bz_payload'][1]]}}
 
             if useENU:
-                data_dict['Bx'][1]['LABLAXIS'] = 'B_east'
-                data_dict['B_east'] = data_dict.pop('Bx')
-                data_dict['By'][1]['LABLAXIS'] = 'B_north'
-                data_dict['B_north'] = data_dict.pop('By')
-                data_dict['Bz'][1]['LABLAXIS'] = 'B_up'
-                data_dict['B_up'] = data_dict.pop('Bz')
+                data_dict['Bx'][1]['LABLAXIS'] = 'B_East'
+                data_dict['B_East'] = data_dict.pop('Bx')
+                data_dict['By'][1]['LABLAXIS'] = 'B_North'
+                data_dict['B_North'] = data_dict.pop('By')
+                data_dict['Bz'][1]['LABLAXIS'] = 'B_Up'
+                data_dict['B_Up'] = data_dict.pop('Bz')
 
         elif convertEData:
             EmagAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
