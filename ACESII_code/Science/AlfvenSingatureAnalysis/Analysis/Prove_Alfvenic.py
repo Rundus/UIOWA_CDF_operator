@@ -11,6 +11,8 @@ __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.signal
 
 from ACESII_code.myImports import *
 
@@ -29,13 +31,21 @@ inputPath_modifier_AlfvenSpeed = 'science\AlfvenSpeed_rkt'
 inputPath_modifier_Poynting = 'science\PoyntingFlux'
 
 # --- Reduce data ---
+
+# IN TIME
+
+targetTimes = [dt.datetime(2022,11,20,17,24,30,00),dt.datetime(2022,11,20,17,25,50,00)]
+
+
+# IN GEOmagnetic coordinates
+targetGEOs = [69.54,69,75]
 reduceData = False
-targetTimes = [dt.datetime(2022,11,20,17,24,10,00),dt.datetime(2022,11,20,17,25,50,00)]
+
 
 # --- PLOTTING ---
-SECTION_ShowWavesAreFieldAligned = True
+SECTION_ShowWavesAreFieldAligned = False
 SECTION_deltaBdeltaEPoyntingDensity = False
-SECTION_deltaBdeltaEFFTspeed = False if not reduceData else False
+SECTION_deltaBdeltaEFFTspeed = True if not reduceData else False
 SECTION_spectrogramData = False
 
 spinFreq = [0.6442441031179716, 0.55]
@@ -69,41 +79,36 @@ def Prove_Alfvenic():
     inputFile_Poynting_low = glob(f'{rocketFolderPath}{inputPath_modifier_Poynting}\{fliers[1]}{modifier}\*Field_Aligned*')[0]
     inputFile_Poynting_high = glob(f'{rocketFolderPath}{inputPath_modifier_Poynting}\{fliers[0]}{modifier}\*Field_Aligned*')[0]
 
-    # --- get the data from the Attitude files ---
-    prgMsg(f'Loading data from {inputPath_modifier_attitude} Files')
-    data_dict_attitude_low = loadDictFromFile(inputFile_attitude_low, {},reduceData,targetTimes)
-    data_dict_attitude_high = loadDictFromFile(inputFile_attitude_high, {},reduceData,targetTimes)
-    Done(start_time)
 
     # --- get the data from the E-Field files ---
     prgMsg(f'Loading data from {inputPath_modifier_E} Files')
-    data_dict_deltaE_low = loadDictFromFile(inputFile_deltaE_low, {},reduceData,targetTimes)
+    data_dict_deltaE_low = loadDictFromFile(inputFile_deltaE_low, {},reduceData,targetTimes,wKeys=[])
     Done(start_time)
 
     # --- get the data from the B-Field files ---
     prgMsg(f'Loading data from {inputPath_modifier_B} Files')
-    data_dict_deltaB_low = loadDictFromFile(inputFile_deltaB_low, {},reduceData,targetTimes)
-    data_dict_deltaB_high = loadDictFromFile(inputFile_deltaB_high, {},reduceData,targetTimes)
+    data_dict_deltaB_low = loadDictFromFile(inputFile_deltaB_low, {},reduceData,targetTimes,wKeys=[])
+    data_dict_deltaB_high = loadDictFromFile(inputFile_deltaB_high, {},reduceData,targetTimes,wKeys=[])
     Done(start_time)
 
     # --- get the data from the Alfven files ---
     prgMsg(f'Loading data from {inputPath_modifier_AlfvenSpeed} Files')
-    data_dict_Alfven_low = loadDictFromFile(inputFile_AlfvenSpeed_low, {},reduceData,targetTimes)
-    data_dict_Alfven_high = loadDictFromFile(inputFile_AlfvenSpeed_high, {},reduceData,targetTimes)
+    data_dict_Alfven_low = loadDictFromFile(inputFile_AlfvenSpeed_low, {},reduceData,targetTimes,wKeys=[])
+    data_dict_Alfven_high = loadDictFromFile(inputFile_AlfvenSpeed_high, {},reduceData,targetTimes,wKeys=[])
     Done(start_time)
 
     # --- get the data from the Density files ---
     prgMsg(f'Loading data from {inputPath_modifier_density} Files')
-    data_dict_density_low = loadDictFromFile(inputFile_density_low, {}, reduceData, targetTimes)
-    data_dict_density_high = loadDictFromFile(inputFile_density_high, {}, reduceData, targetTimes)
+    data_dict_density_low = loadDictFromFile(inputFile_density_low, {}, reduceData, targetTimes,wKeys=[])
+    data_dict_density_high = loadDictFromFile(inputFile_density_high, {}, reduceData, targetTimes,wKeys=[])
     Done(start_time)
 
     DataDicts = [deepcopy(data_dict_deltaE_low),deepcopy(data_dict_deltaB_high),deepcopy(data_dict_deltaB_low),deepcopy(data_dict_Alfven_high)]
 
     # --- get the data from the Poynting files ---
     prgMsg(f'Loading data from {inputPath_modifier_Poynting} Files')
-    data_dict_Poynting_low = loadDictFromFile(inputFile_Poynting_low, {},reduceData,targetTimes)
-    data_dict_Poynting_high = loadDictFromFile(inputFile_Poynting_high, {},reduceData,targetTimes)
+    data_dict_Poynting_low = loadDictFromFile(inputFile_Poynting_low, {},reduceData,targetTimes,wKeys=[])
+    data_dict_Poynting_high = loadDictFromFile(inputFile_Poynting_high, {},reduceData,targetTimes,wKeys=[])
     Done(start_time)
 
 
@@ -146,17 +151,23 @@ def Prove_Alfvenic():
         fig.suptitle('ACESII 36364 Components')
         ax[0, 0].plot(data_dict_deltaB_low['Epoch'][0], data_dict_deltaB_low['B_e'][0])
         ax[0, 0].set_ylabel('$\delta B_{e}$')
+        ax[0,0].set_ylim(-7,7)
         ax[1, 0].plot(data_dict_deltaB_low['Epoch'][0], data_dict_deltaB_low['B_p'][0])
         ax[1, 0].set_ylabel('$\delta B_{p}$')
+        ax[1, 0].set_ylim(-7, 7)
         ax[2, 0].plot(data_dict_deltaB_low['Epoch'][0], data_dict_deltaB_low['B_r'][0])
         ax[2, 0].set_ylabel('$\delta B_{r}$')
+        ax[2, 0].set_ylim(-7, 7)
 
         ax[0, 1].plot(data_dict_deltaE_low['Epoch'][0], data_dict_deltaE_low['E_e'][0])
         ax[0, 1].set_ylabel('$\delta E_{e}$')
+        ax[0, 1].set_ylim(-10, 10)
         ax[1, 1].plot(data_dict_deltaE_low['Epoch'][0], data_dict_deltaE_low['E_p'][0])
         ax[1, 1].set_ylabel('$\delta E_{p}$')
+        ax[1, 1].set_ylim(-10, 10)
         ax[2, 1].plot(data_dict_deltaE_low['Epoch'][0], data_dict_deltaE_low['E_r'][0])
         ax[2, 1].set_ylabel('$\delta E_{r}$')
+        ax[2, 1].set_ylim(-10, 10)
         plt.show()
 
 
@@ -164,10 +175,13 @@ def Prove_Alfvenic():
         fig.suptitle('ACESII 36359 Components')
         ax[0].plot(data_dict_deltaB_high['Epoch'][0], data_dict_deltaB_high['B_e'][0])
         ax[0].set_ylabel('B_e')
+        ax[0].set_ylim(-15, 15)
         ax[1].plot(data_dict_deltaB_high['Epoch'][0], data_dict_deltaB_high['B_p'][0])
-        ax[0].set_ylabel('B_p')
+        ax[1].set_ylabel('B_p')
+        ax[1].set_ylim(-15, 15)
         ax[2].plot(data_dict_deltaB_high['Epoch'][0], data_dict_deltaB_high['B_r'][0])
-        ax[0].set_ylabel('B_r')
+        ax[2].set_ylabel('B_r')
+        ax[2].set_ylim(-15, 15)
         plt.show()
 
     ############################################
@@ -184,19 +198,19 @@ def Prove_Alfvenic():
         # B_e, E_r
         ax[0].plot(data_dict_deltaEInterp_low['Epoch'][0], data_dict_deltaEInterp_low['E_r'][0], color='red', label='E (+r)')
         ax[0].set_ylabel('E (mV/m)')
-        ax[0].set_ylim(-3, 3)
+        ax[0].set_ylim(-7, 7)
         ax[0].legend(loc='upper left')
         ax[0].grid(True)
         axBe = ax[0].twinx()
         axBe.plot(data_dict_deltaB_low['Epoch'][0], data_dict_deltaB_low['B_e'][0], color='tab:blue', label='B (+e)')
         axBe.set_ylabel('B (nT)')
-        axBe.set_ylim(-6, 6)
+        axBe.set_ylim(-7, 7)
         axBe.legend(loc='upper right')
 
         # B_r, E_e
-        ax[1].plot(data_dict_deltaEInterp_low['Epoch'][0], data_dict_deltaEInterp_low['E_e'][0], color='red', label='E (+e)')
+        ax[1].plot(data_dict_deltaEInterp_low['Epoch'][0], -1*data_dict_deltaEInterp_low['E_e'][0], color='red', label='-E (+e)')
         ax[1].set_ylabel('E (mV/m)')
-        ax[1].set_ylim(-3, 3)
+        ax[1].set_ylim(-7, 7)
         ax[1].grid(True)
         ax[1].legend(loc='upper left')
         axBr = ax[1].twinx()
@@ -215,8 +229,8 @@ def Prove_Alfvenic():
         # filter the density
         DensityFilter = butter_filter(data_dict_densityInterp_low['ni'][0],
                                       lowcutoff=1,
-                                      highcutoff=10,
-                                      filtertype='Bandstop',
+                                      highcutoff=500-1,
+                                      filtertype='Bandpass',
                                       order=4,
                                       fs=1000)
 
@@ -257,8 +271,8 @@ def Prove_Alfvenic():
         # filter the density
         DensityFilter = butter_filter(data_dict_densityInterp_high['ni'][0],
                                       lowcutoff=1,
-                                      highcutoff=10,
-                                      filtertype='Bandstop',
+                                      highcutoff=500-1,
+                                      filtertype='Bandpass',
                                       order=4,
                                       fs=1000)
 
@@ -278,7 +292,7 @@ def Prove_Alfvenic():
         # separate the data into auroral, quiet region and alfvenic regions
 
         # --- Quiet region ---
-        targetTimes_quiet = [dt.datetime(2022, 11, 20, 17, 24, 28, 00), dt.datetime(2022, 11, 20, 17, 24, 40, 00)]
+        targetTimes_quiet = [dt.datetime(2022, 11, 20, 17, 24, 15, 00), dt.datetime(2022, 11, 20, 17, 24, 35, 00)]
         DataDicts_quiet = []
         for i in range(len(DataDicts)):
             tempDict= deepcopy(DataDicts[i])
@@ -291,7 +305,7 @@ def Prove_Alfvenic():
             DataDicts_quiet.append(tempDict)
 
         # --- Alfvenic region ---
-        targetTimes_alfven = [dt.datetime(2022, 11, 20, 17, 24, 30, 00), dt.datetime(2022, 11, 20, 17, 25, 34, 00)]
+        targetTimes_alfven = [dt.datetime(2022, 11, 20, 17, 25, 12, 00), dt.datetime(2022, 11, 20, 17, 25, 40, 00)]
         DataDicts_Alfvenic = []
         for i in range(len(DataDicts)):
             tempDict = deepcopy(DataDicts[i])
@@ -314,11 +328,16 @@ def Prove_Alfvenic():
         prgMsg('Making Plot')
 
         wRegion = ['Quiet','Alfvenic']
+        wRegionTimes = [targetTimes_quiet,targetTimes_alfven]
         wDataDicts = [DataDicts_quiet,DataDicts_Alfvenic]
 
         ##### LOW FLYER ####
-        fig, ax = plt.subplots(nrows=2, ncols=2)
+        fig, ax = plt.subplots(nrows=4, ncols=2)
         fig.suptitle('ACESII 36364')
+
+
+        EBratios_ErBe = []
+        EBratios_mEeBr = []
 
         for j in range(2):
 
@@ -350,61 +369,156 @@ def Prove_Alfvenic():
             yf_Ep = rfft(deltaE['E_p'][0])
             FFT_Ep = 2.0 / N * np.abs(yf_Ep[0:N // 2])
 
+
+            # take the ratio
+            ErBe_ratio = (1E6) * (FFT_Er / FFT_Be)
+            mEeBr_ratio = (1E6) * (FFT_Ee / FFT_Br)
+
+            EBratios_ErBe.append(ErBe_ratio)
+            EBratios_mEeBr.append(mEeBr_ratio)
+
             # calculate the magnitudes
-            FFT_Bmag = np.array([np.linalg.norm([FFT_Be[i], FFT_Bp[i], FFT_Br[i]]) for i in range(len(FFT_Br))])
-            FFT_Emag = np.array([np.linalg.norm([FFT_Ee[i], FFT_Ep[i], FFT_Er[i]]) for i in range(len(FFT_Br))])
 
             # model Alfven Speed taken from "modelAlfvenSpeedAndResonance.py"
             modelAlfvenSpeed = [0,1947540.1772956662]
 
-            # take the ratio
-            EBratio = (1E6)*np.array([FFT_Emag[i]/FFT_Bmag[i] for i in range(len(FFT_Bmag))])
 
-            # FFT mag Axis
+            x_axis_minFreq,x_axis_maxFreq = 0,11
+            scaleType = 'log'
+
+
+
+
+
+
+
+
+            #---  FFT mag Axis ---
             colorAx='tab:blue'
-            ax[0, j].set_title(f'{wRegion[j]} Region ({targetTimes[0].strftime("%H:%M:%S")} to {targetTimes[1].strftime("%H:%M:%S")})')
-            ax[0, j].plot(xf, FFT_Bmag, label='B',color=colorAx)
-            ax[0, j].set_xlim(0, 10)
-            ax[0, j].set_ylim(10E-5, 1E2)
-            ax[0, j].set_yscale('log')
+            ax[0, j].set_title(f'{wRegion[j]} Region ({wRegionTimes[j][0].strftime("%H:%M:%S")} to {wRegionTimes[j][1].strftime("%H:%M:%S")})')
+            ax[0, j].plot(xf, FFT_Be, label='Be',color=colorAx)
+            for k in range(30):
+                if k == 0:
+                    ax[0, j].axvline(spinFreq[1]*(k+1),alpha=0.4,color='tab:orange',label='Spin Harmonics')
+                else:
+                    ax[0, j].axvline(spinFreq[1] * (k + 1), alpha=0.3, color='tab:orange')
+            ax[0, j].set_xlim(x_axis_minFreq,x_axis_maxFreq)
+            ax[0, j].set_ylim(5E-5, 1E1)
+            ax[0, j].set_yscale(scaleType)
             ax[0, j].legend(loc='upper left')
             ax[0, j].set_ylabel('B [nT]')
             ax[0, j].spines['left'].set_color(colorAx)
             ax[0, j].yaxis.label.set_color(colorAx)
-            ax[0, j].grid(visible=True, which='both', axis='both')
-            # ax[0].axes.xaxis.set_visible(False)
+            # ax[0, j].grid(visible=True, which='both', axis='both')
 
+            # ax[0].axes.xaxis.set_visible(False)
             colorAx = 'tab:red'
             axEmag = ax[0, j].twinx()
-            axEmag.plot(xf, FFT_Emag, label='E',color='tab:red')
-            axEmag.set_yscale('log')
-            axEmag.set_ylim(10E-5, 1E2)
+            axEmag.plot(xf, FFT_Er, label='Er',color='tab:red')
+            axEmag.set_yscale(scaleType)
+            axEmag.set_ylim(5E-5, 1E1)
             axEmag.set_ylabel('E [mV/m]')
             axEmag.spines['right'].set_color(colorAx)
             axEmag.yaxis.label.set_color(colorAx)
             axEmag.legend(loc='upper right')
 
-            # E/B ratio axis
 
-            # Find the average value of the alfven speed within this time
 
-            AlfvenSpeedAvg = 10*sum(Alfspeed['AlfvenSpeed'][0])/len(Alfspeed['AlfvenSpeed'][0])
-            ax[1, j].plot(xf, EBratio,label='E/B')
-            ax[1, j].set_xlim(0, 10)
+
+
+
+
+            # Er/Be ratio axis
+            spd = [val for val in Alfspeed['AlfvenSpeed'][0] if not np.isnan(val)]
+            AlfvenSpeedAvg = sum(spd) / len(Alfspeed['AlfvenSpeed'][0])
+            ax[1, j].plot(xf, ErBe_ratio, label='Er/Be',color='tab:orange')
+            ax[1, j].set_xlim(x_axis_minFreq,x_axis_maxFreq)
             ax[1, j].set_xlabel('Frequency [Hz]')
+            ax[1, j].set_ylim(1E5, 1E8)
 
             ax[1, j].axhline(AlfvenSpeedAvg,color='red',linestyle='--')
-            ax[1, j].text(x=8,y=(1.1)*AlfvenSpeedAvg,s='Alfven Speed Calc (Avg)')
+            ax[1, j].text(x=8,y=(1.1)*AlfvenSpeedAvg,s='Calculated (Avg)')
 
-            ax[1, j].axhline(modelAlfvenSpeed[1], color='tab:gray', linestyle='--')
-            ax[1, j].text(x=8, y=(1.1) * modelAlfvenSpeed[1], s='Alfven Speed Model')
+            ax[1, j].axhline(modelAlfvenSpeed[1], color='tab:blue', linestyle='--')
+            ax[1, j].text(x=8, y=(1.1) * modelAlfvenSpeed[1], s='Model')
 
             # ax[1].set_ylim(1E4,1E8)
-            ax[1, j].set_yscale('log')
+            ax[1, j].set_yscale(scaleType)
             ax[1, j].set_ylabel('E/B [m/s]')
             ax[1, j].legend()
+
+
+
+
+
+
+            # ---  FFT mag Axis ---
+            colorAx = 'tab:blue'
+            ax[2, j].plot(xf, FFT_Br, label='Br', color=colorAx)
+            for k in range(30):
+                if k == 0:
+                    ax[2, j].axvline(spinFreq[1] * (k + 1), alpha=0.4, color='tab:orange', label='Spin Harmonics')
+                else:
+                    ax[2, j].axvline(spinFreq[1] * (k + 1), alpha=0.3, color='tab:orange')
+            ax[2, j].set_xlim(x_axis_minFreq, x_axis_maxFreq)
+            ax[2, j].set_ylim(5E-5, 1E1)
+            ax[2, j].set_yscale(scaleType)
+            ax[2, j].legend(loc='upper left')
+            ax[2, j].set_ylabel('B [nT]')
+            ax[2, j].spines['left'].set_color(colorAx)
+            ax[2, j].yaxis.label.set_color(colorAx)
+            # ax[0, j].grid(visible=True, which='both', axis='both')
+
+            # ax[0].axes.xaxis.set_visible(False)
+            colorAx = 'tab:red'
+            axEmag = ax[2, j].twinx()
+            axEmag.plot(xf, FFT_Ee, label='Ee', color='tab:red')
+            axEmag.set_yscale(scaleType)
+            axEmag.set_ylim(5E-5, 1E1)
+            axEmag.set_ylabel('E [mV/m]')
+            axEmag.spines['right'].set_color(colorAx)
+            axEmag.yaxis.label.set_color(colorAx)
+            axEmag.legend(loc='upper right')
+
+
+
+
+
+
+
+
+
+
+
+            # -Ee/Br ratio axis
+            spd = [val for val in Alfspeed['AlfvenSpeed'][0] if not np.isnan(val)]
+            AlfvenSpeedAvg = sum(spd) / len(Alfspeed['AlfvenSpeed'][0])
+
+            ax[3, j].plot(xf, mEeBr_ratio, label='-Ee/Br', color='tab:green')
+            ax[3, j].set_xlim(x_axis_minFreq,x_axis_maxFreq)
+            ax[3, j].set_xlabel('Frequency [Hz]')
+
+            ax[3, j].axhline(AlfvenSpeedAvg, color='red', linestyle='--')
+            ax[3, j].text(x=8, y=(1.1) * AlfvenSpeedAvg, s='Calcualted (Avg)')
+
+            ax[3, j].axhline(modelAlfvenSpeed[1], color='tab:blue', linestyle='--')
+            ax[3, j].text(x=8, y=(1.1) * modelAlfvenSpeed[1], s='Model')
+
+            # ax[1].set_ylim(1E4,1E8)
+            ax[3, j].set_yscale(scaleType)
+            ax[3, j].set_ylim(1E5, 1E8)
+            ax[3, j].set_ylabel('E/B [m/s]')
+            ax[3, j].legend()
+
+
+
         plt.show()
 
+
+
+        # take the ratio of E/B quiet to E/B auroral
+        print(len(EBratios_ErBe[0]),len(EBratios_ErBe[1]))
+        print(len(EBratios_mEeBr[0]), len(EBratios_mEeBr[1]))
         Done(start_time)
 
     ###########################################
@@ -450,13 +564,13 @@ def Prove_Alfvenic():
                                     noverlap=overlap,
                                     scaling=scalingType)  # scaling = density or scaling = spectrum
 
-            spectrogramPlot = axes[i].pcolormesh(t, f, Sxx, shading='nearest', vmin=1E-2, vmax=100, cmap='turbo',norm='log')
+            spectrogramPlot = axes[i].pcolormesh(t, f, Sxx, shading='nearest', vmin=1E-1, vmax=100, cmap='turbo',norm='log')
 
             axes[i].set_ylim(-0.1, 10)
             axes[i].set_ylabel('Frequency [Hz]')
             axes[i].set_xlabel('Time [Sec]')
             axes[i].axhline(spinFreq[0],color='white',linestyle='--',alpha=0.8)
-            axes[i].text(0.5,1.4*spinFreq[0],'Spin Frequency',color='black')
+            axes[i].text(0.5,1.6*spinFreq[0],'Spin Frequency',color='White')
 
         cbar = plt.colorbar(spectrogramPlot, cax=axCbar)
         cbar.set_label('Power Density [nT^2/Hz]')
@@ -499,7 +613,7 @@ def Prove_Alfvenic():
                                     noverlap=overlap,
                                     scaling=scalingType)  # scaling = density or scaling = spectrum
 
-            spectrogramPlot = axes[i].pcolormesh(t, f, Sxx, shading='nearest', vmin=1E-2, vmax=100, cmap='turbo', norm='log')
+            spectrogramPlot = axes[i].pcolormesh(t, f, Sxx, shading='nearest', vmin=1E-1, vmax=100, cmap='turbo', norm='log')
             axes[i].set_ylim(-0.1, 10)
             axes[i].set_ylabel('Frequency [Hz]')
             axes[i].set_xlabel('Time [Sec]')

@@ -4,13 +4,13 @@ def timeWindow(wTargetTimes,wRocket):
     # --- use the SSA components to determine which
     if wTargetTimes == 0: # ALFVEN REGION
         scienceRegions = [
-            [dt.datetime(2022, 11, 20, 17, 24, 10, 000000), dt.datetime(2022, 11, 20, 17, 25, 50, 000000)],
-            [dt.datetime(2022, 11, 20, 17, 24, 10, 000000), dt.datetime(2022, 11, 20, 17, 25, 50, 000000)]]  # ACTUAL WINDOW for WL 501 High Flyer
+            [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 50, 000000)],
+            [dt.datetime(2022, 11, 20, 17, 24, 25, 000000), dt.datetime(2022, 11, 20, 17, 25, 50, 000000)]]  # ACTUAL WINDOW for WL 501 High Flyer
     else:
         if wTargetTimes == 1: # KENTON's ZOOMED REGION
             scienceRegions = [
-                [dt.datetime(2022, 11, 20, 17, 24, 00, 000000), dt.datetime(2022, 11, 20, 17, 25, 00, 000000)],
-                [dt.datetime(2022, 11, 20, 17, 24, 00, 000000), dt.datetime(2022, 11, 20, 17, 25, 00, 000000)]]  # ACTUAL WINDOW for WL 501 High Flyer
+                [dt.datetime(2022, 11, 20, 17, 24, 30, 000000), dt.datetime(2022, 11, 20, 17, 25, 00, 000000)],
+                [dt.datetime(2022, 11, 20, 17, 24, 30, 000000), dt.datetime(2022, 11, 20, 17, 25, 00, 000000)]]  # ACTUAL WINDOW for WL 501 High Flyer
         else: # THE WHOLE FLIGHT
             scienceRegions = [
                 [dt.datetime(2022, 11, 20, 17, 22, 00, 000000), dt.datetime(2022, 11, 20, 17, 29, 00, 000000)],

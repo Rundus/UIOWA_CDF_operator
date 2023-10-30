@@ -53,7 +53,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0, 1]
+wFiles = [1, 2, 3]
 
 # EEPAA: how many energy values not to keep, starting from the lowest values e.g. adjusts = 8 --> remove the bottom 8 values
 energy_adjusts = [8, 0, 0] #  [EEPAA,IEPAA,LEESA]
@@ -120,7 +120,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         # --- get the data from the tmCDF file ---
         prgMsg('Loading data from L0Files')
 
-        data_dict = loadDictFromFile(L0Files[wFile],{})
+        data_dict = loadDictFromFile(L0Files[wFile],{},reduceData=False,targetTimes=[],wKeys=[])
 
         Done(start_time)
 
@@ -264,6 +264,15 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
                         data_dict[key][0] = data_dict[key][0][Epoch_monitors_targetIndex:]
                     elif key not in noReduction: # Everything else
                         data_dict[key][0] = data_dict[key][0][Epoch_targetIndex:]
+
+
+
+            # Change the name of the Epoch variable to ---> Epoch Housekeeping
+            data_dict['Epoch_HouseKeeping'] = data_dict.pop('Epoch')
+            # Change the name of the Epoch_esa variable to ---> Epoch
+            data_dict['Epoch'] = data_dict.pop('Epoch_esa')
+            # Update Dependencies
+            data_dict[wInstr[1]][1]['DEPEND_0'] = 'Epoch'
 
             # --- --- --- --- --- --- --- ---
             # --- WRITE OUT THE ESA DATA ---

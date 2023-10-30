@@ -136,20 +136,30 @@ def Done(start_time):
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
-def loadDictFromFile(inputFilePath,data_dict,reduceData,targetTimes):
+def loadDictFromFile(inputFilePath,input_data_dict,reduceData,targetTimes,wKeys):
 
     # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:
         for key, val in inputDataFile.items():
-            data_dict = {**data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
+            input_data_dict = {**input_data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
 
+
+    # reduce the data
     if reduceData:
-        lowerIndex,higherIndex = np.abs(data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(data_dict['Epoch'][0] - targetTimes[1]).argmin()
 
-        for key,val in data_dict.items():
-            data_dict[key][0] = data_dict[key][0][lowerIndex:higherIndex]
+        # determine which keys to reduce
+        if wKeys == []:
+            Keys = [key for key, val in input_data_dict.items()]
+        else:
+            Keys = wKeys
 
-    return data_dict
+        lowerIndex,higherIndex = np.abs(input_data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(input_data_dict['Epoch'][0] - targetTimes[1]).argmin()
+
+        for key,val in input_data_dict.items():
+            if key in Keys:
+                input_data_dict[key][0] = input_data_dict[key][0][lowerIndex:higherIndex]
+
+    return input_data_dict
 
 def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 

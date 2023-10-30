@@ -30,7 +30,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -83,7 +83,7 @@ gridSearchFit = False # the toggle parameters are in LP_gridSearch_toggles
 showGridSearchFitting = False # shows the best gridsearch fit
 
 # --- OutputData ---
-outputData = False
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -197,12 +197,9 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
 
             # --- ---- QUALTIY ASSURANCE --- ----
             # some of the Epoch values are fillvals. Lets remove these datapoints
+            data_dict_fixed['ni'][0] = np.delete(data_dict_fixed['ni'][0], np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0], inverse=False) <= 0)[0])
             data_dict_fixed['Epoch'][0] = np.delete(data_dict_fixed['Epoch'][0],np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0)[0])
-            data_dict_fixed['ni'][0] = np.delete(data_dict_fixed['ni'][0],np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0)[0])
 
-            print(np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0))
-            print(len(data_dict_fixed['Epoch'][0]))
-            print(len(data_dict_fixed['ni'][0]))
 
             Done(start_time)
 

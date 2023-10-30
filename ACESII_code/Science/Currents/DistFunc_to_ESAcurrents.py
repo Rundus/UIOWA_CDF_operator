@@ -14,7 +14,7 @@ __version__ = "1.0.0"
 import itertools
 # --- --- --- --- ---
 import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.myImports import *
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -55,6 +55,10 @@ energyBound = 7 # same as above but energy. In eV. Nominally 7eV
 useSpecificLocations = False
 locations = [i for i in range(0,9000,100)]
 
+
+reduceData=True
+targetTimes= [dt.datetime(2022,11,20,17,22,30,00),dt.datetime(2022,11,20,17,27,30,00)]
+
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
@@ -67,7 +71,7 @@ from tqdm import tqdm
 from scipy.interpolate import LinearNDInterpolator
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
 from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TRICE_data_folder, fliers
-from ACESII_code.class_var_func import color, L2_ACES_Quick,L2_TRICE_Quick, prgMsg, cm_to_m,q0,IonMasses,m_e, outputCDFdata,loadCDFdata
+from ACESII_code.class_var_func import color, L2_ACES_Quick,L2_TRICE_Quick, prgMsg, cm_to_m,q0,IonMasses,m_e, outputCDFdata
 from glob import glob
 from os.path import getsize
 setupPYCDF()
@@ -110,7 +114,8 @@ def DistFunc_to_ESAcurrents(wRocket, wFile, rocketFolderPath, justPrintFileNames
         # --- get the data from the tmCDF file ---
         prgMsg('Loading data from distribution function Files')
 
-        data_dict = loadCDFdata(inputFiles,wFile)
+        data_dict = loadDictFromFile(inputFiles[wFile],{},reduceData=reduceData,targetTimes=targetTimes,wKeys=['Distribution_Function','Epoch'])
+
 
         # --- --- --- --- --- --- --- --
         # --- CALCULATE ESA CURRENTS ---
@@ -258,7 +263,7 @@ def DistFunc_to_ESAcurrents(wRocket, wFile, rocketFolderPath, justPrintFileNames
                                                    'DEPEND_0': 'Epoch_esa',
                                                    'DEPEND_1': None,
                                                    'DEPEND_2': None,
-                                                   'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                   'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                    'UNITS': '!N A!N m!U-2!N',
                                                    'VALIDMIN': j_para.min(), 'VALIDMAX': j_para.max(),
                                                    'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
@@ -269,6 +274,20 @@ def DistFunc_to_ESAcurrents(wRocket, wFile, rocketFolderPath, justPrintFileNames
             newEpoch = [data_dict['Epoch_esa'][0][i] for i in iterateThis]
             data_dict['Epoch_esa'][0] = np.array(newEpoch)
 
+
+
+        # ADD IN THE traj DATA
+        prgMsg('Interpolating trajectory data into output file')
+        inputFiles_traj = glob(f'{rocketFolderPath}trajectories\{fliers[wflyer]}\*.cdf')
+        data_dict_traj = loadDictFromFile(inputFiles_traj[0],{},reduceData=False,targetTimes=[data_dict['Epoch'][0][0],data_dict['Epoch'][0][-1]])
+        data_dict_trajInterp = InterpolateDataDict(InputDataDict=data_dict_traj,
+                                                       InputEpochArray=data_dict_traj['Epoch'][0],
+                                                       wKeys=['geomagLat','geomagLong','geomagAlt'],
+                                                       targetEpochArray=data_dict['Epoch'][0])
+
+        data_dict = {**data_dict, **{'geomagLat': data_dict_trajInterp['geomagLat']}}
+        data_dict = {**data_dict, **{'geomagLong': data_dict_trajInterp['geomagLong']}}
+        data_dict = {**data_dict, **{'geomagAlt': data_dict_trajInterp['geomagAlt']}}
         outputCDFdata(outputPath, data_dict, L2ModelData, globalAttrsMod)
 
 

@@ -1,7 +1,7 @@
 from scipy.signal import butter, lfilter
 
 def butter_bandpass(lowcut, highcut, fs, order=5):
-    return butter(order, [lowcut, highcut], fs=fs, btype='band')
+    return butter(order, [lowcut, highcut], fs=fs, btype='bandpass')
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
@@ -16,21 +16,21 @@ if __name__ == "__main__":
 
     # Sample rate and desired cutoff frequencies (in Hz).
     fs = 128
-    lowcut = 0.5
-    highcut = 20
-    orderVal = 4
+    lowcut = 10
+    highcut = 50
+    orderVal = 10
 
     # Plot the frequency response for a few different orders.
     plt.figure(1)
     plt.clf()
     for order in [orderVal]:
-        b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+        b, a = butter_bandpass(lowcut=lowcut,highcut=highcut, fs=fs, order=order)
         w, h = freqz(b, a, fs=fs, worN=20000)
         plt.plot(w, abs(h), label="order = %d" % order)
 
     plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
              '--', label='sqrt(0.5)')
-    plt.xlim(-0.1,20)
+    plt.xlim(-0.1,50)
     plt.title('Butterworth Filter RollOff\n'
               f'Sample Freq: {fs}\n'
               f'Order: {orderVal}\n'

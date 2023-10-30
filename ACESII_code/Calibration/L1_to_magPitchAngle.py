@@ -32,11 +32,11 @@ justPrintMAGFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files, [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1, 3, 5]
+wFiles = [1, 4]
 wMagFiles = [0] # use spun data!
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_mag = 'l1'
@@ -100,13 +100,13 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
-        data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
+        data_dict_esa = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_esa['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch'][0][i]) for i in range(len(data_dict_esa['Epoch'][0]))])
         Done(start_time)
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from Mag Files')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {})
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {},reduceData=False,targetTimes=[],wKeys=[])
         data_dict_mag['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_mag['Epoch'][0][i]) for i in (range(len(data_dict_mag['Epoch'][0])))])
         Done(start_time)
 
@@ -187,12 +187,12 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
 
         energyAdjust = 8 if wInstr[1] =='eepaa' else 0
 
-        # since the Epoch_Esa is the timestamp of the lowest energy step (7.25eV)
+        # since the Epoch is the timestamp of the lowest energy step (7.25eV)
         # the time of the step should be: Timestamp + (#ofSteps - 1 + account for missing 8 steps if needed - index of next step)
         # this format has the highest energy in first and decreases in time to the lowest step
 
         for tme, engy in tqdm(itertools.product(*[esaRanges[0], esaRanges[2]])):
-            epochFullDataSet[tme][engy] = data_dict_esa['Epoch_esa'][0][tme] + (esaLens[2] - 1 + energyAdjust - engy) * rocketAttrs.timeBetweenSteps_in_ns
+            epochFullDataSet[tme][engy] = data_dict_esa['Epoch'][0][tme] + (esaLens[2] - 1 + energyAdjust - engy) * rocketAttrs.timeBetweenSteps_in_ns
 
         # --- assign a magnetometer Bx, By, Bz to each tme and engy ---
         # NOTE: don't need to do it for ptch since they're all sampled at the same time
@@ -273,7 +273,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
         data_dict = {}
         data_dict = {**data_dict, **{'Mag_Calculated_Pitch_Angle':
                                          [pitch_Angle_magCalc, {'LABLAXIS': 'Mag_Calculated_Pitch_Angle',
-                                                      'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
+                                                      'DEPEND_0': 'Epoch', 'DEPEND_1': 'Pitch_Angle',
                                                       'DEPEND_2': 'Energy',
                                                       'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                       'UNITS': 'deg',
@@ -281,7 +281,7 @@ def L1_to_L1ESAmagCal(wFile, wMagFile, rocketFolderPath, justPrintFileNames, wfl
                                                       'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
         # get Energy and Pitch angle into data_dict
         for key, val in data_dict_esa.items():
-            if key in ['Energy', 'Pitch_Angle', 'Epoch_esa']:
+            if key in ['Energy', 'Pitch_Angle', 'Epoch']:
                 data_dict = {**data_dict, **{key:data_dict_esa[key]}}
 
         # --- --- --- --- --- --- ---

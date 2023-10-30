@@ -161,6 +161,7 @@ def ACESIIplotting():
 
             # UTC Text
             for k in range(len(timeTargetsEpoch[i])):
+            for k in range(len(timeTargetsEpoch[i])):
                 ax1.text(timeTargetsData['geoLong_km'][i][k] + ILATvsILONG.adjusts_km[i][0],
                          timeTargetsData['geoLat_km'][i][k] + ILATvsILONG.adjusts_km[i][1],
                          timeTargetsEpoch[i][k], **ILATvsILONG.textUTC_style[i])

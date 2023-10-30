@@ -36,12 +36,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1, 3, 5]
+wFiles = [1, 4]
 
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_magPitch = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -100,8 +100,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
-        data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
+        data_dict_esa = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_esa['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch'][0][i]) for i in range(len(data_dict_esa['Epoch'][0]))])
         Done(start_time)
 
         # --- get the data from the MagPitch file ---
@@ -112,8 +112,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             if wInstr[1] in file and 'magPitch' in file:
                 this_magPitchFile = file
 
-        data_dict_magPitch = loadDictFromFile(this_magPitchFile, {})
-        data_dict_magPitch['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_magPitch['Epoch_esa'][0][i]) for i in (range(len(data_dict_magPitch['Epoch_esa'][0])))])
+        data_dict_magPitch = loadDictFromFile(this_magPitchFile, {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_magPitch['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_magPitch['Epoch'][0][i]) for i in (range(len(data_dict_magPitch['Epoch'][0])))])
         Done(start_time)
 
         #############################
@@ -123,8 +123,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         # reduce dataset to only include data after ACS despun rocket since this is where the magPitchAngles are nominal. Value is chosen based off of the attitude data variable "SpinAlignmentToB"
         targetIndexTimes = [
-            np.abs(data_dict_esa['Epoch_esa'][0] - pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 21, 48, 300))).argmin(),
-            np.abs(data_dict_esa['Epoch_esa'][0] - pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 23, 46, 750))).argmin()
+            np.abs(data_dict_esa['Epoch'][0] - pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 21, 48, 300))).argmin(),
+            np.abs(data_dict_esa['Epoch'][0] - pycdf.lib.datetime_to_tt2000(dt.datetime(2022, 11, 20, 17, 23, 46, 750))).argmin()
         ]
 
         esaRanges = [range(len(data_dict_esa[wInstr[1]][0])), range(len(data_dict_esa[wInstr[1]][0][0])), range(len(data_dict_esa[wInstr[1]][0][0][0]))]
@@ -219,7 +219,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             data_dict = {}
             data_dict = {**data_dict, **{f'{wInstr[1]}':
                                              [esaDataSorted, {'LABLAXIS': f'{wInstr[1]}',
-                                                          'DEPEND_0': 'Epoch_esa', 'DEPEND_1': 'Pitch_Angle',
+                                                          'DEPEND_0': 'Epoch', 'DEPEND_1': 'Pitch_Angle',
                                                           'DEPEND_2': 'Energy',
                                                           'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                           'UNITS': 'counts',

@@ -34,7 +34,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
@@ -51,6 +51,7 @@ outputData = True
 
 
 # --- reduce data ---
+reduceData = True
 targetTimes = [dt.datetime(2022,11,20,17,24,20,00),dt.datetime(2022,11,20,17,28,00,00)]
 
 # --- --- --- ---
@@ -69,7 +70,7 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
 
     inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
-    inputFiles_density = glob(f'{rocketFolderPath}{inputPath_modifier_density}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles_density = glob(f'{rocketFolderPath}{inputPath_modifier_density}\{fliers[wflyer]}{modifier}\*fixed*.cdf')
 
     fileoutName = f'ACESII_{rocketID}_AlfvenSpeed_flight.cdf'
 
@@ -86,12 +87,12 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
         # --- get the data from the tmCDF file ---
         prgMsg(f'Loading data from mag File')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[wFile_mag],{})
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wFile_mag],{},reduceData=reduceData,targetTimes=targetTimes)
         Done(start_time)
 
         # --- get the data from the tmCDF file ---
         prgMsg(f'Loading data from density File')
-        data_dict_density = loadDictFromFile(inputFiles_density[wFile_ni], {})
+        data_dict_density = loadDictFromFile(inputFiles_density[wFile_ni], {},reduceData=reduceData,targetTimes=targetTimes)
         Done(start_time)
 
         # reduce data
@@ -100,7 +101,7 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         for key, val in data_dict_mag.items():
             data_dict_mag[key][0] = data_dict_mag[key][0][lowCut:highCut]
 
-        lowCut, highCut = np.abs(data_dict_density['fixed_Epoch'][0] - targetTimes[0]).argmin(), np.abs( data_dict_density['fixed_Epoch'][0] - targetTimes[1]).argmin()
+        lowCut, highCut = np.abs(data_dict_density['Epoch'][0] - targetTimes[0]).argmin(), np.abs( data_dict_density['Epoch'][0] - targetTimes[1]).argmin()
         for key, val in data_dict_density.items():
             data_dict_density[key][0] = data_dict_density[key][0][lowCut:highCut]
 
@@ -112,8 +113,8 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         from ACESII_code.class_var_func import InterpolateDataDict,dateTimetoTT2000
 
         data_dict_densityInterp = InterpolateDataDict(InputDataDict=data_dict_density,
-                                                      InputEpochArray=dateTimetoTT2000(data_dict_density['fixed_Epoch'][0], False),
-                                                      wKeys=['fixed_ni_density', 'fixed_Epoch'],
+                                                      InputEpochArray=dateTimetoTT2000(data_dict_density['Epoch'][0], False),
+                                                      wKeys=['ni', 'Epoch'],
                                                       targetEpochArray=dateTimetoTT2000(data_dict_mag['Epoch'][0],False))
         Done(start_time)
 
@@ -124,7 +125,7 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         ####################################
 
         AlfvenSpeed = np.array([
-            ((1E-9)*data_dict_mag['Bmag'][0][i])/np.sqrt(u0*(100**3)*data_dict_densityInterp['fixed_ni_density'][0][i]*IonMasses[0]) for i in range(len(data_dict_mag['Epoch'][0]))
+            ((1E-9)*data_dict_mag['Bmag'][0][i])/np.sqrt(u0*(100**3)*data_dict_densityInterp['ni'][0][i]*IonMasses[0]) for i in range(len(data_dict_mag['Epoch'][0]))
         ])
 
 

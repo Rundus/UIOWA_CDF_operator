@@ -24,7 +24,7 @@ start_time = time.time()
 # --- --- --- --- --- --- --- ---
 # --- ALFVEN VELOCITY TOGGLES ---
 # --- --- --- --- --- --- --- ---
-SECTION_AlfvenVelocityPlot = False
+SECTION_AlfvenVelocityPlot = True
 
 # assume the kinetic term is just 2^-0.5
 simplifyKinetic = True
@@ -32,19 +32,19 @@ simplifyKinetic = True
 # Altitude Range (in KILOMETERS) to plot alfven speed over
 wkperp = (2*np.pi)/100 # This is ANGULAR wave number: k = 2 pi/lambda
 AltLow = 1 # in km
-AltHigh = 6*Re # in km
+AltHigh = 21*Re # in km
 xscaling = Re # how to scale the xaxis of the plot
 yscaling= 1E7 # how to scale the yaxis of the plot. Nominally: (1E4)*(1E3)
 plotylabel = '$V_{A}$ [10,000 km/s]' # nominally: [10,000 km/s]
 plotxlabel = 'Altitude [$R_{E}$]'
-ylimits = (0,1)
-xlimits = (4,-0.1) # the x-axis is inverted remember
+ylimits = (0,4)
+xlimits = (21,-0.1) # the x-axis is inverted remember
 
 
 # --- --- --- --- --- --- --- ---
 # --- ALFVEN RESONANCE TOGGLES ---
 # --- --- --- --- --- --- --- ---
-SECTION_AlfvenResonancePlot = True
+SECTION_AlfvenResonancePlot = False
 energyScaling = 1000 # converst eV to keV
 
 # --- --- --- ---
@@ -92,7 +92,6 @@ def AlfvenSpeed(z,lat,long,year,kperp,simplify):
     return V
 
 
-print(AlfvenSpeed(182,15.06,71.567,2022,1,True))
 
 
 def main(AltLow, AltHigh):
@@ -135,6 +134,8 @@ def main(AltLow, AltHigh):
     xData = altitudeAxis/(xscaling) # to 1000 km
     yData = alfvenAxis/(yscaling) # to 10,000 km/s
 
+    yData = (1/(u0*yscaling*alfvenAxis))
+
     acceleration = np.array(acceleration)/energyScaling
     deceleration = np.array(deceleration) / energyScaling
     centerEnergy = np.array(centerEnergy) / energyScaling
@@ -149,8 +150,9 @@ def main(AltLow, AltHigh):
         fig.suptitle('Alfven Speed ($V_{A}$) vs Altitude')
         ax.plot(xData, yData)
         ax.invert_xaxis()
-        ax.set_ylim(*ylimits)
+        # ax.set_ylim(*ylimits)
         ax.set_xlim(*xlimits)
+        ax.set_yscale('log')
         plt.show()
         
     if SECTION_AlfvenResonancePlot:

@@ -40,7 +40,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0, 1]
+wFiles = [0, 1, 2]
 
 inputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_chiSquare = 'calibration\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -48,8 +48,8 @@ outputPath_modifier = 'L1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 modifier = ''
 
 # --- CHI SQUARE CALIBRATION TOGGLES ---
-viewPadPairData_numOfPairs = True
-plotPadPairData = True
+viewPadPairData_numOfPairs = False
+plotPadPairData = False
 outlierThresh = 30 # (nominally 30) determine threshold to remove datapoints that are considered outliers
 ChiTheshold = [0.42, 2] # bounds that ChiSquare must be to be allowed to adjust the data. Inclusive
 
@@ -112,8 +112,8 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_esa = loadDictFromFile(inputFiles[wFile], {})
-        data_dict_esa['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch_esa'][0][i]) for i in range(len(data_dict_esa['Epoch_esa'][0]))])
+        data_dict_esa = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_esa['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch'][0][i]) for i in range(len(data_dict_esa['Epoch'][0]))])
         Done(start_time)
 
         # --- get the data from the MagPitch file ---
@@ -124,7 +124,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             if wInstr[1] in file:
                 this_chiSquareFile = file
 
-        data_dict_chiSquare = loadDictFromFile(this_chiSquareFile, {})
+        data_dict_chiSquare = loadDictFromFile(this_chiSquareFile, {},reduceData=False,targetTimes=[],wKeys=[])
 
         Done(start_time)
 

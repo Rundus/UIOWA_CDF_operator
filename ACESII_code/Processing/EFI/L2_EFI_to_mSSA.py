@@ -40,14 +40,14 @@ reduceDataSet = True
 # 0 --> Alfven Region
 # 1 --> Kenton's Zoomed Region
 # 2 --> The Whole flight, excluding outlier regions
-wTargetTimes = 0
+wTargetTimes = 2
 convertTomVm = True # converts data to mV/m
 # --- --- --- FILTERING --- --- ---
 SECTION_filterData = True
-plotFilteredAxes = False
+plotFilteredAxes = True
 lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle =0.5, 20, 'Highpass', 4 # filter toggles LOW FLYER
 # --- --- --- SSA --- --- ---
-SECTION_SSA = True
+SECTION_SSA = False
 SSA_window_Size = 501
 
 

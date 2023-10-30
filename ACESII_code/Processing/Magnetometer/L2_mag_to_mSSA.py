@@ -40,15 +40,15 @@ reduceDataSet = True
 # 0 --> Alfven Region
 # 1 --> Kenton's Zoomed Region
 # 2 --> The Whole flight, excluding outlier regions
-wTargetTimes = 2
+wTargetTimes = 0
 # --- --- --- FILTERING --- --- ---
 
 # NOTE!!! I have outsourced the filtering of the Despun Data using MATLAB!. Keep SECTION_filterData = False
 SECTION_filterData = True
-plotFilteredAxes = False
+plotFilteredAxes = True
 lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 0.5, 20, 'Bandpass', 4 # filter toggles LOW FLYER
 # --- --- --- SSA --- --- ---
-SECTION_SSA = True
+SECTION_SSA = False
 SSA_window_Size = 1201
 
 
@@ -102,7 +102,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         prgMsg(f'Loading data from {inputPath_modifier} RingCore Files')
         from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import timeWindow
         targetTimes = timeWindow(wTargetTimes, wRocket)
-        data_dict_mag = loadDictFromFile(inputFiles[wFile],{},reduceData=reduceDataSet,targetTimes=targetTimes)
+        data_dict_mag = loadDictFromFile(inputFiles[wFile],{},reduceData=reduceDataSet,targetTimes=targetTimes,wKeys=[])
         Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
         Epoch_dt = np.array([tme for tme in data_dict_mag['Epoch'][0]])
         Done(start_time)

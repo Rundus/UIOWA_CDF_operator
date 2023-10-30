@@ -35,15 +35,15 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0]
+wFiles = [1]
 
 useMagCalData = False
-IsElectron = True
+IsElectron = False
 wIon = 0
 
 if useMagCalData:
@@ -135,8 +135,8 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
 
         # --- Calculate DistFunc in SI units ---
         for tme, ptch, engy in tqdm(itertools.product(*ranges)):
-            if diffEFlux[tme][ptch][engy] <= -1e30:
-                distFunc[tme][ptch][engy] = -1e30
+            if diffEFlux[tme][ptch][engy] <= rocketAttrs.epoch_fillVal:
+                distFunc[tme][ptch][engy] = rocketAttrs.epoch_fillVal
             else:
                 distVal = (cm_to_m*cm_to_m/(q0*q0))*(((m**2)*diffEFlux[tme][ptch][engy]) / (2 * Energies[engy] * Energies[engy]))
                 if distVal < 0:
@@ -162,7 +162,7 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
                                                    'DEPEND_0': 'Epoch_esa',
                                                    'DEPEND_1': 'Pitch_Angle',
                                                    'DEPEND_2': 'Energy',
-                                                   'FILLVAL': -1e30, 'FORMAT': 'E12.2',
+                                                   'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
                                                    'UNITS': '!m!U-6!N s!U3!',
                                                    'VALIDMIN': distFunc.min(), 'VALIDMAX': distFunc.max(),
                                                    'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
