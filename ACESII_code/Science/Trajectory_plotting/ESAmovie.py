@@ -284,7 +284,7 @@ def ACESIIplotting():
     fig.set_figwidth(ESAmovie.figure_width)
     fig.set_figheight(ESAmovie.figure_height)
 
-    # The overall plot shape
+    # The overall plot shapeAlt/m_to_km
     gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[1, 5])
 
     if wDataPlot[0] in [1,2]:

@@ -165,7 +165,8 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
 
         # -- collect and process all aurora image data ---
         # remove nan values from data and replace with garbage AND convert all Images into Rayleighs
-        # description: the image data is a 16-bit counts value normalized by 65535. Invert this and use the calibration factor of 1 R/count given in the cal file
+        # description: the image data is a 16-bit counts value normalized by 65535.
+        # Invert this and use the calibration factor of 1 R/count given in the cal file
 
         for i in range(2):  # wavelength
 

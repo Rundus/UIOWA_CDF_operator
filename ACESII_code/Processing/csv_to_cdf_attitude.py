@@ -4,8 +4,8 @@
 
 
 # --- --- --- --- ---
-import time
-from ACESII_code.class_var_func import Done, setupPYCDF,prgMsg
+from ACESII_code.myImports import *
+
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -13,14 +13,15 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 
+
 wRocket = 1
 # 0 --> ACESII High Flyer
 # 1 --> ACESII Low Flyer
 
 
-Directories = [r'D:\Data\ACESII\attitude\high\\',r'D:\Data\ACESII\attitude\low\\']
+Directories = [r'C:\Data\ACESII\attitude\high\\',r'C:\Data\ACESII\attitude\low\\']
 inputFilenames = [r'36359_AttitudeSolution.csv',r'36364_AttitudeSolution.csv']
-outputFilenames = [r'36359_Attitude_Solution.cdf',r'36364_Attitude_Solution.cdf']
+outputFilenames = [r'ACESII_36359_Attitude_Solution.cdf',r'ACESII_36364_Attitude_Solution.cdf']
 inputDirectory = Directories[wRocket]
 inputFileName = inputFilenames[wRocket]
 outputDirectory = inputDirectory
@@ -29,40 +30,33 @@ outputFileName = outputFilenames[wRocket]
 wRow_names = 5 -1 # Which row contains the variable names
 wRow_units = 6 - 1 # Which row contains the variable units
 wRow_startData = 8 - 1 # Which row contains the first row of actual data
-
-
+# ---------------------------
 # --- special modifications to the variables already in the csv file ---
 #  in a dictionary format [ {string name of var: {string name of attributeKey1: attributeval1, attributeKey2: attributeval2  }},{...},...  ]
 # Example: specialMods = [time: {'Units':'ns','FORMAT':'I5'} , Alt: {'Units':'km','FORMAT':'I5'} ]
 # Defaults to attributes = None if specialMods == [], except for VALIDMIN/VALIDMAX
-
-
 specialMods = {
     'Alt':               {'DEPEND_0':'Epoch','LABLAXIS':'Alt'},
     'Epoch':             {'DEPEND_0': 'Epoch','DEPEND_1': None,'DEPEND_2': None,'FILLVAL': -9223372036854775808,'FORMAT': 'I5','UNITS': 'ns','VALIDMIN':None,'VALIDMAX': None,'VAR_TYPE':'data','MONOTON':'INCREASE','TIME_BASE':'J2000','TIME_SCALE':'Terrestrial Time','REFERENCE_POSITION':'Rotating Earth Geoid','SCALETYP':'linear','LABLAXIS':'Epoch'}
 }
-
+# ---------------------------
+outputData = True
+# ---------------------------
 
 
 # --- --- --- ---
 # --- import ---
 # --- --- --- ---
-import numpy as np
-from os import remove,path
+from os import path
 from csv import reader
-from ACESII_code.data_paths import fliers, ACES_data_folder,ACES_csv_trajectories,TRICE_data_folder,ACES_L0_files,TRICE_L0_files
 from ACESII_code.class_var_func import color, L2_TRICE_Quick
-from ACESII_code.missionAttributes import ACES_mission_dicts,TRICE_mission_dicts
-from copy import deepcopy
-setupPYCDF()
-from spacepy import pycdf
 from spacepy import coordinates as coord
 coord.DEFAULTS.set_values(use_irbem=False, itol=5)  # maximum separation, in seconds, for which the coordinate transformations will not be recalculated. To force all transformations to use an exact transform for the time, set ``itol`` to zero.
 from spacepy.time import Ticktock #used to determine the time I'm choosing the reference geomagentic field
 
-print(color.BOLD + color.CYAN + 'csv_to_cdf.py' + color.END + color.END)
+print(color.BOLD + color.CYAN + 'csv_to_cdf_attitude.py' + color.END + color.END)
 
-def csv_to_cdf(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_units,wRow_startData):
+def csv_to_cdf_attitude(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_units,wRow_startData):
 
     # collect the entire csv data
     with open(inputFile) as csvFile:
@@ -92,11 +86,9 @@ def csv_to_cdf(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_uni
         varAttrs['UNITS'] = unit
         data_dict = {**data_dict,**{varNames[index] : [csvData[index],  varAttrs ]}}
 
-
-
     prgMsg(f'Converting csv Files for {inputFileName}')
 
-    # --- Modify Variable Attributes in data dict to the  ---
+    # --- Modify Variable Attributes in data dict  ---
     for key, val in specialMods.items():
 
         if key in data_dict:
@@ -112,6 +104,8 @@ def csv_to_cdf(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_uni
         else: # Create a whole new variable
             data_dict = {**data_dict, **{key: [[], deepcopy(val) ]} }
 
+    # rename latgd --> lat
+    data_dict['Lat'] = data_dict.pop('Latgd')
 
     # Create the Epoch Variable
     Launch_time = rocketAttrs.Launch_Times[wRocket]
@@ -119,53 +113,41 @@ def csv_to_cdf(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_uni
     data_dict['Epoch'][0] = Epoch
     Done(start_time)
 
-    # --- --- --- --- ---
-    # --- Output Data ---
-    # --- --- --- --- ---
-    prgMsg('Writing Out Data')
+    # --- Create the Geomagnetic Coordinates ---
+    prgMsg('Converting Coordinates')
 
-    # --- delete output file if it already exists ---
-    if path.exists(outputFile):
-        remove(outputFile)
-    pycdf.lib.set_backward(False)
+    # Calculate
+    geodeticPos = np.array([data_dict['Alt'][0]/1000, data_dict['Lat'][0], data_dict['Long'][0]]).transpose()
+    ISOtime = [data_dict['Epoch'][0][i].isoformat() for i in range(len(data_dict['Epoch'][0]))]
+    cvals_GDZ = coord.Coords(geodeticPos, 'GDZ', 'sph')
+    cvals_GDZ.ticks = Ticktock(ISOtime, 'ISO')
+    cvals_GDZ_MAG = cvals_GDZ.convert('MAG', 'sph')
+    geomagAlt = cvals_GDZ_MAG.radi
+    geomagLat = cvals_GDZ_MAG.lati
+    geomagLong = cvals_GDZ_MAG.long
 
-
-    # --- open the output file ---
-    with pycdf.CDF(outputFile, '') as cdfFile:
-        cdfFile.readonly(False)
-
-        # --- write out global attributes ---
-        globalAttrsMod = rocketAttrs.globalAttributes[wRocket]
-        ModelData = L2_TRICE_Quick(wRocket)
-        inputGlobDic = ModelData.cdfFile.globalattsget()
-
-        for key, val in inputGlobDic.items():
-            if key == 'Descriptor':
-                globalAttrsMod[key] = 'None'
-            if key in globalAttrsMod:
-                cdfFile.attrs[key] = globalAttrsMod[key]
-            else:
-                cdfFile.attrs[key] = val
-
-        # --- WRITE OUT DATA ---
-        for varKey, varVal in data_dict.items():
-
-
-            if 'Epoch' in varKey:  # epoch data
-                cdfFile.new(varKey, data=varVal[0], type=33)
-            else:  # other data
-                cdfFile.new(varKey, data=varVal[0])
-
-            # --- Write out the attributes and variable info ---
-            for attrKey, attrVal in data_dict[varKey][1].items():
-                if attrKey == 'VALIDMIN':
-                    cdfFile[varKey].attrs[attrKey] = varVal[0].min()
-                elif attrKey == 'VALIDMAX':
-                    cdfFile[varKey].attrs[attrKey] = varVal[0].max()
-                elif attrVal != None:
-                    cdfFile[varKey].attrs[attrKey] = attrVal
+    # store data
+    data_dict = {**data_dict, **{'Lat_geom':[np.array(geomagLat),deepcopy(data_dict['Lat'][1])]}}
+    data_dict['Lat_geom'][1]['LABLAXIS'] = 'geomagnetic Lat'
+    data_dict = {**data_dict, **{'Long_geom':[np.array(geomagLong),deepcopy(data_dict['Long'][1])]}}
+    data_dict['Long_geom'][1]['LABLAXIS'] = 'geomagnetic Long'
+    data_dict = {**data_dict, **{'Alt_geom':[np.array(geomagAlt),deepcopy(data_dict['Alt'][1])]}}
+    data_dict['Alt_geom'][1]['LABLAXIS'] = 'geomagnetic Alt'
+    data_dict['Alt_geom'][1]['UNITS'] = 'Re'
 
     Done(start_time)
+
+    # --- Calculate Invariant Lattitude ---
+    invariantLat = np.array([np.degrees(np.arccos(np.cos(np.radians(data_dict['Lat_geom'][0][i])) / np.sqrt(data_dict['Alt_geom'][0][i]))) for i in range(len(data_dict['Epoch'][0]))])
+    data_dict = {**data_dict,**{'invarLat':[invariantLat,deepcopy(data_dict['Lat_geom'][1])]}}
+    data_dict['invarLat'][1]['LABLAXIS'] = 'Invariant Lat'
+
+    if outputData:
+        prgMsg('Creating output file')
+        globalAttrsMod = rocketAttrs.globalAttributes[wRocket]
+        ModelData = L2_TRICE_Quick(wRocket)
+        outputCDFdata(outputFile, data_dict, ModelData, globalAttrsMod, 'Attitude')
+        Done(start_time)
 
 
 
@@ -180,7 +162,7 @@ if path.exists(inputFile):
     elif wRocket == 2 or wRocket == 3: #TRICEII
         missionDicts = TRICE_mission_dicts()
 
-    csv_to_cdf(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_units,wRow_startData)
+    csv_to_cdf_attitude(inputFile,outputFile,missionDicts,specialMods,wRow_names,wRow_units,wRow_startData)
 
 else:
     print(color.RED + f'{inputFile} does not exist' + color.END)

@@ -41,7 +41,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1, 4]
+wFiles = [[1, 3, 5],[1, 4]]
 
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_magPitch = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -100,7 +100,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_esa = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_esa = loadDictFromFile(inputFiles[wFile])
         data_dict_esa['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch'][0][i]) for i in range(len(data_dict_esa['Epoch'][0]))])
         Done(start_time)
 
@@ -112,7 +112,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             if wInstr[1] in file and 'magPitch' in file:
                 this_magPitchFile = file
 
-        data_dict_magPitch = loadDictFromFile(this_magPitchFile, {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_magPitch = loadDictFromFile(this_magPitchFile)
         data_dict_magPitch['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_magPitch['Epoch'][0][i]) for i in (range(len(data_dict_magPitch['Epoch'][0])))])
         Done(start_time)
 
@@ -277,9 +277,9 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
 else:
     if justPrintFileNames:
         L1_to_L1magCalESA(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
+    elif not wFiles[wRocket-4]:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
             L1_to_L1magCalESA(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
-        for filesNo in wFiles:
+        for filesNo in wFiles[wRocket-4]:
             L1_to_L1magCalESA(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

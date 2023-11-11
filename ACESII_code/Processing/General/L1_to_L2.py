@@ -37,7 +37,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0, 2, 4]
+wFiles = [[0, 2, 4],[0,3]]
 
 inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
@@ -199,9 +199,9 @@ if len(glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*.cdf')) == 0:
 else:
     if justPrintFileNames:
         L1_to_L2(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
+    elif not wFiles[wRocket-4]:
         for fileNo in (range(len(glob(f'{rocketFolderPath}L1\{fliers[wflyer]}\*.cdf')))):
             L1_to_L2(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
-        for filesNo in wFiles:
+        for filesNo in wFiles[wRocket-4]:
             L1_to_L2(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

@@ -25,7 +25,7 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 modifier = ''
 inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 

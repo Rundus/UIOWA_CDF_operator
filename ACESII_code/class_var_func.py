@@ -136,7 +136,13 @@ def Done(start_time):
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
-def loadDictFromFile(inputFilePath,input_data_dict,reduceData,targetTimes,wKeys):
+def loadDictFromFile(inputFilePath, **kwargs):
+
+
+    input_data_dict = kwargs.get('input_data_dict', {})
+    reduceData = kwargs.get('reduceData', False)
+    targetTimes = kwargs.get('targetTimes', [])
+    wKeys = kwargs.get('wKeys', [])
 
     # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:
@@ -144,22 +150,31 @@ def loadDictFromFile(inputFilePath,input_data_dict,reduceData,targetTimes,wKeys)
             input_data_dict = {**input_data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
 
 
+    # determine which keys to reduce
+    if wKeys == []:
+        Keys = [key for key, val in input_data_dict.items()]
+    else:
+        Keys = wKeys
+
+    output_data_dict = {}
+    for key in Keys:
+        output_data_dict = {**output_data_dict, **{key:input_data_dict[key]}}
+
     # reduce the data
     if reduceData:
 
-        # determine which keys to reduce
-        if wKeys == []:
-            Keys = [key for key, val in input_data_dict.items()]
-        else:
-            Keys = wKeys
+        try:
+            h = input_data_dict['Epoch']
+        except:
+            raise Exception('no Epoch found')
 
-        lowerIndex,higherIndex = np.abs(input_data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(input_data_dict['Epoch'][0] - targetTimes[1]).argmin()
+        lowerIndex,higherIndex = np.abs(output_data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(output_data_dict['Epoch'][0] - targetTimes[1]).argmin()
 
-        for key,val in input_data_dict.items():
+        for key,val in output_data_dict.items():
             if key in Keys:
-                input_data_dict[key][0] = input_data_dict[key][0][lowerIndex:higherIndex]
+                output_data_dict[key][0] = output_data_dict[key][0][lowerIndex:higherIndex]
 
-    return input_data_dict
+    return output_data_dict
 
 def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
 
@@ -323,7 +338,7 @@ def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
 
     # InputDataDict --> Contains a data_dict of the data which will be interpolated onto the new dataset
     # InputEpoch --> The epoch that InputDataDict uses
-    # wKes --> Keys of the variables in InputDataDict that we want to interpolate. If wKeys == [], do all the keys
+    # wKeys --> Keys of the variables in InputDataDict that we want to interpolate. If wKeys == [], do all the keys
     # targetEpoch --> Epoch that the data will be interpolated onto (MUST BE IN TT2000)
 
     from scipy.interpolate import CubicSpline
@@ -337,7 +352,6 @@ def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
     if isinstance(InputEpochArray[0], dt.datetime):
         InputEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in InputEpochArray])
     if isinstance(targetEpochArray[0], dt.datetime):
-        # raise Exception(TypeError, "Target Epoch Array is Datetime array. Convert to tt2000")
         targetEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in targetEpochArray])
 
 

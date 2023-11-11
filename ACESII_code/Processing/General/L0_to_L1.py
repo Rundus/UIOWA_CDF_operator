@@ -28,6 +28,8 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import numpy as np
+
 from ACESII_code.myImports import *
 
 start_time = time.time()
@@ -53,7 +55,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1, 2, 3]
+wFiles = [[1, 2, 3], [1, 2]]
 
 # EEPAA: how many energy values not to keep, starting from the lowest values e.g. adjusts = 8 --> remove the bottom 8 values
 energy_adjusts = [8, 0, 0] #  [EEPAA,IEPAA,LEESA]
@@ -120,7 +122,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         # --- get the data from the tmCDF file ---
         prgMsg('Loading data from L0Files')
 
-        data_dict = loadDictFromFile(L0Files[wFile],{},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict = loadDictFromFile(L0Files[wFile])
 
         Done(start_time)
 
@@ -240,6 +242,11 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
             del data_dict['Sector_Counts'], data_dict['sfid'], data_dict['sweep_step'],data_dict['minor_frame_counter'], data_dict['major_frame_counter']
 
+            # --- --- --- --- --- --- --- --- -
+            # --- ADD ATTITUDE DATA TO FILE ---
+            # --- --- --- --- --- --- --- --- -
+            prgMsg('Truncating Data')
+
             if truncateData:
 
                 # --- --- --- --- --- ---
@@ -273,6 +280,39 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
             data_dict['Epoch'] = data_dict.pop('Epoch_esa')
             # Update Dependencies
             data_dict[wInstr[1]][1]['DEPEND_0'] = 'Epoch'
+            Done(start_time)
+
+
+            prgMsg('Interpolating Attitude data into ESA files')
+            inputFile_attitude = glob(f'C:\Data\ACESII\\attitude\{fliers[wflyer]}\\*Attitude_Solution*')[0]
+            data_dict_attitude = loadDictFromFile(inputFile_attitude, wKeys=['Lat', 'Long', 'Alt', 'Lat_geom', 'Long_geom', 'Alt_geom', 'Epoch'])
+
+            # the low flyer attitude data needs to be extended to 17:20:00
+            if wRocket == 5:
+
+                # find the average step size in the attitude data
+                epochAttitude = dateTimetoTT2000(InputEpoch=data_dict_attitude['Epoch'][0],inverse=False)
+                deltaT = np.average([epochAttitude[i+1] - epochAttitude[i] for i in range(len(epochAttitude)-1)])
+                targetStart = pycdf.lib.datetime_to_tt2000(dt.datetime(2022,11,20,17,20,00,14453))
+                NumOfPoints = int((epochAttitude[0]-targetStart)/deltaT)+1
+
+                for key, val in data_dict_attitude.items():
+                    if key != 'Epoch':
+                        newVals = [val[0][0] for i in range(NumOfPoints)]
+                        data_dict_attitude[key][0] = np.array(newVals + list(data_dict_attitude[key][0]))
+                    else:
+                        newTimes = [ pycdf.lib.tt2000_to_datetime(int(targetStart + deltaT*i)) for i in range(NumOfPoints)]
+                        data_dict_attitude[key][0] = np.array(newTimes + list(data_dict_attitude[key][0]))
+
+            # interpolate attitude data onto ESA dataset
+            data_dict_attitudeInterp = InterpolateDataDict(InputDataDict=data_dict_attitude,
+                                                           InputEpochArray=data_dict_attitude['Epoch'][0],
+                                                           targetEpochArray=data_dict['Epoch'][0], wKeys=[])
+
+            for key, val in data_dict_attitudeInterp.items():
+                val[1]['VAR_TYPE'] = 'support_data'
+                data_dict = {**data_dict, **{key: val}}
+            Done(start_time)
 
             # --- --- --- --- --- --- --- ---
             # --- WRITE OUT THE ESA DATA ---
@@ -482,9 +522,9 @@ if len(glob(f'{rocketFolderPath}L0\{fliers[wflyer]}\*.cdf')) == 0:
 else:
     if justPrintFileNames:
         L0_to_L1(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
+    elif not wFiles[wRocket-4]:
         for fileNo in (range(len(glob(f'{rocketFolderPath}L0\{fliers[wflyer]}\*.cdf')))):
             L0_to_L1(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
-        for filesNo in wFiles:
+        for filesNo in wFiles[wRocket-4]:
             L0_to_L1(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

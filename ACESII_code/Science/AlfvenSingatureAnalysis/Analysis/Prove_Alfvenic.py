@@ -23,10 +23,10 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 modifier = ''
-inputPath_modifier_B = 'science\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_E = 'science\deltaE'
+inputPath_modifier_B = 'l3\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_E = 'l3\deltaE'
 inputPath_modifier_attitude = 'attitude'
-inputPath_modifier_density = 'science\langmuir'
+inputPath_modifier_density = 'l3\langmuir'
 inputPath_modifier_AlfvenSpeed = 'science\AlfvenSpeed_rkt'
 inputPath_modifier_Poynting = 'science\PoyntingFlux'
 

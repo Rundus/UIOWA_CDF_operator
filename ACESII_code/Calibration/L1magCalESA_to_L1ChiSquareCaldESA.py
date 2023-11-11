@@ -35,12 +35,12 @@ justPrintChiFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [0, 1, 2]
+wFiles = [[0, 1, 2],[0, 1]]
 
 inputPath_modifier = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_chiSquare = 'calibration\ESA_ChiSquare_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -112,7 +112,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
 
         # --- get the data from the l1 ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_esa = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_esa = loadDictFromFile(inputFiles[wFile])
         data_dict_esa['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_esa['Epoch'][0][i]) for i in range(len(data_dict_esa['Epoch'][0]))])
         Done(start_time)
 
@@ -124,7 +124,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             if wInstr[1] in file:
                 this_chiSquareFile = file
 
-        data_dict_chiSquare = loadDictFromFile(this_chiSquareFile, {},reduceData=False,targetTimes=[],wKeys=[])
+        data_dict_chiSquare = loadDictFromFile(this_chiSquareFile)
 
         Done(start_time)
 
@@ -328,9 +328,9 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
 else:
     if justPrintFileNames:
         L1magCalESA_to_L1ChiSquareCaldESA(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
+    elif not wFiles[wRocket-4]:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
             L1magCalESA_to_L1ChiSquareCaldESA(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
-        for filesNo in wFiles:
+        for filesNo in wFiles[wRocket-4]:
             L1magCalESA_to_L1ChiSquareCaldESA(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
