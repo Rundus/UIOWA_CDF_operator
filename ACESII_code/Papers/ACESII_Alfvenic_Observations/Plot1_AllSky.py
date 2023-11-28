@@ -9,6 +9,10 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -34,8 +38,6 @@ elevlimits = [20, 20] # value (in deg) of the cutoff elevation angle for the 557
 # --- LOAD DATA ---
 # --- --- --- --- -
 
-
-# --- INPUT FILES ---
 # trajectory
 trajFolderPath = f'{ACES_data_folder}trajectories\\'
 inputFilesTraj = [glob(trajFolderPath + rf'{fliers[0]}\\*_ILat_ILong*')[0], glob(trajFolderPath + rf'{fliers[1]}\\\\*_ILat_ILong*')[0]]
@@ -48,12 +50,11 @@ calFiles = [readsav(glob(pathToSite+'\\5577\\*.dat*')[0]), readsav(glob(pathToSi
 photoFiles = [glob(pathToSite + '\\5577\\*.png*'), glob(pathToSite + '\\6300\\*.png*')]
 
 
-
 # --- GET TRAJECTORY DATA ---
 prgMsg(f'Loading ACESII traj data')
 data_dicts_traj = []
 for i in range(2):
-    data_dict_traj = loadDictFromFile(inputFilesTraj[i], input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
+    data_dict_traj = loadDictFromFile(inputFilesTraj[i], input_data_dict={}, reduceData=False,targetTimes=[], wKeys=[])
     data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
     data_dicts_traj.append(data_dict_traj)
 
@@ -73,7 +74,6 @@ allGLongs = [np.array(deepcopy(calFiles[0]['glons']))[::-1], np.array(deepcopy(c
 allElevs = [np.array(deepcopy(calFiles[0]['elevs'])), np.array(deepcopy(calFiles[1]['elevs']))]
 
 
-
 # --- GET ALL SKY IMAGE DATA ---
 # get the image time series and the data itself into single variables
 Epoch_AllSky = [[], []]
@@ -84,7 +84,7 @@ for i in range(len(photoFiles)):
     for imageStr in photoFiles[i]:
 
         # get the timestamp
-        strTimeStamp = imageStr.replace(f'{pathToSite}\\','').replace(f'{WLengths[i]}\\','').replace('skn4_','').replace(f'_{WLengths[i]}_cal.png','')
+        strTimeStamp = imageStr.replace(f'{pathToSite}\\', '').replace(f'{WLengths[i]}\\', '').replace('skn4_', '').replace(f'_{WLengths[i]}_cal.png', '')
         year = int(strTimeStamp[0:4])
         month = int(strTimeStamp[4:6])
         day = int(strTimeStamp[6:8])
@@ -143,111 +143,197 @@ Done(start_time)
 # --- --- --- --- --- --- --
 ############################
 
+# some pre-amble
+trajColors = ['tab:red','tab:blue']
+cmapColor = 'inferno'
 
-# figure info
+# --- figure info  ---
 # plt.style.use('dark_background')
-fig = plt.figure(dpi=100)
-figure_height = 20
-figure_width = 36
+fig = plt.figure()
+figure_height = 10
+figure_width = 10
 
 fig.set_figwidth(figure_width)
 fig.set_figheight(figure_height)
 
-# title
-fig.suptitle('ACESII')
+# --- title ---
+# fig.suptitle('ACES II')
+
 
 ##### Define the primary Gridspec #####
-gs0 = gridspec.GridSpec(nrows=2, ncols=1, figure=fig, height_ratios=[0.97, 0.03]) # splits figure between the plots and the colorbar at the very bottom
+gs0 = gridspec.GridSpec(nrows=2, ncols=1, figure=fig, height_ratios=[0.99, 0.01], hspace=0.25) # splits figure between the plots and the colorbar at the very bottom
 cbarVmin = 0
-cbarVmax = 18
-
+cbarVmax = 16
 
 # --- Split Data-half into two columns ---
-gsData = gridspec.GridSpecFromSubplotSpec(nrows=1, ncols=2, width_ratios=[2/3, 1/3], subplot_spec=gs0[0])
-
+gsData = gridspec.GridSpecFromSubplotSpec(nrows=1, ncols=2, width_ratios=[3/5, 2/5], subplot_spec=gs0[0])
 
 # -*- Altitude/AllSky Plots -*-
-gs_altLat_BigAllSky = gridspec.GridSpecFromSubplotSpec(nrows=2,ncols=1,height_ratios=[1/3,2/3],subplot_spec=gsData[0])
+gs_altLat_BigAllSky = gridspec.GridSpecFromSubplotSpec(nrows=2, ncols=1, height_ratios=[3/10, 7/10], subplot_spec=gsData[0], hspace=0.3)
 
-# AltLat plot
+# --- AltLat plot ---
 axAltLat = fig.add_subplot(gs_altLat_BigAllSky[0])
-
-axAltLat.plot(geoMagLat[0], geoAlt[0], color='tab:red') # High
-axAltLat.plot(geoMagLat[1], geoAlt[1],color='tab:blue') # Low
 axAltLat.set_ylabel('Altitude [km]')
 axAltLat.set_xlabel('Geomagnetic Lat [deg]')
-axAltLat.set_xlim(68, 72)
+axAltLat.set_xlim(67.25, 72.5)
+axAltLat.set_ylim(0, 460)
 
+
+# plot the psudo geomagnetic field line
+slope = -1*(111/np.sin(np.radians(90 - 78.13))) # corresponds to line with -78.13deg inclination
+for i in range(21):
+    axAltLat.axline(xy1=(66+i*0.5, 0), slope=slope,color='black', linewidth=2, linestyle='-.', alpha=0.15)
+
+# plot the UTC labels
 axGeographicLat = axAltLat.twiny()
-axGeographicLat.plot(geoLat[0], geoAlt[0], color='tab:red') # High
-axGeographicLat.plot(geoLat[1], geoAlt[1], color='tab:blue') # Low
+axGeographicLat.plot(geoLat[0], geoAlt[0], color=trajColors[0], alpha=0) # High
+axGeographicLat.plot(geoLat[1], geoAlt[1], color=trajColors[1], alpha=0) # Low
 axGeographicLat.set_xlabel('Geographic Lat [deg]')
+timeTargetsUTC_labels = [200, 250, 300, 350, 400, 450]
+AltLat_vertical_Alignments = ['bottom' for tme in timeTargetsUTC_labels]
+AltLat_horizontal_Alignments = ['right', 'right', 'right', 'left', 'left', 'left']
+vertical_text_label_adjustments = [-0.05, -0.035, 0.01, 0.015, -0.04, -0.04]
+horizontal_text_label_adjustments = [-0.002, -0.001, 0.000, 0.0005, 0.002, 0.001]
+
+# plot the scatterpoint of each of the timeTargetUTC_labels. Plot the text itself only for the High Flyer and
+# create a connecting line between the scatterpoints between the flyers
+for i in range(2): # for each rocket
+    for j, ttme in enumerate(timeTargetsUTC_labels):
+        Index = np.abs(EpochRocket[i] - (ttme*1E9 + EpochRocket[i][0])).argmin()
+        xPos = geoMagLat[i][Index]
+        yPos = geoAlt[i][Index]
+
+        if i == 0:
+            # plot the text itself
+            label = pycdf.lib.tt2000_to_datetime(EpochRocket[i][Index])
+            deltaY = vertical_text_label_adjustments[j]*yPos
+            deltaX = horizontal_text_label_adjustments[j]*xPos
+            axAltLat.text(x=xPos+deltaX, y=yPos+deltaY, s=label.strftime("%H:%M:%S"), color=trajColors[i], va=AltLat_vertical_Alignments[j], ha=AltLat_horizontal_Alignments[j], size=10)
+
+            # plot the connecting line
+            Index_LF = Index = np.abs(EpochRocket[1] - (ttme*1E9 + EpochRocket[1][0])).argmin()
+            xPos_LF = geoMagLat[1][Index_LF]
+            yPos_LF = geoAlt[1][Index_LF]
+            axAltLat.plot([xPos,xPos_LF],[yPos,yPos_LF], color='green', linestyle='--', alpha=0.5)
+            # axAltLat.axline(xy1=(xPos, yPos), xy2=(xPos_LF, yPos_LF), color='green', linestyle='--', alpha=0.5)
+
+        # plot a dot at the text label
+        axAltLat.scatter(x=xPos, y=yPos, s=15, marker="o", color=trajColors[i])
+
+# plot the trajectory over everything
+axAltLat.plot(geoMagLat[0], geoAlt[0], color=trajColors[0], label='High Flyer') # High
+axAltLat.plot(geoMagLat[1], geoAlt[1], color=trajColors[1], label='Low Flyer') # Low
 
 
 
-
-# BigAllSky plot
+# --- --- --- --- --- --
+# --- BigAllSky plot ---
+# --- --- --- --- --- --
 projPC = ccrs.PlateCarree()  # MUST be kept on the set_extent, crs =, command AND pcolormesh transform command
-lonW = 12
-lonE = 18
+lonW = 10
+lonE = 23.5
 latS = 68
 latN = 74.5
 cLat = (latN + latS) / 2
 cLon = (lonW + lonE) / 2
 res = '10m'
 
-# projType = ccrs.Mollweide(central_longitude=cLon, central_latitude=cLat)
 projType = ccrs.Stereographic(central_longitude=cLon, central_latitude=cLat)
-
-axBigAllSky = fig.add_subplot(gs_altLat_BigAllSky[1],projection=projType)
-
-
-
-# allSkyCmap = 'inferno'
-allSkyCmap = 'turbo'
-LowFlyerColor = 'royalblue'
-HighFlyerColor = 'red'
-LowFlyerProjectionColor = 'cyan'
-HighFlyerProjectionColor = 'darkorange'
-
-AltvsLatLineWidth = 4
-LatvsLongLineWidth = 4
-AllSkyLineWidth = 4
-
-axBigAllSky.gridlines(draw_labels=True, linewidth=3, alpha=0.4, linestyle='--')
-axBigAllSky.xlabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
-axBigAllSky.ylabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
+axBigAllSky = fig.add_subplot(gs_altLat_BigAllSky[1], projection=projType)
+alignment = ['left', 'right']
+gl = axBigAllSky.gridlines(draw_labels=True, linewidth=1.5, alpha=0.6, linestyle='--')
+gl.xlabel_style = {'size': 10, 'color': 'black', 'weight': 'bold'}
+gl.ylabel_style = {'size': 10, 'color': 'black', 'weight': 'bold'}
+gl.top_labels = False
 axBigAllSky.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
-axBigAllSky.coastlines(resolution=res, color='white', alpha=0.8)  # adds coastlines with resolution
-axBigAllSky.set_aspect(0.3)
+axBigAllSky.coastlines(resolution=res, color='black', alpha=0.8)  # adds coastlines with resolution
+# axBigAllSky.set_aspect(1)
+cmapBigAllSky = axBigAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=cmapColor, transform=projPC, vmin=cbarVmin,vmax=cbarVmax)
 
-cmapBigAllSky = axBigAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=allSkyCmap, transform=projPC,vmin=cbarVmin,vmax=cbarVmax)
+# --- plot the rocket trajectory data on the large AllSky plot ---
+axBigAllSky.plot(geoLong[0], geoLat[0], color=trajColors[0], transform=projPC) # High
+axBigAllSky.plot(geoLong[1], geoLat[1], color=trajColors[1], transform=projPC) # Low
 
+# plot specific UTC times on the trajectory lines
 
-
-# -*- 5 AllSky Plots -*-
-gs_fiveAllSky = gridspec.GridSpecFromSubplotSpec(nrows=5,ncols=1,height_ratios=[1/5,1/5,1/5,1/5,1/5],subplot_spec=gsData[1])
-
-for i in range(5):
-    axSmallAllSky = fig.add_subplot(gs_fiveAllSky[i],projection=projType)
-    axSmallAllSky.gridlines(draw_labels=True, linewidth=3, alpha=0.4, linestyle='--')
-    axSmallAllSky.xlabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
-    axSmallAllSky.ylabel_style = {'size': 20, 'color': 'white', 'weight': 'bold'}
-    axSmallAllSky.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
-    axSmallAllSky.coastlines(resolution=res, color='white', alpha=0.8)  # adds coastlines with resolution
-    axSmallAllSky.set_aspect(0.3)
-
-    axSmallAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=allSkyCmap, transform=projPC, vmin=cbarVmin,vmax=cbarVmax)
+timeTargetsUTC_labels = [dt.datetime(2022, 11, 20, 17, 20, 10, 000),
+                        dt.datetime(2022, 11, 20, 17, 21, 40, 000),
+                        dt.datetime(2022, 11, 20, 17, 23, 10, 000),
+                        dt.datetime(2022, 11, 20, 17, 24, 40, 000),
+                        dt.datetime(2022, 11, 20, 17, 26, 10, 000),
+                        dt.datetime(2022, 11, 20, 17, 27, 40, 000)
+                        ]
 
 
+for i in range(2): # for each rocket
+    for ttme in timeTargetsUTC_labels:
+        Index = np.abs(EpochRocket[i] - pycdf.lib.datetime_to_tt2000(ttme)).argmin()
+        label = pycdf.lib.tt2000_to_datetime(EpochRocket[i][Index])
+
+        xPos = geoLong[i][Index]
+        yPos = geoLat[i][Index]
+
+        # plot a dot at the text label
+        axBigAllSky.scatter(x=xPos,y=yPos,s=15,marker="o",color=trajColors[i],transform=projPC)
+
+        # plot the text itself
+        deltaX = 0.03*xPos if i == 0 else -1*0.03*xPos
+        axBigAllSky.text(x=xPos + deltaX, y=yPos, s =label.strftime("%H:%M:%S"),color=trajColors[i], ha=alignment[i], transform=projPC,size=12)
 
 
-# --- Define colorbar axis ---
-cmap = 'turbo'
+
+
+
+# --- --- --- --- --- --
+# --- 5 AllSky Plots ---
+# --- --- --- --- --- --
+smallPlotTargetTimes = [dt.datetime(2022, 11, 20, 17, 20, 00, 000),
+                        dt.datetime(2022, 11, 20, 17, 21, 30, 000),
+                        dt.datetime(2022, 11, 20, 17, 23, 00, 000),
+                        dt.datetime(2022, 11, 20, 17, 24, 30, 000),
+                        dt.datetime(2022, 11, 20, 17, 26, 00, 000),
+                        dt.datetime(2022, 11, 20, 17, 27, 30, 000)
+                        ] # the dt corresponding to the AllSky image I want to use in the plot
+
+nRows= int(len(smallPlotTargetTimes)/2)
+nCols = 2
+gs_smallerAllSkys = gridspec.GridSpecFromSubplotSpec(nrows=nRows, ncols=nCols, subplot_spec=gsData[1], hspace=0.0)
+
+counter = 0
+for i in range(nRows):
+    for j in range(nCols):
+        axSmallAllSky = fig.add_subplot(gs_smallerAllSkys[i, j], projection=projType)
+        gl = axSmallAllSky.gridlines(draw_labels=True, linewidth=1, alpha=0.2, linestyle='--')
+        gl.xlabel_style = {'size': 6, 'color': 'black', 'weight': 'bold'}
+        gl.ylabel_style = {'size': 6, 'color': 'black', 'weight': 'bold'}
+        gl.top_labels = False
+        axSmallAllSky.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
+        axSmallAllSky.coastlines(resolution=res, color='black', alpha=0.8)  # adds coastlines with resolution
+        # axSmallAllSky.set_aspect(0.3)
+        pltIndex = np.abs(np.array(Epoch_AllSky[0]) - smallPlotTargetTimes[counter]).argmin()
+        axSmallAllSky.set_title(Epoch_AllSky[0][pltIndex].strftime("%H:%M:%S") + ' UTC', fontsize=10, weight='bold')
+        axSmallAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][pltIndex], cmap=cmapColor, transform=projPC, vmin=cbarVmin, vmax=cbarVmax)
+
+        # plot the rocket trajectories on all the small AllSky Plots
+        # axSmallAllSky.plot(geoLong[0], geoLat[0], color=trajColors[0], transform=projPC)  # High
+        # axSmallAllSky.plot(geoLong[1], geoLat[1], color=trajColors[1], transform=projPC)  # Low
+        # for k in range(2):
+        #     Index = np.abs(EpochRocket[k] - pycdf.lib.datetime_to_tt2000(smallPlotTargetTimes[counter])).argmin()
+        #     xPos = geoLong[k][Index]
+        #     yPos = geoLat[k][Index]
+        #     axSmallAllSky.scatter(x=xPos, y=yPos, marker="o", color=trajColors[k], transform=projPC)
+
+        counter += 1
+
+
+# --- --- --- ----
+# --- COLORBAR ---
+# --- --- --- ----
 gsColorBar = fig.add_subplot(gs0[1])
 plt.colorbar(mappable=cmapBigAllSky, cax=gsColorBar, orientation='horizontal',fraction=0.046, pad=0.04)
-gsColorBar.set_title('Intensity [kR]', fontsize=20)
+gsColorBar.set_title('Intensity [kR]', fontsize=15)
 gsColorBar.tick_params(labelsize=20)
 
+# plt.tight_layout()
 plt.savefig(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Papers\ACESII_Alfvenic_Observations\Plots\\Plot1_AllSky.png')
 # plt.show()
