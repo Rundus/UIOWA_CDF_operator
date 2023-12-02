@@ -11,9 +11,6 @@ __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
 import matplotlib.colors
-import matplotlib.pyplot as plt
-import numpy as np
-
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -23,7 +20,6 @@ start_time = time.time()
 # --- IMPORTS ---
 # --- --- --- ---
 import matplotlib.gridspec as gridspec
-import matplotlib.ticker as ticker
 from itertools import product
 
 print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
@@ -34,7 +30,7 @@ print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
 reduceData =  False
 targetTimes = [dt.datetime(2022, 11, 20, 17, 24, 55, 500000), dt.datetime(2022, 11, 20, 17, 25, 9, 500000)]
 wEngyLim = 20 # Energy index used to determine limits of x-y plot when converted into V_perp,V_parallel
-cbarLow,cbarHigh = [1E6,5E8]
+cbarLow,cbarHigh = 1E6,5E8
 
 # --- --- --- --- --- ---
 # --- LOAD IN THE DATA ---
@@ -161,7 +157,7 @@ times = [ [dt.datetime(2022, 11, 20, 17, 24, 58, 212000), dt.datetime(2022, 11, 
 
 timesIndicies = [[5963, 5969, 5974],
                  [5986, 5990, 5994], # scale x: -500 to 500, scale y: -100 to 500
-                 [6014,6017,6023]]
+                 [6014, 6017, 6023]]
 
 
 

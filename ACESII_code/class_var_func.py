@@ -140,9 +140,10 @@ def loadDictFromFile(inputFilePath, **kwargs):
 
 
     input_data_dict = kwargs.get('input_data_dict', {})
-    reduceData = kwargs.get('reduceData', False)
     targetTimes = kwargs.get('targetTimes', [])
+    reduceData = True if targetTimes != [] else kwargs.get('reduceData', False)
     wKeys = kwargs.get('wKeys', [])
+
 
     # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:

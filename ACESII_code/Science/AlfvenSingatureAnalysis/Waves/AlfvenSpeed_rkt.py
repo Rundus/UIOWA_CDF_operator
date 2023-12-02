@@ -42,10 +42,14 @@ wRocket = 4
 wFiles = []
 
 modifier = ''
-inputPath_modifier_density = 'science/Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_density = 'l3/Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 wFile_ni = 0
 inputPath_modifier_mag = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 wFile_mag = 0
+inputPath_modifier_deltaE = 'l3'
+wFile_deltaE =0
+inputPath_modifier_deltaB = 'l3'
+wFile_deltaB =0
 outputPath_modifier = 'science/AlfvenSpeed_rkt' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 outputData = True
 
@@ -71,6 +75,11 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
     inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
     inputFiles_density = glob(f'{rocketFolderPath}{inputPath_modifier_density}\{fliers[wflyer]}{modifier}\*fixed*.cdf')
+    inputFiles_deltaE = glob(f'{rocketFolderPath}{inputPath_modifier_deltaE}\{fliers[wflyer]}{modifier}\*Field_Aligned*.cdf')
+    inputFiles_deltaB = glob(f'{rocketFolderPath}{inputPath_modifier_deltaB}\{fliers[wflyer]}{modifier}\*Field_Aligned*.cdf')
+
+    print(inputFiles_deltaE)
+    print(inputFiles_deltaB)
 
     fileoutName = f'ACESII_{rocketID}_AlfvenSpeed_flight.cdf'
 
@@ -85,15 +94,26 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         print('\n')
         print(color.UNDERLINE + f'Calculating Alfven Speed' + color.END)
 
-        # --- get the data from the tmCDF file ---
+        # --- get the data from the Bmag file ---
         prgMsg(f'Loading data from mag File')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[wFile_mag],{},reduceData=reduceData,targetTimes=targetTimes)
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wFile_mag],reduceData=reduceData,targetTimes=targetTimes)
         Done(start_time)
 
-        # --- get the data from the tmCDF file ---
+        # --- get the data from the density file ---
         prgMsg(f'Loading data from density File')
-        data_dict_density = loadDictFromFile(inputFiles_density[wFile_ni], {},reduceData=reduceData,targetTimes=targetTimes)
+        data_dict_density = loadDictFromFile(inputFiles_density[wFile_ni],reduceData=reduceData,targetTimes=targetTimes)
         Done(start_time)
+
+        # --- get the data from the deltaB file ---
+        prgMsg(f'Loading data from deltaB File')
+        data_dict_deltaB = loadDictFromFile(inputFiles_deltaB[wFile_deltaB], reduceData=reduceData, targetTimes=targetTimes)
+        Done(start_time)
+
+        # --- get the data from the deltaE file ---
+        prgMsg(f'Loading data from deltaE File')
+        data_dict_deltaE = loadDictFromFile(inputFiles_deltaE[wFile_deltaE], reduceData=reduceData, targetTimes=targetTimes)
+        Done(start_time)
+
 
         # reduce data
         lowCut, highCut = np.abs(data_dict_mag['Epoch'][0] - targetTimes[0]).argmin(), np.abs(data_dict_mag['Epoch'][0] - targetTimes[1]).argmin()
@@ -118,15 +138,38 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                                                       targetEpochArray=dateTimetoTT2000(data_dict_mag['Epoch'][0],False))
         Done(start_time)
 
+        #############################
+        # --- SMOOTH DENSITY DATA ---
+        #############################
+
+        from scipy.signal import savgol_filter
+
+        densityVar =  savgol_filter(x=data_dict_densityInterp['ni'][0],
+                                    window_length=1000,
+                                    polyorder=5)
+
+        fig,ax = plt.subplots()
+        ax.plot(data_dict_densityInterp['Epoch'][0], data_dict_densityInterp['ni'][0],color='blue')
+        ax.plot(data_dict_densityInterp['Epoch'][0], densityVar,color='red')
+        plt.show()
+
+
 
 
         ####################################
         # --- CALCULATE THE ALFVEN SPEED ---
         ####################################
 
-        AlfvenSpeed = np.array([
+        # MHD Alfven Speed - Plasma Density and Magnetic Field
+        AlfvenSpeed_MHD = np.array([
             ((1E-9)*data_dict_mag['Bmag'][0][i])/np.sqrt(u0*(100**3)*data_dict_densityInterp['ni'][0][i]*IonMasses[0]) for i in range(len(data_dict_mag['Epoch'][0]))
         ])
+
+        # Alfven Speed - dEr/dBe
+        AlfvenSpeed_ErBe = (1000/1E-9)*np.array(data_dict_deltaE['E_r'][0])/np.array(data_dict_deltaB['B_e'][0])
+
+        # Alfven Speed - -dEe/dBr
+        AlfvenSpeed_EeBr = -1*(1000/1E-9)*np.array(data_dict_deltaE['E_e'][0])/np.array(data_dict_deltaB['B_r'][0])
 
 
         # --- --- --- --- --- --- ---
@@ -136,26 +179,32 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
         if outputData:
             prgMsg('creating output file')
 
+            # create output data_dict
             data_dict_output = {}
 
-            data = AlfvenSpeed
-            varAttrs = {'LABLAXIS': "AlfvenSpeed", 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None,
-                        'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'm/s',
-                        'VALIDMIN': data.min(), 'VALIDMAX': data.max(),
-                        'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
+            #prepare the alfven data
+            AlfvenData = [AlfvenSpeed_MHD,AlfvenSpeed_ErBe,AlfvenSpeed_EeBr]
+            epochNames = ['Epoch','Epoch_delta','Epoch_delta']
+            varNames = ['MHD','ErBe','mEeBr']
+            for i,data in enumerate(AlfvenData):
+                varAttrs = {'LABLAXIS': "AlfvenSpeed", 'DEPEND_0': epochNames[i], 'DEPEND_1': None, 'DEPEND_2': None,
+                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'm/s',
+                            'VALIDMIN': data.min(), 'VALIDMAX': data.max(),
+                            'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
-            data_dict_output = {**data_dict_output, **{'AlfvenSpeed': [data, varAttrs]}}
+                data_dict_output = {**data_dict_output, **{varNames[i]: [data, varAttrs]}}
 
+            # - prepare the epoch variables -
             Epoch_output = deepcopy(data_dict_mag['Epoch'])
-
             Epoch_output[1]['VAR_TYPE'] = 'support_data'
-
             data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
+            Epoch_output = deepcopy(data_dict_deltaB['Epoch'])
+            Epoch_output[1]['VAR_TYPE'] = 'support_data'
+            data_dict_output = {**data_dict_output, **{'Epoch_delta': Epoch_output}}
 
+            #output the data
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
-
             outputCDFdata(outputPath, data_dict_output, outputModelData, globalAttrsMod, 'Attitude')
-
             Done(start_time)
 
 

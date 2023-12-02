@@ -25,7 +25,7 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 modifier = ''
 inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 
@@ -40,13 +40,14 @@ reduceDataSet = True
 # 0 --> Alfven Region
 # 1 --> Kenton's Zoomed Region
 # 2 --> The Whole flight, excluding outlier regions
-wTargetTimes = 0
+wTargetTimes = 2
 # --- --- --- FILTERING --- --- ---
 
 # NOTE!!! I have outsourced the filtering of the Despun Data using MATLAB!. Keep SECTION_filterData = False
 SECTION_filterData = True
-plotFilteredAxes = True
+plotFilteredAxes = False
 lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 0.5, 20, 'Bandpass', 4 # filter toggles LOW FLYER
+output_Filtered_Data = True
 # --- --- --- SSA --- --- ---
 SECTION_SSA = False
 SSA_window_Size = 1201
@@ -102,7 +103,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         prgMsg(f'Loading data from {inputPath_modifier} RingCore Files')
         from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import timeWindow
         targetTimes = timeWindow(wTargetTimes, wRocket)
-        data_dict_mag = loadDictFromFile(inputFiles[wFile],{},reduceData=reduceDataSet,targetTimes=targetTimes,wKeys=[])
+        data_dict_mag = loadDictFromFile(inputFiles[wFile],reduceData=reduceDataSet,targetTimes=targetTimes,wKeys=[])
         Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
         Epoch_dt = np.array([tme for tme in data_dict_mag['Epoch'][0]])
         Done(start_time)
@@ -230,6 +231,28 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # format data for output
             data_for_output = np.array([ [B_rkt_filtered[0][i],B_rkt_filtered[1][i],B_rkt_filtered[2][i]] for i in range(len(B_rkt_filtered[0]))])
             Done(start_time)
+
+            if output_Filtered_Data:
+                prgMsg('outputting Filtered Data')
+
+                # output file location for filtered data
+                outputPath_filtered = f'{rocketFolderPath}\\l3\B_Filtered\\{fliers[wflyer]}\\ACESII_{rocketID}_RingCore_{searchMod}_filtered'
+
+                if wTargetTimes == 0:
+                    outputPath_filtered = outputPath_filtered + '_Alfven.cdf'
+                elif wTargetTimes == 1:
+                    outputPath_filtered = outputPath_filtered + '_zoomed.cdf'
+                else:
+                    outputPath_filtered = outputPath_filtered + '_flight.cdf'
+
+                # construct the output data dict
+                data_dict_filt_output = {'Epoch': [data_dict_mag['Epoch'][0], deepcopy(data_dict_mag['Epoch'][1])],
+                                         comps[0]: [data_for_output[:, 0], deepcopy(data_dict_mag[comps[0]][1])],
+                                         comps[1]: [data_for_output[:, 1], deepcopy(data_dict_mag[comps[1]][1])],
+                                         comps[2]: [data_for_output[:, 2], deepcopy(data_dict_mag[comps[2]][1])]}
+
+                outputCDFdata(outputPath_filtered, data_dict_filt_output, outputModelData, globalAttrsMod, 'EFI')
+                Done(start_time)
 
         if SECTION_SSA:
 

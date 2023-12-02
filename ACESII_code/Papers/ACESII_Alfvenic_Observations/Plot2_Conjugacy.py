@@ -31,7 +31,8 @@ print(color.UNDERLINE + f'Plot2_Conjugacy' + color.END)
 
 # targetInvariantlats = [70.15, 70.5]
 targetInvariantlats = [69.8, 70.8]
-cbarLimits = [1E7,1E9]
+# cbarLimits = [1E7,1E9]
+cbarLimits = [4E5,5E8]
 wPitch_engy_val = 38 # the chosen energy (0 - 41) for thePitch Angle Plot
 
 # --- --- --- --- --- ---
@@ -165,7 +166,7 @@ fig.set_figheight(figure_height)
 # fig.suptitle('ACESII')
 
 ##### Define the primary Gridspec #####
-gs0 = gridspec.GridSpec(nrows=5, ncols=4, figure=fig, width_ratios=[0.49, 0.01, 0.49, 0.01], hspace=0.1,wspace=0.2) # splits figure between the plots and the colorbar at the very bottom
+gs0 = gridspec.GridSpec(nrows=4, ncols=4, figure=fig, width_ratios=[0.49, 0.01, 0.49, 0.01], hspace=0.1,wspace=0.2) # splits figure between the plots and the colorbar at the very bottom
 
 
 #%%%%%%%%%% HF %%%%%%%%%%%
@@ -214,15 +215,15 @@ axEB_HF_B.xaxis.label.set_color('tab:blue')
 axEB_HF_B.tick_params(axis='y',colors='tab:blue')
 axEB_HF_B.margins(x=0)
 
-# HF Poynting Flux data
-axS_HF = fig.add_subplot(gs0[4,0])
-axS_HF.plot(invariantLat_wave_high,(1E3)*data_dict_poynting_high['S_p'][0],label='Sp',color='black')
-axS_HF.set_ylabel('$\delta B_{\perp}^{2} V_{A}/2\mu_{0}$ \n [ergs/cm$^{2}$s]')
-axS_HF.set_ylim(-0.25,0.25)
-axS_HF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-axS_HF.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_HF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
-axS_HF.margins(x=0)
+# # HF Poynting Flux data
+# axS_HF = fig.add_subplot(gs0[4,0])
+# axS_HF.plot(invariantLat_wave_high,(1E3)*data_dict_poynting_high['S_p'][0],label='Sp',color='black')
+# axS_HF.set_ylabel('$\delta B_{\perp}^{2} V_{A}/2\mu_{0}$ \n [ergs/cm$^{2}$s]')
+# axS_HF.set_ylim(-0.25,0.25)
+# axS_HF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
+# axS_HF.xaxis.set_major_locator(ticker.LinearLocator(N))
+# axS_HF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
+# axS_HF.margins(x=0)
 
 #add additional x axes(ALT)
 axS_HF.annotate('Alt [km]',xy=(-0.15,-0.16),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
@@ -327,17 +328,17 @@ axEB_LF_B.legend()
 
 
 #%%%LF Poynting Flux data%%%
-axS_LF = fig.add_subplot(gs0[4, 2])
-axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_p'][0], label='Sp', color='black')
-axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_e'][0],label='Se', color='tab:red',alpha=0.7)
-axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_r'][0], label='Sr', color='tab:blue',alpha=0.7)
-axS_LF.set_ylabel('Energy Flux \n [ergs/cm$^2$s]')
-axS_LF.set_ylim(-0.025,0.025)
-axS_LF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-axS_LF.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_LF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
-axS_LF.margins(x=0)
-axS_LF.legend(loc='upper right')
+# axS_LF = fig.add_subplot(gs0[4, 2])
+# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_p'][0], label='Sp', color='black')
+# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_e'][0],label='Se', color='tab:red',alpha=0.7)
+# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_r'][0], label='Sr', color='tab:blue',alpha=0.7)
+# axS_LF.set_ylabel('Energy Flux \n [ergs/cm$^2$s]')
+# axS_LF.set_ylim(-0.025,0.025)
+# axS_LF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
+# axS_LF.xaxis.set_major_locator(ticker.LinearLocator(N))
+# axS_LF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
+# axS_LF.margins(x=0)
+# axS_LF.legend(loc='upper right')
 
 #add additional x axes(ALT)
 axS_LF.annotate('Alt [km]',xy=(-0.15,-0.16),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')

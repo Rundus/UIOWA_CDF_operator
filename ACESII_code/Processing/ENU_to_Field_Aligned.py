@@ -34,17 +34,18 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
 wFiles = [0]
 
+
 modifier = ''
-inputPath_modifier = '\science\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_attitude = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-outputPath_modifier = '\science\deltaB' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
+inputPath_modifier = r'\l3\B_Filtered' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = r'\l3\B_Filtered' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 outputData = True
 
@@ -87,12 +88,12 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
 
         # --- get the data from the E-Field or B-Field file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = loadDictFromFile(inputFiles[wFile], {},reduceData=False,targetTimes=[])
+        data_dict = loadDictFromFile(inputFiles[wFile],reduceData=False,targetTimes=[])
         Done(start_time)
 
         # --- get the data from the attitude file ---
         prgMsg(f'Loading data from {inputPath_modifier_attitude} Files')
-        data_dict_attitude = loadDictFromFile(inputFiles_attitude[0], {},reduceData=True,targetTimes=[data_dict['Epoch'][0][0],data_dict['Epoch'][0][-1]])
+        data_dict_attitude = loadDictFromFile(inputFiles_attitude[0],reduceData=True,targetTimes=[data_dict['Epoch'][0][0],data_dict['Epoch'][0][-1]])
         Done(start_time)
 
         ############################################################
@@ -101,7 +102,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
         prgMsg('Interpolating Attitude Data')
         data_dict_attitudeInterp = InterpolateDataDict(InputDataDict=data_dict_attitude,
                                                        InputEpochArray=data_dict_attitude['Epoch'][0],
-                                                       wKeys=['Alt','Latgd','Long','Epoch'],
+                                                       wKeys=['Alt','Lat','Long','Epoch'],
                                                        targetEpochArray=data_dict['Epoch'][0])
 
         # convert altitude to km
@@ -118,14 +119,14 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
 
         # Get the Data
         B_rkt_ENU = np.array([[data_dict[compNames[0]][0][i], data_dict[compNames[1]][0][i], data_dict[compNames[2]][0][i]] for i in range(len(data_dict['Epoch'][0]))])
-        B_model = CHAOS(lat=data_dict_attitudeInterp['Latgd'][0],
+        B_model = CHAOS(lat=data_dict_attitudeInterp['Lat'][0],
                         long=data_dict_attitudeInterp['Long'][0],
                         alt=data_dict_attitudeInterp['Alt'][0],
                         times=data_dict['Epoch'][0])  # CHAOS in ENU coordinates
 
         # --- Convert B-Data to GEO (ECEF) XYZ coordinates ---
         from ACESII_code.class_var_func import ENUtoECEF
-        ENUtoGEOmatrix = np.array([ENUtoECEF(Lat=data_dict_attitudeInterp['Latgd'][0][i],
+        ENUtoGEOmatrix = np.array([ENUtoECEF(Lat=data_dict_attitudeInterp['Lat'][0][i],
                                              Long=data_dict_attitudeInterp['Long'][0][i]) for i in range(len(data_dict['Epoch'][0]))])
 
         B_rkt_GEO = np.array([np.matmul(ENUtoGEOmatrix[i], B_rkt_ENU[i]) for i in range(len(data_dict['Epoch'][0]))])
@@ -134,7 +135,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
         # --- determine the Payload's Position Vector in GEO (ECEF) coordinate XYZ ---
         R_REF = 6371.2  # earth Radius in km
         Radius = data_dict_attitudeInterp['Alt'][0] + R_REF
-        coLatRad = [np.radians(90 - lat) for lat in data_dict_attitudeInterp['Latgd'][0]]
+        coLatRad = [np.radians(90 - lat) for lat in data_dict_attitudeInterp['Lat'][0]]
         LongRad = [np.radians(long) for long in data_dict_attitudeInterp['Long'][0]]
         Rsc = np.array([
             [Radius[i] * np.sin(coLatRad[i]) * np.cos(LongRad[i]),
@@ -170,7 +171,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
         prgMsg('Calculating Geomagnetic Coordinates')
 
         # Trajectory Data
-        geodeticPos = np.array([data_dict_attitudeInterp['Alt'][0], data_dict_attitudeInterp['Latgd'][0], data_dict_attitudeInterp['Long'][0]]).transpose()
+        geodeticPos = np.array([data_dict_attitudeInterp['Alt'][0], data_dict_attitudeInterp['Lat'][0], data_dict_attitudeInterp['Long'][0]]).transpose()
         ISOtime = np.array([data_dict['Epoch'][0][i].isoformat() for i in range(len(data_dict['Epoch'][0]))])
         cvals_GDZ = coord.Coords(geodeticPos, 'GDZ', 'sph')
         cvals_GDZ.ticks = Ticktock(ISOtime, 'ISO')
@@ -220,7 +221,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
             varAttrs = deepcopy(data_dict_attitude['Alt'][1])
             varAttrs['LABLAXIS'] = 'Latitude'
             varAttrs['UNITS'] = 'deg'
-            data_dict_output = {**data_dict_output, **{'Lat': [np.array(data_dict_attitudeInterp['Latgd'][0]), varAttrs]}}
+            data_dict_output = {**data_dict_output, **{'Lat': [np.array(data_dict_attitudeInterp['Lat'][0]), varAttrs]}}
 
             # geograph long
             varAttrs = deepcopy(data_dict_attitude['Alt'][1])

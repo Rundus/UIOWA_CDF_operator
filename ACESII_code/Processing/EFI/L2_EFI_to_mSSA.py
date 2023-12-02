@@ -44,8 +44,9 @@ wTargetTimes = 2
 convertTomVm = True # converts data to mV/m
 # --- --- --- FILTERING --- --- ---
 SECTION_filterData = True
-plotFilteredAxes = True
-lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle =0.5, 20, 'Highpass', 4 # filter toggles LOW FLYER
+plotFilteredAxes = False
+lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 0.5, 20, 'Highpass', 4 # filter toggles LOW FLYER
+output_Filtered_Data = True
 # --- --- --- SSA --- --- ---
 SECTION_SSA = False
 SSA_window_Size = 501
@@ -85,15 +86,7 @@ def L2_EFI_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
         searchMod = 'FieldAligned'
 
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*E_Field_{searchMod}*')
-
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
-
-    if wTargetTimes == 0:
-        fileoutName_dE = f'ACESII_{rocketID}_l2_E_Field_dE_Alfven_{searchMod}'
-    elif wTargetTimes == 1:
-        fileoutName_dE = f'ACESII_{rocketID}_l2_E_Field_dE_zoomed_{searchMod}'
-    else:
-        fileoutName_dE = f'ACESII_{rocketID}_l2_E_Field_dE_{searchMod}'
 
 
     if justPrintFileNames:
@@ -105,7 +98,7 @@ def L2_EFI_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
         prgMsg(f'Loading data from {inputPath_modifier} EFI Files')
         from ACESII_code.Processing.EFI.SSAgrouping_and_target_times_E import timeWindow
         targetTimes = timeWindow(wTargetTimes, wRocket)
-        data_dict_elec = loadDictFromFile(inputFiles[wFile],{},reduceData=reduceDataSet,targetTimes=targetTimes)
+        data_dict_elec = loadDictFromFile(inputFiles[wFile],reduceData=reduceDataSet,targetTimes=targetTimes)
         Epoch_seconds = np.array([(tme - data_dict_elec['Epoch'][0][0]) / 1E9 for tme in data_dict_elec['Epoch'][0]])
         Epoch_dt = np.array([tme for tme in data_dict_elec['Epoch'][0]])
         Done(start_time)
@@ -240,10 +233,37 @@ def L2_EFI_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
             data_for_output = np.array([ [E_rkt_filtered[0][i],E_rkt_filtered[1][i],E_rkt_filtered[2][i]] for i in range(len(E_rkt_filtered[0]))])
             Done(start_time)
 
+
+            if output_Filtered_Data:
+                prgMsg('outputting Filtered Data')
+
+                # output file location for MSSA
+                outputPath_filtered = f'{rocketFolderPath}\\l3\E_Filtered\\{fliers[wflyer]}\\ACESII_{rocketID}_E_Field_{searchMod}_filtered'
+
+                if wTargetTimes == 0:
+                    outputPath_filtered = outputPath_filtered + '_Alfven.cdf'
+                elif wTargetTimes == 1:
+                    outputPath_filtered = outputPath_filtered + '_zoomed.cdf'
+                else:
+                    outputPath_filtered = outputPath_filtered + '_flight.cdf'
+
+                # construct the output data dict
+                data_dict_filt_output = {'Epoch':  [data_dict_elec['Epoch'][0], deepcopy(data_dict_elec['Epoch'][1])],
+                                         comps[0]: [data_for_output[:, 0],      deepcopy(data_dict_elec[comps[0]][1])],
+                                         comps[1]:[data_for_output[:, 1],      deepcopy(data_dict_elec[comps[1]][1])],
+                                         comps[2]:   [data_for_output[:, 2],      deepcopy(data_dict_elec[comps[2]][1])]}
+
+                data_dict_filt_output[comps[0]][1]['UNITS'] = 'mV/m' if convertTomVm else 'V/m'
+                data_dict_filt_output[comps[1]][1]['UNITS'] = 'mV/m' if convertTomVm else 'V/m'
+                data_dict_filt_output[comps[2]][1]['UNITS'] = 'mV/m' if convertTomVm else 'V/m'
+
+                outputCDFdata(outputPath_filtered, data_dict_filt_output, outputModelData, globalAttrsMod, 'EFI')
+                Done(start_time)
+
         if SECTION_SSA:
 
             # output file location for MSSA
-            outputPathSSA = f'{rocketFolderPath}\\science\SSAcomponents_E\\{fliers[wflyer]}\\ACESII_{rocketID}_E_Field_SSAcomponents_{searchMod}_WL{SSA_window_Size}'
+            outputPathSSA = f'{rocketFolderPath}\\l3\SSAcomponents_E\\{fliers[wflyer]}\\ACESII_{rocketID}_E_Field_SSAcomponents_{searchMod}_WL{SSA_window_Size}'
 
             if wTargetTimes == 0:
                 outputPathSSA = outputPathSSA + '_Alfven.cdf'

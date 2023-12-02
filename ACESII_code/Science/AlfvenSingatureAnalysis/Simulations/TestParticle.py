@@ -2,7 +2,6 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: Test particle simulaton that was recreated using ideas from a Knudsen and Wu paper:
 # https://doi. org/10.1029/2020JA028005
-import numpy as np
 
 # TODO: Use ion concentrations to better estimate rho_m in alfven velocity
 
@@ -19,14 +18,16 @@ import matplotlib.animation as animation
 import matplotlib.patches as mpatches
 start_time = time.time()
 
-m_to_km = 1E3
 
-
+############################
 # --- --- --- --- --- --- --
 # --- SIMULATION TOGGLES ---
 # --- --- --- --- --- --- --
+############################
+m_to_km = 1E3
+
 # --- simToggles ---
-simLen = 320 # how many delta T steps to simulate
+simLen = 330 # how many delta T steps to simulate
 deltaT = 0.01 # in seconds
 simAltLow = 500*m_to_km # low altitude in meters
 simAltHigh = 12000*m_to_km # high altitude in meters
@@ -38,9 +39,14 @@ ptcl_mass = m_e # mass of the particle
 ptcl_charge = q0 # charge of the particle
 
 # The range of energies for each color (the rightmost linspace point is ignored)
-simEnergyRanges = [[0.001, 1],
-                [1, 10],
-                [10, 20]]
+simEnergyRanges = [[0.01, 1],
+                   [1, 5],
+                   [5, 10],
+                   [10, 15],
+                   [15, 20],
+                   [20, 25],
+                  [25, 30]
+                   ]
 
 # the color choice for each set of particles
 simColors = [['tab:purple'],
@@ -52,23 +58,26 @@ simColors = [['tab:purple'],
              ['tab:pink']]
 
 # the number of Energies to linspace the energy ranges
-simPtclsPerEngyRange = [10,
-                        10,
-                        10,
-                        10,
-                        10]
+simPtclsPerEngyRange = [5 for i in range(len(simEnergyRanges))]
+
+# which pitch angles should the initial partcles be at
+customPitches = True
+simPtcls_Initial_Pitch_Range = (list(np.linspace(-25, 25, int(1*N/8))) +
+                                list(np.linspace(155, 205, int(5*N/8)))+
+                                list(np.linspace(25, 155, int(N/8)))+
+                                list(np.linspace(205, 335, int(N/8))))
 
 
-# --- E-Field Toggles ---
+# --- WAVE E-Field Toggles ---
 flipEField = True
 dynamicWaveSpeed = False
-Z0_wave = (6371+3000)*m_to_km # initial altitude of the wave (in meters)
+Z0_wave = (1*6371+3000)*m_to_km # initial altitude of the wave (in meters)
 
 # static
-Amplitude_static = 0.00012/2  # V/m
+Amplitude_static = 0.15/1000  # V/m
 lamda_static = (7500 - 4500)*m_to_km  # in meters
 WaveSpeed_Static = 2500*m_to_km  # in meters/s
-duty = 43 # duty cycle percent (Max is 50)
+duty = 40 # duty cycle percent (Max is 50)
 
 # dynamic
 Eperp = 12E-3 # V/m
@@ -86,14 +95,19 @@ plotEField = False
 plotMirror_vs_electrostatic = False
 plotInputEnergies = False
 plotEuler_1step = False
-# -------------------------
+
+#### MAJOR TOGGLES ###
+# --- Particle Trajectory Movies ---
 outputAnimation = True
 fps = 30
 # -------------------------
 simulated_EEPAA_plots = True
 pitches_to_plot = [i for i in range(21)] # indicies of pitch bins that will be plotted from [-10, 0 , 10, 20, 30, ...]
 # -------------------------
-simulated_EEPAA_animation = True
+simulated_pitchAnglePlot_EEPAA_animation = True
+fps_ptichAnglePlot = 15
+# -------------------------
+outputObservedParticleData = True
 
 
 
@@ -133,9 +147,7 @@ def testParticle_Sim():
     cvals_MAG = coord.Coords(Pos, 'MAG', 'sph')
     cvals_MAG.ticks = Ticktock(ISOtime, 'ISO')
     cvals_GDZ = cvals_MAG.convert('GEO', 'sph')
-    Alt_geo = cvals_GDZ.radi
     Lat_geo = cvals_GDZ.lati
-    Long_geo = cvals_GDZ.long
 
     # Get the Chaos model
     B = CHAOS(Lat_geo, [15.25 for i in range(len(Alt))], np.array(Alt) / m_to_km, times)
@@ -248,7 +260,10 @@ def testParticle_Sim():
     # --- Populate Initial Variables ---
     for i, engy in enumerate(Energies):
         V_mag = np.sqrt(2 * engy * ptcl_charge / ptcl_mass)
-        pitches = np.radians(np.linspace(0, 360, N))
+
+        pitches = np.radians(np.linspace(0, 360, N)) if not customPitches else np.radians(np.array(simPtcls_Initial_Pitch_Range))
+
+
         data_dict[f'{Energies[i]}_zpos'].append([Z0 for ptch in pitches]) # z position
         data_dict[f'{Energies[i]}_vpar'].append([V_mag * np.cos(ptch) for ptch in pitches]) # parallel velocity
         data_dict[f'{Energies[i]}_vperp'].append([V_mag * np.sin(ptch) for ptch in pitches]) # perpendicular velocity
@@ -315,7 +330,9 @@ def testParticle_Sim():
             data_dict[f"{engy}_energies"][-1].append(calcE(newVperp,newVpar,ptcl_mass,ptcl_charge))
     Done(start_time)
 
-    # --- IMPLEMENT ADAMS BASHFORTH---
+    # --- --- --- --- --- --- --- --- -
+    # --- IMPLEMENT ADAMS BASHFORTH ---
+    # --- --- --- --- --- --- --- --- -
     prgMsg('Adams Bashforth')
     print('\n')
     for j, tme in tqdm(enumerate(simTime)):
@@ -409,7 +426,6 @@ def testParticle_Sim():
                     # record that we've now observed this particle and don't need to plot it again
                     for s in range(tme+1, simLen):
                         data_dict[f'{engy}_observed'][s][ptclN] = 0
-
     Done(start_time)
     # --- --- --- --- ----
     # --- DIAGNOSTICS ---
@@ -459,6 +475,92 @@ def testParticle_Sim():
             ax[i].set_ylabel('vperp [km/s]')
         plt.show()
 
+
+    # --- --- --- --- --- --- --- --- --- --- --- ----
+    # --- CREATE OBSERVED PARTICLE DATAST VARIABLE ---
+    # --- --- --- --- --- --- --- --- --- --- --- ----
+
+    # get the ACESII information
+    rocketAttrs, b, c = ACES_mission_dicts()
+    instr_engy_bins = rocketAttrs.Instr_Energy[0][0:41]
+    instr_ptch_bins = rocketAttrs.Instr_sector_to_pitch[0]
+    VperpGrid = np.zeros(shape=(len(instr_ptch_bins), len(instr_engy_bins)))
+    VparaGrid = np.zeros(shape=(len(instr_ptch_bins), len(instr_engy_bins)))
+
+    # create the meshgrids for plotting
+    timeGrid, EngyGrid = np.meshgrid(simTime, instr_engy_bins)
+
+    for ptch in range(len(instr_ptch_bins)):
+        for engy in range(len(instr_engy_bins)):
+            Emag = np.sqrt(2 * q0 * instr_engy_bins[engy] / (m_e))
+            VperpGrid[ptch][engy] = np.sin(np.radians(instr_ptch_bins[ptch])) * Emag
+            VparaGrid[ptch][engy] = np.cos(np.radians(instr_ptch_bins[ptch])) * Emag
+    VparaGrid, VperpGrid = np.array(VparaGrid) / 1000, np.array(VperpGrid) / 1000
+
+    # create the empty dataset variable
+    simCounts = np.zeros(shape=(len(simTime), len(instr_ptch_bins), len(instr_engy_bins)))
+
+    # fill in the counts data
+    for obsPtcl in obsPtclData:
+
+        # see if ptcl's ptch is within the detector. If so, then count it
+        if -15 <= obsPtcl[2] <= 195:
+            # determine where the particle should go in the counts variable
+            obsTime_index = np.abs(np.array(simTime) - obsPtcl[0]).argmin()
+            obsPtch_index = np.abs(np.array(instr_ptch_bins) - obsPtcl[2]).argmin()
+            obsEngy_index = np.abs(np.array(instr_engy_bins) - obsPtcl[1]).argmin()
+
+            # increment the counts value
+            simCounts[obsTime_index][obsPtch_index][obsEngy_index] += 1
+
+    # --- create a differential Energy Flux variable and fill it in for all time ---
+    geo_factor = rocketAttrs.geometric_factor[0]
+    countInterval = 0.8992 * 1E-3
+    deadtime = 674E-9
+    diffEFlux = np.zeros(shape=(len(simTime), len(instr_ptch_bins), len(instr_engy_bins)))
+
+    for tme, ptch, engy in itertools.product(*[range(len(simTime)), range(len(instr_ptch_bins)), range(len(instr_engy_bins))]):
+        measuredT = (countInterval) - (simCounts[tme][ptch][engy] * deadtime)
+        diffEFlux[tme][ptch][engy] = int((simCounts[tme][ptch][engy]) / (geo_factor[ptch] * measuredT))
+
+
+    # --- --- --- --- ---
+    # --- OUTPUT DATA ---
+    # --- --- --- --- ---
+
+    if outputObservedParticleData:
+        prgMsg('outputting Data')
+
+        # get some model data
+        globalAttrsMod = rocketAttrs.globalAttributes[0]
+        globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L1'
+        data_dict_counts = loadDictFromFile('C:\Data\ACESII\L1\high\ACESII_36359_l1_eepaa_fullCal.cdf',wKeys=['eepaa','Energy','Pitch_Angle','Epoch'])
+        data_dict_diffFlux = loadDictFromFile('C:\Data\ACESII\L2\high\ACESII_36359_l2_eepaa_fullCal.cdf', wKeys=['Differential_Energy_Flux'])
+
+        # create the output data_dict
+        data_dict_output = {'Energy':deepcopy(data_dict_counts['Energy']),
+                     'Pitch_Angle':deepcopy(data_dict_counts['Pitch_Angle']),
+                     'simCounts':[simCounts,deepcopy(data_dict_counts['eepaa'][1])],
+                     'simDiffEFLux':[diffEFlux,deepcopy(data_dict_diffFlux['Differential_Energy_Flux'][1])]}
+
+        for key,val in data_dict_output.items():
+            data_dict_output[key][1]['DEPEND_0'] = 'Time'
+
+        # handle the Epoch variable
+        exampleEpoch = {'DEPEND_0': 'Time', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+                        'FORMAT': None, 'UNITS': 's', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'support_data',
+                        'MONOTON': 'INCREASE', 'TIME_BASE': None, 'TIME_SCALE': None,
+                        'REFERENCE_POSITION': None, 'SCALETYP': 'linear', 'LABLAXIS': 'Time'}
+        data_dict_output = {**data_dict_output, **{'Time':[np.array(simTime),exampleEpoch]}}
+
+
+        # output the data
+        outputCDFdata(outputPath='C:\Data\ACESII\science\simulations\TestParticle\TestParticleData.cdf',
+                      data_dict=data_dict_output,
+                      ModelData=L1_ACES_Quick(0),
+                      globalAttrsMod=globalAttrsMod,
+                      instrNam='EEPAA')
+        Done(start_time)
     # --- --- --- --- ----
     # --- ANIMATE PLOT ---
     # --- --- --- --- ----
@@ -531,7 +633,7 @@ def testParticle_Sim():
         TEplot = axTspaceE.scatter([],[])
         axTspaceE.set_xlim(0, simTime[-1])
         axTspaceE.set_ylim(20, 1.2*TEmaxE) if TEmaxE != 0 else axTspaceE.set_ylim(20, 500)
-        axTspaceE.set_ylabel('E [eV]')
+        axTspaceE.set_ylabel('Energy [eV]')
         axTspaceE.set_xlabel('Time [s]')
 
         patches = [mpatches.Patch(color=simColors[i][0], label=f'<{simEnergyRanges[i][1]} eV') for i in range(len(simEnergyRanges))]
@@ -635,7 +737,7 @@ def testParticle_Sim():
 
         anim = animation.FuncAnimation(fig=fig, func=animate_func, frames=simLen, interval=1000 / fps)
         print('', end='\r' + color.RED + f'{round(100 * simLen / simLen, 1)} %' + color.END)
-        anim.save(f'C:\Data\ACESII\science\Movies\{outputTitle}', fps=fps)
+        anim.save(f'C:\Data\ACESII\science\simulations\{outputTitle}', fps=fps)
         print('\n')
         Done(start_time)
 
@@ -647,31 +749,6 @@ def testParticle_Sim():
 
         prgMsg('Simulating EEPAA Response')
 
-        # get the ACESII information
-        rocketAttrs, b, c = ACES_mission_dicts()
-        instr_engy_bins = rocketAttrs.Instr_Energy[0]
-        instr_ptch_bins = rocketAttrs.Instr_sector_to_pitch[0]
-
-        # create the X,Y meshgrids
-        X, Y = np.meshgrid(simTime, instr_engy_bins)
-
-        # create the empty dataset variable
-        counts = np.zeros(shape=(len(simTime), len(instr_ptch_bins), len(instr_engy_bins)))
-
-        # fill in the counts data
-        for obsPtcl in obsPtclData:
-
-            # see if ptcl's ptch is within the detector. If so, then count it
-            if -15 <= obsPtcl[2] <= 195:
-
-                # determine where the particle should go in the counts variable
-                obsTime_index = np.abs(np.array(simTime) - obsPtcl[0]).argmin()
-                obsPtch_index = np.abs(np.array(instr_ptch_bins) - obsPtcl[2]).argmin()
-                obsEngy_index = np.abs(np.array(instr_engy_bins) - obsPtcl[1]).argmin()
-
-                # increment the counts value
-                counts[obsTime_index][obsPtch_index][obsEngy_index] += 1
-
         # --- --- --- ----
         # --- PLOTTING ---
         # --- --- --- ----
@@ -679,31 +756,92 @@ def testParticle_Sim():
         for plotIndex in pitches_to_plot:
 
             # determine the data to plot
-            plotThisData = counts[:, plotIndex, :]
+            plotThisData = np.array(simCounts[:, plotIndex, :])
+            # plotThisData = plotThisData/plotThisData.max()
 
             # figure
             fig, ax = plt.subplots()
 
             # colormesh
-            cmapPlot = ax.pcolormesh(X, Y, plotThisData.T, vmin=0, vmax=10, cmap='turbo', shading='auto')
+            cmapPlot = ax.pcolormesh(timeGrid, EngyGrid, plotThisData.T, cmap='turbo', shading='auto',vmin=0,vmax=10)
             ax.set_ylabel('Energy [eV]')
             ax.set_xlabel('Time [s]')
             fig.suptitle('Simulated ACES II EEPAA\n'
                          r'$\alpha = $' + f'{instr_ptch_bins[plotIndex]}' + '$^{\circ}$')
 
-            ax.set_ylim(min(instr_engy_bins),TEmaxE*1.5)
+            ax.set_ylim(min(instr_engy_bins), TEmaxE*1.5)
 
             # colorbar
             cbar = plt.colorbar(cmapPlot)
             cbar.set_label('Counts')
 
             plt.tight_layout()
-            plt.savefig(f'C:\Data\ACESII\science\Movies\TestParticle\TestParticle_{instr_ptch_bins[plotIndex]}deg')
+            plt.savefig(f'C:\Data\ACESII\science\simulations\TestParticle\TestParticle_{instr_ptch_bins[plotIndex]}deg')
+            plt.close()
 
 
         Done(start_time)
 
-    if simulated_EEPAA_animation:
+    if simulated_pitchAnglePlot_EEPAA_animation:
+
+        # --- --- --- --- --- --- --
+        # --- START THE ANIMATION ---
+        # --- --- --- --- --- --- --
+        prgMsg('Animating EEPAA Polar Response')
+
+        # --- determine the plot's limits ---
+        wEngyLim = 25 # corresponds to
+        EnergyLimit = instr_engy_bins[wEngyLim]
+        VelLimit = np.sqrt(2 * EnergyLimit * q0 / (m_e)) / 1000
+
+        # --- INITIALIZE THE PLOT ---
+        fig, ax = plt.subplots()
+        figure_height = 15
+        figure_width = 10
+        fig.set_figwidth(figure_width)
+        fig.set_figheight(figure_height)
+        title = ax.set_title(f'$\Delta t$= {round(simTime[0],2)}\n'+
+                           r'$|E_{\parallel}|$ = ' + f'{round(Amplitude*1000,3)} [mV/m]\n' +
+                           f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
+        ax.set_xlabel('V$_{\perp}$ [km/s]', fontsize=14)
+        ax.set_ylabel('V$_{\parallel}$ [km/s]', fontsize=14)
+        ax.set_xlim(-5000, VelLimit)
+        ax.set_ylim(-VelLimit, VelLimit)
+
+
+        # plot the data
+        cbarLow, cbarHigh = 1E6, 5E8
+        cmapPlot = ax.pcolormesh(VperpGrid, VparaGrid, diffEFlux[0], cmap='turbo',norm='log', shading='nearest', vmin=cbarLow, vmax=cbarHigh,edgecolor='k',linewidth=0.1)
+        ax.invert_yaxis()  # flip the x-axis
+
+        # create the grid
+        # ax.pcolormesh(Vperp, Vpara, diffEFlux[0],facecolor='none',edgecolor='k',linewidth=0.1,alpha=1, cmap='turbo', shading='nearest', vmin=0, vmax=1) # creates the grid
+
+        # colorbar
+        cbar = fig.colorbar(mappable = cmapPlot)
+        cbar.set_label('Differential Energy Flux [eV/cm$^{2}$-s-sr-eV]', fontsize=16)
+
+        # --- ANIMATION FUNCTION ---
+        def animate_func(j):
+            print('', end='\r' + color.RED + f'{round(100 * j / simLen, 1)} %' + color.END)
+
+            # update the title
+            title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n'+
+                           r'$|E_{\parallel}|$ = ' + f'{round(Amplitude*1000,3)} [mV/m]\n' +
+                           f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
+
+
+            # update the data
+            cmapPlot.set_array(diffEFlux[j])
+            # cmapPlot.set_array(diffEFlux[j]/diffEFlux[j].max())
+
+        anim = animation.FuncAnimation(fig=fig, func=animate_func, frames=simLen, interval=1000 / fps_ptichAnglePlot)
+        print('', end='\r' + color.RED + f'{round(100 * simLen / simLen, 1)} %' + color.END)
+        anim.save(f'C:\Data\ACESII\science\simulations\TestParticle\EEPAA_Polar_Animation.mp4', fps=fps)
+
+        Done(start_time)
+
+
 
 
 

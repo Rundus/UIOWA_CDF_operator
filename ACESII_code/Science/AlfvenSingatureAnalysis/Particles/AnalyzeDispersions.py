@@ -39,7 +39,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 ######################################
 # plot all of the dispersion functions over a range of pitch angles (user input)
 plotKeyDispersions = True
-wDispersions = [1] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [3] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitches = [2] # plots specific pitch angles by their index
 # ---------------------------
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature
@@ -116,13 +116,13 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
 
         # --- get the data from the ESA file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = loadDictFromFile(inputFiles[wFile],{})
-        data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in (range(len(data_dict['Epoch_esa'][0])))])
+        data_dict = loadDictFromFile(inputFiles[wFile])
+        data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in (range(len(data_dict['Epoch'][0])))])
         Done(start_time)
 
         # --- get data from Trajectory Files ---
         prgMsg(f'Loading data from {inputPath_modifier_trajectory} Files')
-        data_dict_traj = loadDictFromFile(inputFiles_trajectory[0], {})
+        data_dict_traj = loadDictFromFile(inputFiles_trajectory[0])
         data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
         Done(start_time)
 
@@ -152,9 +152,9 @@ def AlfvenSignatureAnalysis(wRocket, wFile, rocketFolderPath, justPrintFileNames
                     # isolate a single dispersion trace
                     targetTimes = [pycdf.lib.datetime_to_tt2000(dispersionAttributes.keyDispersionTimes[wDispersion][0]),
                                    pycdf.lib.datetime_to_tt2000(dispersionAttributes.keyDispersionTimes[wDispersion][1])]
-                    limitIndexes = [np.abs(data_dict['Epoch_esa'][0] - targetTimes[0]).argmin(),
-                                    np.abs(data_dict['Epoch_esa'][0] - targetTimes[1]).argmin()]
-                    EpochOneDis = np.array([data_dict['Epoch_esa'][0][i] for i in range(limitIndexes[0], limitIndexes[1])])
+                    limitIndexes = [np.abs(data_dict['Epoch'][0] - targetTimes[0]).argmin(),
+                                    np.abs(data_dict['Epoch'][0] - targetTimes[1]).argmin()]
+                    EpochOneDis = np.array([data_dict['Epoch'][0][i] for i in range(limitIndexes[0], limitIndexes[1])])
                     esaDataOneDis = np.array(data_dict[wInstr[1]][0][limitIndexes[0]:limitIndexes[1]])
 
                     # select only the energies from dispersionAttributes.energyLimits
