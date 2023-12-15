@@ -216,6 +216,129 @@ def outputCDFdata(outputPath, data_dict, ModelData,globalAttrsMod,instrNam):
                     sciFile[varKey].attrs[attrKey] = attrVal
 
 
+def CHAOS(lat, long, alt, times):
+
+    # imports
+    import datetime as dt
+    from glob import glob
+    from chaosmagpy import load_CHAOS_matfile
+    from chaosmagpy.data_utils import mjd2000
+
+    FILEPATH_CHAOS = glob(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\supportCode\CHAOS/CHAOS-*.mat')[0]
+
+    R_REF = 6371.2
+
+    # give inputs
+    theta = np.array([90 - lat[i] for i in range(len(lat))]) # colat in deg
+    phi = np.array(long)
+    radius = np.array(alt) + R_REF
+
+    # convert datetime date to mjd2000
+    if not isinstance(times[0], dt.date):
+        raise Exception('Input times are not datetimes. Convert to python datetime')
+    else:
+        time = np.array([mjd2000(date.year, date.month, date.day, date.hour) for date in times])  # year, month, day
+
+    # load the CHAOS model
+    model = load_CHAOS_matfile(FILEPATH_CHAOS)
+
+    # print('Computing core field.')
+    B_core = model.synth_values_tdep(time, radius, theta, phi)
+
+    # print('Computing crustal field up to degree 110.')
+    B_crust = model.synth_values_static(radius, theta, phi, nmax=110)
+
+    # complete internal contribution
+    B_radius_int = B_core[0] + B_crust[0]
+    B_theta_int = B_core[1] + B_crust[1]
+    B_phi_int = B_core[2] + B_crust[2]
+
+    # print('Computing field due to external sources, incl. induced field: GSM.')
+    B_gsm = model.synth_values_gsm(time, radius, theta, phi, source='all')
+
+    # print('Computing field due to external sources, incl. induced field: SM.')
+    B_sm = model.synth_values_sm(time, radius, theta, phi, source='all')
+
+    # complete external field contribution
+    B_radius_ext = B_gsm[0] + B_sm[0]
+    B_theta_ext = B_gsm[1] + B_sm[1]
+    B_phi_ext = B_gsm[2] + B_sm[2]
+
+    # complete forward computation
+    B_radius = B_radius_int + B_radius_ext
+    B_theta = B_theta_int + B_theta_ext
+    B_phi = B_phi_int + B_phi_ext
+
+    # output CHAOS_ENU
+    B_ENU = np.array([[B_phi[i],-1*B_theta[i], B_radius[i]] for i in range(len(B_radius))])
+
+    return B_ENU
+
+
+def mSSA_components(data_dict_input, compNames, SSA_window_Size, mirrorData):
+
+    # Functionality Statement:
+    # [1] Input a data_dict
+    # [2] Identify the components to mSSA
+    # [3] If you need to mirror the data first, do so
+    # [4] Calculate the mSSA components
+    # [5] return a new data_dict with the Epoch variable also inside
+
+    # --- Imports ---
+    from ACESII_code.supportCode.Support_Libraries.pymssa import MSSA
+    from pandas import DataFrame
+    from copy import deepcopy
+
+    # --- Ensure all the compNames keys are in the data_dict_input ---
+    for key in compNames:
+        if key not in data_dict_input:
+            raise Exception('input Variable Key not in data dictionary')
+
+    # --- Ensure all the Epoch variable is in the data_dict_input ---
+    if 'Epoch' not in data_dict_input:
+        raise Exception(r'No variable named "Epoch" in input dictionary')
+
+    # --- Mirror the data if requested ---
+    if mirrorData:
+        for key in compNames:
+            mirroredData = deepcopy(data_dict_input[key][0]) + deepcopy(data_dict_input[key][0][::-1])
+            data_dict_input[key][0] = mirroredData
+
+    # --- --- --- --- ----
+    # --- PERFORM mSSA ---
+    # --- --- --- --- ----
+
+    # create the MSSA object
+    mssa = MSSA(n_components=None, window_size=SSA_window_Size, verbose=False)
+
+    # convert data_dict input Data to pandas dataframe
+    data = DataFrame({compNames[i]: data_dict_input[compNames[i]][0] for i in range(len(compNames))})
+
+    # calculate the mSSA
+    mssa.fit(data)
+
+    # get the mSSA components
+    components = mssa.components_
+
+    # --- --- --- --- --- ---
+    # --- output the data ---
+    # --- --- --- --- --- ---
+
+    # creat the output data_dict and populate it
+    data_dict_output = {}
+
+    for i in range(len(compNames)):
+        dataToOutput = np.array(components[i, :, :])  # update the data for output to be the components
+        attrs = deepcopy(data_dict_input[compNames[i]][1])
+        attrs['LABLAXIS'] = compNames[i]
+        attrs['VALIDMIN'] = dataToOutput.min()
+        attrs['VALIDMAX'] = dataToOutput.max()
+        data_dict_output = {**data_dict_output, **{compNames[i]: [dataToOutput, attrs]}}
+
+    # add in the Epoch variable
+    data_dict_output = {**data_dict_output, **{'Epoch': deepcopy(data_dict_input['Epoch'])}}
+
+    return data_dict_output
 
 
 # --- The Basic rotation matricies
@@ -423,60 +546,4 @@ def L2_ACES_Quick(flier):
     return Initialize_cdfFile(data_paths.ACES_L2_files[flier][0])
 
 
-def CHAOS(lat, long, alt, times):
 
-    # imports
-    import datetime as dt
-    from glob import glob
-    from chaosmagpy import load_CHAOS_matfile
-    from chaosmagpy.data_utils import mjd2000
-
-    FILEPATH_CHAOS = glob(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\supportCode\CHAOS/CHAOS-*.mat')[0]
-
-    R_REF = 6371.2
-
-    # give inputs
-    theta = np.array([90 - lat[i] for i in range(len(lat))]) # colat in deg
-    phi = np.array(long)
-    radius = np.array(alt) + R_REF
-
-    # convert datetime date to mjd2000
-    if not isinstance(times[0], dt.date):
-        raise Exception('Input times are not datetimes. Convert to python datetime')
-    else:
-        time = np.array([mjd2000(date.year, date.month, date.day, date.hour) for date in times])  # year, month, day
-
-    # load the CHAOS model
-    model = load_CHAOS_matfile(FILEPATH_CHAOS)
-
-    # print('Computing core field.')
-    B_core = model.synth_values_tdep(time, radius, theta, phi)
-
-    # print('Computing crustal field up to degree 110.')
-    B_crust = model.synth_values_static(radius, theta, phi, nmax=110)
-
-    # complete internal contribution
-    B_radius_int = B_core[0] + B_crust[0]
-    B_theta_int = B_core[1] + B_crust[1]
-    B_phi_int = B_core[2] + B_crust[2]
-
-    # print('Computing field due to external sources, incl. induced field: GSM.')
-    B_gsm = model.synth_values_gsm(time, radius, theta, phi, source='all')
-
-    # print('Computing field due to external sources, incl. induced field: SM.')
-    B_sm = model.synth_values_sm(time, radius, theta, phi, source='all')
-
-    # complete external field contribution
-    B_radius_ext = B_gsm[0] + B_sm[0]
-    B_theta_ext = B_gsm[1] + B_sm[1]
-    B_phi_ext = B_gsm[2] + B_sm[2]
-
-    # complete forward computation
-    B_radius = B_radius_int + B_radius_ext
-    B_theta = B_theta_int + B_theta_ext
-    B_phi = B_phi_int + B_phi_ext
-
-    # output CHAOS_ENU
-    B_ENU = np.array([[B_phi[i],-1*B_theta[i], B_radius[i]] for i in range(len(B_radius))])
-
-    return B_ENU

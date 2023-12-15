@@ -2,7 +2,6 @@
 # # --- Author: C. Feltman ---
 # # DESCRIPTION: script for general tinkering
 
-from ACESII_code.myImports import *
+a = {'A':[1,2,3,4,5]}
 
-a = np.array([1,2,3])
-print(np.shape(a))
+print(a['A'] + a['A'][::-1])

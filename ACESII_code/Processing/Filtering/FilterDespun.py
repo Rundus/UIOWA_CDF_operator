@@ -38,8 +38,6 @@ inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader inpu
 outputPath_modifier_E = 'science\DespunE_filtered' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 outputPath_modifier_B = 'science\DespunB_filtered' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
-
-
 wBfile = 0
 wEfile =0
 

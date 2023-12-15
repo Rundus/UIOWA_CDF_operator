@@ -1,4 +1,4 @@
-# --- TestParticle.py ---
+# --- TestParticle_simulation.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Test particle simulaton that was recreated using ideas from a Knudsen and Wu paper:
 # https://doi. org/10.1029/2020JA028005
@@ -9,10 +9,6 @@
 # --- IMPORTS ---
 # --- --- --- ---
 from ACESII_code.myImports import *
-from spacepy import coordinates as coord
-from spacepy.time import Ticktock
-from scipy.stats import linregress
-from ACESII_code.class_var_func import CHAOS, lightSpeed, u0
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 import matplotlib.patches as mpatches
@@ -24,204 +20,111 @@ start_time = time.time()
 # --- SIMULATION TOGGLES ---
 # --- --- --- --- --- --- --
 ############################
-m_to_km = 1E3
 
 # --- simToggles ---
-simLen = 330 # how many delta T steps to simulate
-deltaT = 0.01 # in seconds
-simAltLow = 500*m_to_km # low altitude in meters
-simAltHigh = 12000*m_to_km # high altitude in meters
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simulation_Toggles import *
 
 # --- particle toggles ---
-Z0 = (1*6371)*m_to_km # initial altitude of particles (in meters)
-N = 64 # number of particles in each energy
-ptcl_mass = m_e # mass of the particle
-ptcl_charge = q0 # charge of the particle
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.Particle_Toggles import *
 
-# The range of energies for each color (the rightmost linspace point is ignored)
-simEnergyRanges = [[0.01, 1],
-                   [1, 5],
-                   [5, 10],
-                   [10, 15],
-                   [15, 20],
-                   [20, 25],
-                  [25, 30]
-                   ]
+# --- geomagnetic B-Field toggles ---
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagnetic_Field_Toggles import *
 
-# the color choice for each set of particles
-simColors = [['tab:purple'],
-             ['tab:orange'],
-             ['tab:red'],
-             ['tab:blue'],
-             ['tab:green'],
-             ['tab:brown'],
-             ['tab:pink']]
-
-# the number of Energies to linspace the energy ranges
-simPtclsPerEngyRange = [5 for i in range(len(simEnergyRanges))]
-
-# which pitch angles should the initial partcles be at
-customPitches = True
-simPtcls_Initial_Pitch_Range = (list(np.linspace(-25, 25, int(1*N/8))) +
-                                list(np.linspace(155, 205, int(5*N/8)))+
-                                list(np.linspace(25, 155, int(N/8)))+
-                                list(np.linspace(205, 335, int(N/8))))
+# --- E-Field Toggles ---
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.E_Field_Toggles import *
 
 
-# --- WAVE E-Field Toggles ---
-flipEField = True
-dynamicWaveSpeed = False
-Z0_wave = (1*6371+3000)*m_to_km # initial altitude of the wave (in meters)
-
-# static
-Amplitude_static = 0.15/1000  # V/m
-lamda_static = (7500 - 4500)*m_to_km  # in meters
-WaveSpeed_Static = 2500*m_to_km  # in meters/s
-duty = 40 # duty cycle percent (Max is 50)
-
-# dynamic
-Eperp = 12E-3 # V/m
-alpha = 1/10 # defines the ratio of the wave's wavelength to the total simulated altitude size
-kperp_obs = 1/alpha
-
-# --- B-Field Toggles ---
-Lshell = 9
-
-# --- observation toggles ---
-obsHeight = 400*m_to_km # in meters
-
+#############################
 # --- diagnostic plotting ---
+#############################
 plotEField = False
 plotMirror_vs_electrostatic = False
 plotInputEnergies = False
 plotEuler_1step = False
 
+######################
 #### MAJOR TOGGLES ###
+######################
 # --- Particle Trajectory Movies ---
 outputAnimation = True
 fps = 30
 # -------------------------
 simulated_EEPAA_plots = True
-pitches_to_plot = [i for i in range(21)] # indicies of pitch bins that will be plotted from [-10, 0 , 10, 20, 30, ...]
+ptches_to_plot = [i for i in range(21)] # indicies of pitch bins that will be plotted from [-10, 0 , 10, 20, 30, ...]
 # -------------------------
-simulated_pitchAnglePlot_EEPAA_animation = True
+simulated_pitchAnglePlot_EEPAA_animation = False
 fps_ptichAnglePlot = 15
 # -------------------------
-outputObservedParticleData = True
-
-
-
+outputObservedParticle_cdfData = True
 
 outputTitle = 'TestParticle\TestParticle_above_invTrue.mp4' if flipEField else 'TestParticle\TestParticle_above_invFalse.mp4'
+
+
+
+
+
 
 def testParticle_Sim():
 
     ##########################
     # --- SIMULATION START ---
     ##########################
-    Alt = np.linspace(simAltLow, simAltHigh, 2000)  # in METERS
-    simTime = [deltaT * i for i in range(simLen)]
 
-    # determine the Energies and colors used in the simulation
+    # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ----
+    # determine the Energies and colors used in the simulation ---
+    # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ----
     Energies = []
     colors = []
-    for i in range(len(simEnergyRanges)):
-        temp = np.linspace(simEnergyRanges[i][0], simEnergyRanges[i][1],simPtclsPerEngyRange[i])
-        for j,val in enumerate(temp):
-            if j != len(temp)-1:
+
+    if useRandomEnergies:
+        for i in range(len(simEnergyRanges)):
+
+            # create the random energies between my energy limits (DOES NOT GAURANTEE THAT THERE WILL BE EXACTLY THE NUMBER OF ENERGIES I REQUESTED, just a high likelyhood
+            randomEnergies = sorted(
+                list(
+                    set(
+                        [round(np.linspace(simEnergyRanges[i][0], simEnergyRanges[i][1], 10 * simPtclsPerEngyRange[i])[val], 3) for val in np.random.randint(0, 10 * simPtclsPerEngyRange[i] - 1, size=simPtclsPerEngyRange[i])]
+                        )
+                    )
+                   )
+
+            for val in randomEnergies:
                 Energies.append(val)
                 colors.append(simColors[i][0])
+    else:
+        for i in range(len(simEnergyRanges)):
+            temp = np.linspace(simEnergyRanges[i][0], simEnergyRanges[i][1], simPtclsPerEngyRange[i])
+            for j, val in enumerate(temp):
+                if j != len(temp)-1: # ensures that we don't use the last energy val , i.e. we have [limit1, limit2)
+                    Energies.append(val)
+                    colors.append(simColors[i][0])
+
+    # --- --- --- --- --- --- --- --- --- --- --- --- ----
+    # DETERMINE WHICH PITCHES TO USE IN THE SIMULATION ---
+    # --- --- --- --- --- --- --- --- --- --- --- --- ----
+    if customPtches:
+        simPitches = np.radians(np.array(simPtcls_Initial_Pitch_Range))
+    elif useRandomPtches:
+        pitchesLists = []
+        for pRange in customPitchRanges:
+            pitchesLists.append([round(np.linspace(pRange[0], pRange[1], 10 * pRange[2])[val], 3) for val in np.random.randint(0, 10 * pRange[2] - 1, size=pRange[2])])
+        simPitches = [item for sublist in pitchesLists for item in sublist]
+    else:
+        simPitches = np.radians(np.linspace(0, 360, N))
 
     # --- --- --- --- --- --- --- --- --- --
     # --- GENERATE THE GEOMAGNETIC FIELD ---
     # --- --- --- --- --- --- --- --- --- --
     prgMsg('Getting Geomagnetic Field')
-
-    R_REF = 6371.2 * m_to_km  # in meters
-    geomagAlts = [((alt + R_REF) / R_REF) for alt in Alt]
-    geomagLats = np.array([np.degrees(np.arccos(radi / Lshell)) for radi in geomagAlts])
-    geomagLongs = np.array([111.83 for i in range(len(Alt))])
-    times = [dt.datetime(2022, 11, 20, 17, 20, 00, 000) for i in range(len(Alt))]
-    Pos = np.array([geomagAlts, geomagLats, geomagLongs]).transpose()
-    ISOtime = [times[i].isoformat() for i in range(len(times))]
-    cvals_MAG = coord.Coords(Pos, 'MAG', 'sph')
-    cvals_MAG.ticks = Ticktock(ISOtime, 'ISO')
-    cvals_GDZ = cvals_MAG.convert('GEO', 'sph')
-    Lat_geo = cvals_GDZ.lati
-
-    # Get the Chaos model
-    B = CHAOS(Lat_geo, [15.25 for i in range(len(Alt))], np.array(Alt) / m_to_km, times)
-    Bmag = (1E-9) * np.array([np.linalg.norm(Bvec) for Bvec in B])
-    Bgrad = [(Bmag[i + 1] - Bmag[i]) / (Alt[i + 1] - Alt[i]) for i in range(len(Bmag) - 1)] + [0]
+    Bmag, Bgrad = generateBField()
     Done(start_time)
 
     # --- --- --- --- --- --- --- --- ---
     # --- GENERATE THE ELECTRIC FIELD ---
     # --- --- --- --- --- --- --- --- ---
-
-    # --- determine the density over all altitudes ---
-    # Description: returns density for altitude "z [km]" in m^-3
-    h = 0.06 * (R_REF / m_to_km)  # in km from E's surface
-    n0 = 6E4
-    n1 = 1.34E7
-    z0 = 0.05 * (R_REF / m_to_km)  # in km from E's surface
-    n = [(cm_to_m ** 3) * (n0 * np.exp(-1 * ((alt / m_to_km) - z0) / h) + n1 * ((alt / m_to_km) ** (-1.55))) for alt in Alt]  # calculated density (in cm^-3)
-
-    # --- determine the electron plasma density and skin depth ---
-    plasmaFreq = [np.sqrt((n[j] * q0 * q0) / (m_e * ep0)) for j in range(len(n))]
-    skinDepth = [lightSpeed / freq for freq in plasmaFreq]
-
-    # --- determine kperp throughout all altitudes ---
-    kperp = [kperp_obs * np.sqrt(Bmag[j] / Bmag[0]) for j in range(len(Alt))]
-
-    # --- determine MHD alfven speed ---
-    VA_MHD = [Bmag[j]/np.sqrt(u0*IonMasses[0]*n[j]) for j in range(len(Alt))]
-
-    # Desciption: the output variable is a[ [len(Alt)], ... len(simtime)] object that describes the electric field at
-    # every altitude for each time in the simulation
-
-    E_Field = []
-
-    for k, tme in enumerate(simTime):
-
-        if duty > 50:
-            raise Exception('Duty cannot be more than 50%')
-
-        E_temp= []
-        for j, alt in enumerate(Alt):
-
-            # determine the wave parameters
-            sign = -1 if flipEField else 1 # flip the sign of the amplitude
-            WaveSpeed = 5 if dynamicWaveSpeed else WaveSpeed_Static
-            lamda = 5 if dynamicWaveSpeed else lamda_static
-            deltaPos = 5 if dynamicWaveSpeed else tme * WaveSpeed_Static
-            Amplitude = 5 if dynamicWaveSpeed else Amplitude_static
-
-            riseTime = lamda*(50 - duty)/(2*100)
-            dutyTime = lamda*(duty/100)
-
-            if alt > Z0_wave - deltaPos:  # if we're above the wave
-                E = 0
-            elif (Z0_wave - deltaPos - riseTime) <= alt < (Z0_wave - deltaPos):  # if we're in the first risetime
-                slope, intercept, r, p, se = linregress(x=[Z0_wave - deltaPos, Z0_wave - deltaPos - riseTime], y=[0, Amplitude])
-                E = sign * (slope * alt + intercept)
-            elif (Z0_wave - deltaPos - (dutyTime+riseTime)) <= alt < (Z0_wave - deltaPos - riseTime):  # if we're in the first max amplitude part
-                E = sign * Amplitude
-            elif (Z0_wave - deltaPos - (dutyTime+3*riseTime)) <= alt < (Z0_wave - deltaPos - (dutyTime+riseTime)):  # if we're in the middle transition region
-                slope, intercept, r, p, se = linregress(x=[Z0_wave - deltaPos - (dutyTime+riseTime), Z0_wave - deltaPos - (dutyTime+3*riseTime)], y=[Amplitude, -1 * Amplitude])
-                E = sign * (slope * alt + intercept)
-            elif (Z0_wave - deltaPos - (2*dutyTime+3*riseTime)) <= alt < (Z0_wave - deltaPos - (dutyTime+3*riseTime)):  # if we're in the lowest max amplitude part
-                E = -1 * sign * Amplitude
-            elif (Z0_wave - deltaPos - lamda) <= alt < (Z0_wave - deltaPos - (2*dutyTime+3*riseTime)):  # if we're in the last risetime
-                slope, intercept, r, p, se = linregress(x=[Z0_wave - deltaPos - (2*dutyTime+3*riseTime), Z0_wave - deltaPos - lamda], y=[-1 * Amplitude, 0])
-                E = sign * (slope * alt + intercept)
-            elif alt < (Z0_wave - deltaPos - lamda):  # if we're outside the wave on the bottom edge
-                E = 0
-            else:
-                E = 0
-
-            E_temp.append(E)
-        E_Field.append(E_temp)
+    prgMsg('Generating E-Field')
+    E_Field, E_Field_Amplitude, E_Field_WaveSpeed, E_Field_lambda = generateEField(Bmag=Bmag)
+    Done(start_time)
 
     #--- --- --- --- --- --- --- -
     # --- SIMULATION FUNCTIONS ---
@@ -253,26 +156,33 @@ def testParticle_Sim():
 
     # --- create an empty data_dict ---
     data_dict = {}
-    varNames = ['vpar','vperp','zpos','force','moment','Bmag','Bgrad','observed','energies']
+    varNames = ['zpos', 'vpar', 'vperp','energies','Bmag', 'Bgrad','moment', 'force' , 'observed', ]
     for i in range(len(Energies)):
         data_dict = {**data_dict, **{f"{Energies[i]}_{vNam}": [] for vNam in varNames}}
 
     # --- Populate Initial Variables ---
-    for i, engy in enumerate(Energies):
-        V_mag = np.sqrt(2 * engy * ptcl_charge / ptcl_mass)
+    for i, engy in enumerate(Energies): # for all energies
 
-        pitches = np.radians(np.linspace(0, 360, N)) if not customPitches else np.radians(np.array(simPtcls_Initial_Pitch_Range))
+        # for each energy, create a variable to hold the initial data
+        initVars = [[] for thing in varNames]
 
+        # loop over all the alttitudes and fill in the initial data
+        for h, Z0_ptcl in enumerate(Z0_ptcl_ranges): # create initial variables for all interested altitudes
+            V_mag = np.sqrt(2 * engy * ptcl_charge / ptcl_mass)
+            initVars[0].append([Z0_ptcl for ptch in simPitches]) # initZpos
+            initVars[1].append([V_mag * np.cos(ptch) for ptch in simPitches]) # initVpar
+            initVars[2].append([V_mag * np.sin(ptch) for ptch in simPitches]) # initVperp
+            initVars[3].append([calcE(V_mag * np.sin(ptch), V_mag * np.cos(ptch), ptcl_mass, ptcl_charge) for ptch in simPitches]) # initEngy
+            initVars[4].append([Bmag[np.abs(simAlt-zpos).argmin()] for zpos in initVars[0][h]]) # initBmag
+            initVars[5].append([Bgrad[np.abs(simAlt-zpos).argmin()] for zpos in initVars[0][h]]) # initGrad
+            initVars[6].append([0.5*m_e*(initVars[2][h][k]**2)/initVars[4][h][k] for k in range(N)]) # initMoment
+            initVars[7].append([forceFunc(simTime_Index=0, alt_Index=np.abs(simAlt - initVars[0][h][k]).argmin(), mu=initVars[6][h][k], deltaB=initVars[5][h][k]) for k in range(N)]) # initForce
+            initVars[8].append([1 if initVars[0][h][k] <= obsHeight else 0 for k in range(N)]) # initObserved
 
-        data_dict[f'{Energies[i]}_zpos'].append([Z0 for ptch in pitches]) # z position
-        data_dict[f'{Energies[i]}_vpar'].append([V_mag * np.cos(ptch) for ptch in pitches]) # parallel velocity
-        data_dict[f'{Energies[i]}_vperp'].append([V_mag * np.sin(ptch) for ptch in pitches]) # perpendicular velocity
-        data_dict[f'{Energies[i]}_energies'].append([calcE(V_mag * np.sin(ptch), V_mag * np.cos(ptch), ptcl_mass, ptcl_charge) for ptch in pitches]) # particle energy
-        data_dict[f'{Energies[i]}_Bmag'].append([Bmag[np.abs(Alt-zpos).argmin()] for zpos in data_dict[f'{Energies[i]}_zpos'][0]]) # determine B-Field
-        data_dict[f'{Energies[i]}_Bgrad'].append([Bgrad[np.abs(Alt-zpos).argmin()] for zpos in data_dict[f'{Energies[i]}_zpos'][0]]) # determine deltaB
-        data_dict[f'{Energies[i]}_moment'].append([0.5*m_e*(data_dict[f'{Energies[i]}_vperp'][0][k]**2)/data_dict[f'{Energies[i]}_Bmag'][0][k] for k in range(N)])  # determine magnetic moment
-        data_dict[f'{Energies[i]}_force'].append([forceFunc(simTime_Index=0, alt_Index=np.abs(Alt - data_dict[f'{Energies[i]}_zpos'][0][k]).argmin(), mu=data_dict[f'{Energies[i]}_moment'][0][k], deltaB=data_dict[f'{Energies[i]}_Bgrad'][0][k]) for k in range(N)]) # determine the initial force function
-        data_dict[f'{Energies[i]}_observed'].append([1 if data_dict[f'{Energies[i]}_zpos'][0][k] <= obsHeight else 0 for k in range(N)])
+        # collapse the dimension of the initial variables and store them
+        for j in range(len(initVars)):
+            data_dict[f'{Energies[i]}_{varNames[j]}'].append([item for sublist in initVars[j] for item in sublist])
+
     Done(start_time)
 
     # --- --- --- --- --- --- --- --- -
@@ -294,10 +204,10 @@ def testParticle_Sim():
             data_dict[f"{engy}_{vNam}"].append([])
 
         # Determine the "n+1" data
-        for k in range(N): # numer of particles
+        for k in range(N_total): # number of particles
 
             # determine new parallel velocity
-            newVpar = Euler(yn=vPars0[k], funcVal_n=forceFunc(simTime_Index=0, alt_Index=np.abs(Alt - zPos0[k]).argmin(), deltaB=deltaBs0[k], mu=mus0[k]))
+            newVpar = Euler(yn=vPars0[k], funcVal_n=forceFunc(simTime_Index=0, alt_Index=np.abs(simAlt - zPos0[k]).argmin(), deltaB=deltaBs0[k], mu=mus0[k]))
             data_dict[f"{engy}_vpar"][-1].append(newVpar)
 
             # determine new z-position
@@ -305,7 +215,7 @@ def testParticle_Sim():
             data_dict[f"{engy}_zpos"][-1].append(newPos)
 
             # determine new B
-            newB = Bmag[np.abs(Alt-newPos).argmin()]
+            newB = Bmag[np.abs(simAlt-newPos).argmin()]
             data_dict[f"{engy}_Bmag"][-1].append(newB)
 
             # determine new Vperp
@@ -313,7 +223,7 @@ def testParticle_Sim():
             data_dict[f"{engy}_vperp"][-1].append(newVperp)
 
             # determine new deltaB
-            newdB = Bgrad[np.abs(Alt-newPos).argmin()]
+            newdB = Bgrad[np.abs(simAlt-newPos).argmin()]
             data_dict[f"{engy}_Bgrad"][-1].append(newdB)
 
             # determine new moments
@@ -321,7 +231,7 @@ def testParticle_Sim():
             data_dict[f"{engy}_moment"][-1].append(newMu)
 
             # determine new force
-            data_dict[f"{engy}_force"][-1].append(forceFunc(simTime_Index=1, alt_Index= np.abs(Alt - newPos).argmin(), deltaB=newdB, mu=newMu))
+            data_dict[f"{engy}_force"][-1].append(forceFunc(simTime_Index=1, alt_Index= np.abs(simAlt - newPos).argmin(), deltaB=newdB, mu=newMu))
 
             # determine if new particle is observed
             data_dict[f"{engy}_observed"][-1].append(1) if newPos <= obsHeight else data_dict[f"{engy}_observed"][-1].append(0)
@@ -364,7 +274,7 @@ def testParticle_Sim():
                     data_dict[f"{engy}_{vNam}"].append([])
 
                 # for each particle in a particluar energy
-                for i in range(N):
+                for i in range(N_total):
 
                     # new parallel velocity
                     newVpar = AdamsBashforth(yn1=vPars_n1[i], funcVal_n=force_n[i], funcVal_n1=force_n1[i])
@@ -375,17 +285,17 @@ def testParticle_Sim():
                     data_dict[f"{engy}_zpos"][-1].append(newPos)
 
                     # new Brad
-                    newdB = Bgrad[np.abs(newPos - Alt).argmin()]
+                    newdB = Bgrad[np.abs(newPos - simAlt).argmin()]
                     data_dict[f"{engy}_Bgrad"][-1].append(newdB)
 
                     # new Force
-                    data_dict[f"{engy}_force"][-1].append(forceFunc(simTime_Index=j, alt_Index=np.abs(Alt - newPos).argmin(), deltaB=newdB, mu=mu_n[i],))
+                    data_dict[f"{engy}_force"][-1].append(forceFunc(simTime_Index=j, alt_Index=np.abs(simAlt - newPos).argmin(), deltaB=newdB, mu=mu_n[i],))
 
                     # new mu
                     data_dict[f"{engy}_moment"][-1].append(mu_n[i])
 
                     # new Bmag
-                    newBmag = Bmag[np.abs(newPos-Alt).argmin()]
+                    newBmag = Bmag[np.abs(newPos-simAlt).argmin()]
                     data_dict[f"{engy}_Bmag"][-1].append(newBmag)
 
                     # new Vperp
@@ -407,7 +317,7 @@ def testParticle_Sim():
     for tme in range(simLen):
         for engy in Energies:
             observed = np.array(data_dict[f'{engy}_observed'][tme])
-            for ptclN in range(N):
+            for ptclN in range(N_total):
                 if observed[ptclN] == 1:
 
                     # get the observed particle information
@@ -421,12 +331,13 @@ def testParticle_Sim():
 
                     # find the largest observed Parallel energy
                     # TEmaxE = obs_ptcl_engy*np.cos(np.radians(obs_ptcl_pitch)) if obs_ptcl_engy*np.cos(np.radians(obs_ptcl_pitch)) > TEmaxE else TEmaxE # Epar attempt
-                    TEmaxE = obs_ptcl_engy  if obs_ptcl_engy  > TEmaxE else TEmaxE
+                    TEmaxE = obs_ptcl_engy if obs_ptcl_engy > TEmaxE else TEmaxE
 
                     # record that we've now observed this particle and don't need to plot it again
                     for s in range(tme+1, simLen):
                         data_dict[f'{engy}_observed'][s][ptclN] = 0
     Done(start_time)
+
     # --- --- --- --- ----
     # --- DIAGNOSTICS ---
     # --- --- --- --- ----
@@ -442,7 +353,7 @@ def testParticle_Sim():
         fig, ax = plt.subplots()
         wTimes = [i for i in range(0, len(simTime), int(len(simTime)/len(colors)))]
         for i,index in enumerate(wTimes):
-            ax.plot(E_Field[index],Alt, color= f'{colors[i]}', label='$\Delta t = $' + f'{wTimes[i]}')
+            ax.plot(E_Field[index],simAlt, color= f'{colors[i]}', label='$\Delta t = $' + f'{wTimes[i]}')
         fig.legend()
         plt.show()
 
@@ -453,8 +364,8 @@ def testParticle_Sim():
 
         for k in range(len(chosenPitch)):
             scaling = 1E8
-            ax[k].plot([ptcl_charge*(Amplitude)/ (scaling*ptcl_mass) for i in range(len(Alt))], Alt/m_to_km,label='E-Force')
-            ax[k].plot([(0.5*((np.sin(np.radians(chosenPitch[k]))*np.sqrt(2*10*ptcl_charge/ptcl_mass) )**2)*Bgrad[i])/(Bmag[i]*scaling) for i in range(len(Alt))]  ,Alt/m_to_km,label=r'$\nabla$ B Force')
+            ax[k].plot([ptcl_charge*(E_Field_Amplitude)/ (scaling*ptcl_mass) for i in range(len(simAlt))], simAlt/m_to_km,label='E-Force')
+            ax[k].plot([(0.5*((np.sin(np.radians(chosenPitch[k]))*np.sqrt(2*10*ptcl_charge/ptcl_mass) )**2)*Bgrad[i])/(Bmag[i]*scaling) for i in range(len(simAlt))], simAlt/m_to_km,label=r'$\nabla$ B Force')
             ax[k].legend()
             ax[k].set_title(f'{chosenPitch[k]}$^\circ$')
             ax[k].set_xlabel(f'Force [{scaling} N]')
@@ -528,7 +439,7 @@ def testParticle_Sim():
     # --- OUTPUT DATA ---
     # --- --- --- --- ---
 
-    if outputObservedParticleData:
+    if outputObservedParticle_cdfData:
         prgMsg('outputting Data')
 
         # get some model data
@@ -561,6 +472,7 @@ def testParticle_Sim():
                       globalAttrsMod=globalAttrsMod,
                       instrNam='EEPAA')
         Done(start_time)
+
     # --- --- --- --- ----
     # --- ANIMATE PLOT ---
     # --- --- --- --- ----
@@ -588,7 +500,7 @@ def testParticle_Sim():
         # --- INITIALIZE ---
         # --- --- --- --- --
         title = fig.suptitle(f'$\Delta t$= {round(simTime[0],2)}\n' +
-                             r'$E_{\parallel}$ = ' + f'{round(Amplitude*1000,3)} [mV/m]',fontsize=30)
+                             r'$E_{\parallel}$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]',fontsize=30)
 
         # gridspec
         gs0 = gridspec.GridSpec(nrows=5, ncols=2, figure=fig,hspace=0.5,wspace=0.3)
@@ -604,21 +516,21 @@ def testParticle_Sim():
 
         # Show the E-Field
         axE = axAlt.twiny()
-        E_Field_Wave, = axE.plot(E_Field[0], Alt/m_to_km, color='black')
+        E_Field_Wave, = axE.plot(E_Field[0], simAlt/m_to_km, color='black')
 
-        TopArrowX = -1*Amplitude / 2 if flipEField else Amplitude/2
-        TopArrowY = (Z0_wave - (0.45*lamda))/m_to_km if flipEField else (Z0_wave - (0.05*lamda))/m_to_km
-        BotArrowX = Amplitude / 2 if flipEField else -1*Amplitude/2
-        BotArrowY = (Z0_wave - ((1-0.45)*lamda))/m_to_km if flipEField else (Z0_wave - ((1-0.05)*lamda))/m_to_km
+        TopArrowX = -1*E_Field_Amplitude / 2 if flipEField else E_Field_Amplitude/2
+        TopArrowY = (Z0_wave - (0.45*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - (0.05*E_Field_lambda))/m_to_km
+        BotArrowX = E_Field_Amplitude / 2 if flipEField else -1*E_Field_Amplitude/2
+        BotArrowY = (Z0_wave - ((1-0.45)*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - ((1-0.05)*E_Field_lambda))/m_to_km
         dx = 0
-        dyTop = 0.35*lamda/m_to_km if flipEField else -0.35*lamda/m_to_km
-        dyBot = -0.35*lamda/m_to_km if flipEField else 0.35*lamda/m_to_km
+        dyTop = 0.35*E_Field_lambda/m_to_km if flipEField else -0.35*E_Field_lambda/m_to_km
+        dyBot = -0.35*E_Field_lambda/m_to_km if flipEField else 0.35*E_Field_lambda/m_to_km
 
         topAr = axE.annotate("E$_{\parallel}$", xy=(TopArrowX, TopArrowY), xytext=(TopArrowX + dx, TopArrowY + dyTop),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
         botAr = axE.annotate("E$_{\parallel}$", xy=(BotArrowX, BotArrowY), xytext=(BotArrowX + dx, BotArrowY + dyBot),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
 
         axE.set_ylim(100, 8000)
-        axE.set_xlim(-1.5*Amplitude, 1.5*Amplitude)
+        axE.set_xlim(-1.5*E_Field_Amplitude, 1.5*E_Field_Amplitude)
         axE.axis('off')
 
         # Vspace Plot
@@ -657,42 +569,46 @@ def testParticle_Sim():
             vperps = np.array(data_dict[f'{Energies[i]}_vperp'][0]) / m_to_km
             vpars = np.array(data_dict[f'{Energies[i]}_vpar'][0]) / m_to_km
 
-            Pitches = np.array([np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) if vperps[k] > 0 else -1*np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) for k in range(len(vpars))])
+            initPtches = np.array([np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) if vperps[k] > 0 else -1*np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) for k in range(len(vpars))])
             zpos = np.array(data_dict[f'{Energies[i]}_zpos'][0]) / m_to_km
 
             # Plot altitudes
-            AltitudeArtists.append(axAlt.scatter(Pitches, zpos, color=colors[i]))
+            AltitudeArtists.append(axAlt.scatter(initPtches, zpos, color=colors[i]))
 
             # plot energies
             VspaceArtists.append(axVspace.scatter(vperps, vpars, color=colors[i]))
 
+
+        ############################
         # --- Animation Function ---
+        ############################
         def animate_func(j):
             print('', end='\r' + color.RED + f'{round(100 * j / simLen, 1)} %' + color.END)
 
-            # update the title
+            # --- update the title ---
             title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(Amplitude*1000,3)} [mV/m]\n' +
+                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
                            f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
-            axAlt.set_xticks([-180 + 60 * i for i in range(7)])
+            # axAlt.set_xticks([-180 + 60 * i for i in range(7)])
 
-            # update the electric field
+            # --- update the electric field ---
             E_Field_Wave.set_xdata(E_Field[j])
-            E_Field_Wave.set_ydata(Alt/m_to_km)
+            E_Field_Wave.set_ydata(simAlt/m_to_km)
 
-            topAr.xy = (TopArrowX, (TopArrowY - WaveSpeed * simTime[j] / m_to_km))
-            topAr.set_position((TopArrowX + dx, (TopArrowY - WaveSpeed * simTime[j] / m_to_km) + dyTop))
-            botAr.xy = (BotArrowX, (BotArrowY - WaveSpeed * simTime[j] / m_to_km))
-            botAr.set_position((BotArrowX + dx, (BotArrowY - WaveSpeed * simTime[j] / m_to_km) + dyBot))
+            # --- update the electric field ARROWS ---
+            topAr.xy = (TopArrowX, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
+            topAr.set_position((TopArrowX + dx, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyTop))
+            botAr.xy = (BotArrowX, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
+            botAr.set_position((BotArrowX + dx, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyBot))
 
-            # Show the particles updated
+            # --- Update particles on VELOCITY SPACE plot ---
             perpMax, perpMin = 0, 0
             parMax, parMin = 0, 0
 
             for i in range(len(Energies)):
                 vperps = np.array(data_dict[f'{Energies[i]}_vperp'][j]) / m_to_km
                 vpars = np.array(data_dict[f'{Energies[i]}_vpar'][j]) // m_to_km
-                Pitches = np.array([np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) if vperps[k] > 0 else -1*np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) for k in range(len(vpars))])
+                Ptches = np.array([np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) if vperps[k] > 0 else -1*np.degrees(np.arccos(-1*vpars[k] /np.sqrt(vpars[k]**2 + vperps[k]**2))) for k in range(len(vpars))])
                 zpos = np.array(data_dict[f'{Energies[i]}_zpos'][j]) / m_to_km
                 observed = np.array(data_dict[f'{Energies[i]}_observed'][j])
 
@@ -703,22 +619,22 @@ def testParticle_Sim():
                 parMax = vpars.max() if vperps.max() > parMax else parMax
 
                 # update altitudes
-                AltitudeArtists[i].set_offsets(np.stack([Pitches, zpos]).T)
+                AltitudeArtists[i].set_offsets(np.stack([Ptches, zpos]).T)
 
                 # update energies
                 VspaceArtists[i].set_offsets(np.stack([vperps, vpars]).T)
 
                 # update the Energy vs Time plot and Pitch vs Time
-                for k in range(N):
+                for k in range(N_total):
                     if observed[k] == 1:
                         energy = 0.5 * (ptcl_mass / ptcl_charge) * ((vperps[k] * m_to_km) ** 2 + (vpars[k] * m_to_km) ** 2)
-                        ptcls_to_plot.append([simTime[j], energy, Pitches[k], colors[i]])
+                        ptcls_to_plot.append([simTime[j], energy, Ptches[k], colors[i]])
 
             # update axes limits of Vspace plot
             axVspace.set_xlim(perpMin*1.2, perpMax*1.2)
             axVspace.set_ylim(parMin*1.2, parMax*1.2)
 
-            # update the Energy vs Time plot
+            # --- update the ENERGY vs TIME plot ---
             if len(ptcls_to_plot) != 0:
 
                 plotData = [[ptcls_to_plot[d][0] for d in range(len(ptcls_to_plot))],
@@ -747,13 +663,14 @@ def testParticle_Sim():
 
     if simulated_EEPAA_plots:
 
+
         prgMsg('Simulating EEPAA Response')
 
         # --- --- --- ----
         # --- PLOTTING ---
         # --- --- --- ----
 
-        for plotIndex in pitches_to_plot:
+        for plotIndex in ptches_to_plot:
 
             # determine the data to plot
             plotThisData = np.array(simCounts[:, plotIndex, :])
@@ -763,7 +680,7 @@ def testParticle_Sim():
             fig, ax = plt.subplots()
 
             # colormesh
-            cmapPlot = ax.pcolormesh(timeGrid, EngyGrid, plotThisData.T, cmap='turbo', shading='auto',vmin=0,vmax=10)
+            cmapPlot = ax.pcolormesh(timeGrid, EngyGrid, plotThisData.T, cmap='turbo', shading='auto',vmin=0,vmax=30)
             ax.set_ylabel('Energy [eV]')
             ax.set_xlabel('Time [s]')
             fig.suptitle('Simulated ACES II EEPAA\n'
@@ -801,21 +718,17 @@ def testParticle_Sim():
         fig.set_figwidth(figure_width)
         fig.set_figheight(figure_height)
         title = ax.set_title(f'$\Delta t$= {round(simTime[0],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(Amplitude*1000,3)} [mV/m]\n' +
+                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
                            f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
         ax.set_xlabel('V$_{\perp}$ [km/s]', fontsize=14)
         ax.set_ylabel('V$_{\parallel}$ [km/s]', fontsize=14)
         ax.set_xlim(-5000, VelLimit)
         ax.set_ylim(-VelLimit, VelLimit)
 
-
         # plot the data
         cbarLow, cbarHigh = 1E6, 5E8
         cmapPlot = ax.pcolormesh(VperpGrid, VparaGrid, diffEFlux[0], cmap='turbo',norm='log', shading='nearest', vmin=cbarLow, vmax=cbarHigh,edgecolor='k',linewidth=0.1)
         ax.invert_yaxis()  # flip the x-axis
-
-        # create the grid
-        # ax.pcolormesh(Vperp, Vpara, diffEFlux[0],facecolor='none',edgecolor='k',linewidth=0.1,alpha=1, cmap='turbo', shading='nearest', vmin=0, vmax=1) # creates the grid
 
         # colorbar
         cbar = fig.colorbar(mappable = cmapPlot)
@@ -827,7 +740,7 @@ def testParticle_Sim():
 
             # update the title
             title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(Amplitude*1000,3)} [mV/m]\n' +
+                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
                            f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
 
 

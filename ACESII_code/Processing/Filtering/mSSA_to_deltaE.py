@@ -111,7 +111,7 @@ def mSSA_to_deltaE(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
         mssa = MSSA(n_components=None, window_size=SSA_window_Size, verbose=False)
 
         prgMsg('Grouping mSSA elements')
-        from ACESII_code.Processing.EFI.SSAgrouping_and_target_times_E import groupings
+        from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_E import groupings
         groupings = groupings(wRocket=wRocket, SSA_window_Size=SSA_window_Size, wUseData=wUseData)
 
         # get all the SSA components for the three axes

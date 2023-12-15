@@ -382,15 +382,8 @@ def Prove_Alfvenic():
             # model Alfven Speed taken from "modelAlfvenSpeedAndResonance.py"
             modelAlfvenSpeed = [0,1947540.1772956662]
 
-
             x_axis_minFreq,x_axis_maxFreq = 0,11
             scaleType = 'log'
-
-
-
-
-
-
 
 
             #---  FFT mag Axis ---
@@ -421,10 +414,6 @@ def Prove_Alfvenic():
             axEmag.spines['right'].set_color(colorAx)
             axEmag.yaxis.label.set_color(colorAx)
             axEmag.legend(loc='upper right')
-
-
-
-
 
 
 

@@ -36,7 +36,7 @@ inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader inpu
 # 2 --> Field Aligned
 wUseData = 0
 # --- --- --- REDUCE DATA --- --- ---
-reduceDataSet = True
+reduceDataSet = False
 # 0 --> Alfven Region
 # 1 --> Kenton's Zoomed Region
 # 2 --> The Whole flight, excluding outlier regions
@@ -49,8 +49,12 @@ plotFilteredAxes = False
 lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 0.5, 20, 'Bandpass', 4 # filter toggles LOW FLYER
 output_Filtered_Data = True
 # --- --- --- SSA --- --- ---
-SECTION_SSA = False
-SSA_window_Size = 1201
+SECTION_SSA = True
+# SSA_window_Size = 501
+SSA_window_Size = 10
+STICH_DATASET = True
+breakIntoThisManyPieces = 5
+
 
 
 
@@ -65,9 +69,7 @@ from numpy.fft import rfft, fftfreq
 from ACESII_code.supportCode.Support_Libraries.pymssa import MSSA
 from scipy.signal import spectrogram
 
-
-
-def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def L2_mag_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -101,11 +103,17 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
         # --- get the data from the Magnetometer file ---
         prgMsg(f'Loading data from {inputPath_modifier} RingCore Files')
-        from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import timeWindow
-        targetTimes = timeWindow(wTargetTimes, wRocket)
-        data_dict_mag = loadDictFromFile(inputFiles[wFile],reduceData=reduceDataSet,targetTimes=targetTimes,wKeys=[])
-        Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
-        Epoch_dt = np.array([tme for tme in data_dict_mag['Epoch'][0]])
+        from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_B import timeWindow
+        if STICH_DATASET:
+            targetTimes = timeWindow(wTargetTimes, wRocket)
+            data_dict_mag = loadDictFromFile(inputFiles[wFile], reduceData=False)
+            Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
+            Epoch_dt = np.array([tme for tme in data_dict_mag['Epoch'][0]])
+        else:
+            targetTimes = timeWindow(wTargetTimes, wRocket)
+            data_dict_mag = loadDictFromFile(inputFiles[wFile], reduceData=reduceDataSet, targetTimes=targetTimes)
+            Epoch_seconds = np.array([(tme - data_dict_mag['Epoch'][0][0]) / 1E9 for tme in data_dict_mag['Epoch'][0]])
+            Epoch_dt = np.array([tme for tme in data_dict_mag['Epoch'][0]])
         Done(start_time)
 
         # prepare data for further processing
@@ -114,7 +122,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         data_for_output = np.array([[data_dict_mag[comps[0]][0][i],
                                      data_dict_mag[comps[1]][0][i],
                                      data_dict_mag[comps[2]][0][i]] for i in range(len(Epoch_seconds))])
-
 
         if SECTION_filterData:
             # --- --- --- --- -
@@ -236,7 +243,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                 prgMsg('outputting Filtered Data')
 
                 # output file location for filtered data
-                outputPath_filtered = f'{rocketFolderPath}\\l3\B_Filtered\\{fliers[wflyer]}\\ACESII_{rocketID}_RingCore_{searchMod}_filtered'
+                outputPath_filtered = f'{rocketFolderPath}\\l2\\\{fliers[wflyer]}\\ACESII_{rocketID}_l2_RingCore_{searchMod}_filtered'
 
                 if wTargetTimes == 0:
                     outputPath_filtered = outputPath_filtered + '_Alfven.cdf'
@@ -256,16 +263,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
         if SECTION_SSA:
 
-            # output file location for MSSA
-            outputPathSSA = f'{rocketFolderPath}\\science\SSAcomponents_B\\{fliers[wflyer]}\\ACESII_{rocketID}_RingCore_SSAcomponents_{searchMod}_WL{SSA_window_Size}'
-
-            if wTargetTimes == 0:
-                outputPathSSA = outputPathSSA + '_Alfven.cdf'
-            elif wTargetTimes == 1:
-                outputPathSSA = outputPathSSA + '_kenton.cdf'
-            else:
-                outputPathSSA = outputPathSSA + '_flight.cdf'
-
 
             # name of the components
             compNames = [f'{comps[0]}_SSA', f'{comps[1]}_SSA', f'{comps[2]}_SSA']
@@ -273,43 +270,104 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # create the MSSA object
             mssa = MSSA(n_components=None, window_size=SSA_window_Size, verbose=False)
 
-            # --- perform the mSSA or SSA on specific components---
-            prgMsg('Calculating SSA components')
+            if STICH_DATASET:
 
-            # convert data to pandas dataframe
-            dataFormatted = {
-                'Bx': data_for_output[:, 0],
-                'By': data_for_output[:, 1],
-                'Bz': data_for_output[:, 2]}
+                # find the inidcies to break up the dataset into "breakIntoThisManyPieces" parts
+                rangeLimits = [ [ar[0], ar[-1]] for ar in np.array_split([i for i in range(len(data_dict_mag['Epoch'][0]))],breakIntoThisManyPieces)]
 
-            data = pd.DataFrame(dataFormatted)
+                for k,limits in enumerate(rangeLimits):
+                    # output file location for MSSA
+                    outputPathSSA = f'{rocketFolderPath}\\L3\\SSAcomponents_B\\{fliers[wflyer]}\\Stitching\\ACESII_{rocketID}_RingCore_SSAcomponents_{searchMod}_WL{SSA_window_Size}_subset_{k}.cdf'
 
-            # calculate the mSSA
-            mssa.fit(data)
+                    # --- perform the mSSA or SSA on specific components---
+                    prgMsg(f'Calculating SSA components for Indicies {limits[0]} to {limits[1]}')
 
-            # get the mSSA components
-            components = mssa.components_
+                    # convert data to pandas dataframe
+                    dataFormatted = {
+                        'Bx': data_for_output[limits[0]:limits[1]+1, 0],
+                        'By': data_for_output[limits[0]:limits[1]+1, 1],
+                        'Bz': data_for_output[limits[0]:limits[1]+1, 2]}
 
-            # --- output the data ---
-            example_attrs = {'LABLAXIS': None, 'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None,
-                     'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': None,
-                     'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
+                    # define the data into a pandas dataframe
+                    data = pd.DataFrame(dataFormatted)
 
-            data_dict_SSAcomps = {}
+                    # calculate the mSSA
+                    mssa.fit(data)
 
-            for i in range(3):
-                dataToOutput = np.array(components[i, :, :]) # update the data for output to be the components
-                attrs = deepcopy(example_attrs)
-                attrs['LABLAXIS'] = compNames[i]
-                attrs['VALIDMIN'] = dataToOutput.min()
-                attrs['VALIDMAX'] = dataToOutput.max()
-                data_dict_SSAcomps = {**data_dict_SSAcomps, **{compNames[i]:[dataToOutput, attrs]}}
+                    # get the mSSA components
+                    components = mssa.components_
 
-            # add in the Epoch variable
-            data_dict_SSAcomps = {**data_dict_SSAcomps, **{'Epoch':[data_dict_mag['Epoch'][0],data_dict_mag['Epoch'][1]]}}
+                    # --- output the data ---
+                    example_attrs = {'LABLAXIS': None, 'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None,
+                                     'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': None,
+                                     'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
-            outputCDFdata(outputPathSSA, data_dict_SSAcomps, outputModelData, globalAttrsMod, 'RingCore')
-            Done(start_time)
+                    data_dict_SSAcomps = {}
+
+                    for i in range(3):
+                        dataToOutput = np.array(components[i, :, :])  # update the data for output to be the components
+                        attrs = deepcopy(example_attrs)
+                        attrs['LABLAXIS'] = compNames[i]
+                        attrs['VALIDMIN'] = dataToOutput.min()
+                        attrs['VALIDMAX'] = dataToOutput.max()
+                        data_dict_SSAcomps = {**data_dict_SSAcomps, **{compNames[i]: [dataToOutput, attrs]}}
+
+                    # add in the Epoch variable
+                    data_dict_SSAcomps = {**data_dict_SSAcomps,
+                                          **{'Epoch': [deepcopy(data_dict_mag['Epoch'][0][limits[0]:limits[1]+1]), data_dict_mag['Epoch'][1]]}}
+
+                    outputCDFdata(outputPathSSA, data_dict_SSAcomps, outputModelData, globalAttrsMod, 'RingCore')
+                    Done(start_time)
+
+            else:
+
+                # output file location for MSSA
+                outputPathSSA = f'{rocketFolderPath}\\l3\SSAcomponents_B\\{fliers[wflyer]}\\ACESII_{rocketID}_RingCore_SSAcomponents_{searchMod}_WL{SSA_window_Size}'
+
+                if wTargetTimes == 0:
+                    outputPathSSA = outputPathSSA + '_Alfven.cdf'
+                elif wTargetTimes == 1:
+                    outputPathSSA = outputPathSSA + '_kenton.cdf'
+                else:
+                    outputPathSSA = outputPathSSA + '_flight.cdf'
+
+                # --- perform the mSSA or SSA on specific components---
+                prgMsg('Calculating SSA components')
+
+                # convert data to pandas dataframe
+                dataFormatted = {
+                    'Bx': data_for_output[:, 0],
+                    'By': data_for_output[:, 1],
+                    'Bz': data_for_output[:, 2]}
+
+                data = pd.DataFrame(dataFormatted)
+
+                # calculate the mSSA
+                mssa.fit(data)
+
+                # get the mSSA components
+                components = mssa.components_
+
+                # --- output the data ---
+                example_attrs = {'LABLAXIS': None, 'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None,
+                         'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': None,
+                         'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
+
+                data_dict_SSAcomps = {}
+
+                for i in range(3):
+                    dataToOutput = np.array(components[i, :, :]) # update the data for output to be the components
+                    attrs = deepcopy(example_attrs)
+                    attrs['LABLAXIS'] = compNames[i]
+                    attrs['VALIDMIN'] = dataToOutput.min()
+                    attrs['VALIDMAX'] = dataToOutput.max()
+                    data_dict_SSAcomps = {**data_dict_SSAcomps, **{compNames[i]:[dataToOutput, attrs]}}
+
+                # add in the Epoch variable
+                data_dict_SSAcomps = {**data_dict_SSAcomps, **{'Epoch':[data_dict_mag['Epoch'][0],data_dict_mag['Epoch'][1]]}}
+
+                outputCDFdata(outputPathSSA, data_dict_SSAcomps, outputModelData, globalAttrsMod, 'RingCore')
+                Done(start_time)
 
 
 
@@ -332,5 +390,5 @@ elif wRocket == 5: # ACES II Low
 if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
-    RingCore_L1_to_L2_Despin(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+    L2_mag_to_mSSA(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
 

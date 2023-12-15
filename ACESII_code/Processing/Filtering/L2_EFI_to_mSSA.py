@@ -49,6 +49,8 @@ lowCut_toggle, highcut_toggle, filttype_toggle, order_toggle = 0.5, 20, 'Highpas
 output_Filtered_Data = True
 # --- --- --- SSA --- --- ---
 SECTION_SSA = False
+STICH_DATASET = True
+breakIntoThisManyPieces = 5
 SSA_window_Size = 501
 
 
@@ -96,7 +98,7 @@ def L2_EFI_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
 
         # --- get the data from the Magnetometer file ---
         prgMsg(f'Loading data from {inputPath_modifier} EFI Files')
-        from ACESII_code.Processing.EFI.SSAgrouping_and_target_times_E import timeWindow
+        from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_E import timeWindow
         targetTimes = timeWindow(wTargetTimes, wRocket)
         data_dict_elec = loadDictFromFile(inputFiles[wFile],reduceData=reduceDataSet,targetTimes=targetTimes)
         Epoch_seconds = np.array([(tme - data_dict_elec['Epoch'][0][0]) / 1E9 for tme in data_dict_elec['Epoch'][0]])
@@ -238,7 +240,7 @@ def L2_EFI_to_mSSA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
                 prgMsg('outputting Filtered Data')
 
                 # output file location for MSSA
-                outputPath_filtered = f'{rocketFolderPath}\\l3\E_Filtered\\{fliers[wflyer]}\\ACESII_{rocketID}_E_Field_{searchMod}_filtered'
+                outputPath_filtered = f'{rocketFolderPath}\\l2\E_Filtered\\{fliers[wflyer]}\\ACESII_{rocketID}_l2_E_Field_{searchMod}_filtered'
 
                 if wTargetTimes == 0:
                     outputPath_filtered = outputPath_filtered + '_Alfven.cdf'

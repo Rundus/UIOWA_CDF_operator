@@ -34,7 +34,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -46,9 +46,9 @@ inputPath_modifier_density = 'l3/Langmuir' # e.g. 'L1' or 'L1'. It's the name of
 wFile_ni = 0
 inputPath_modifier_mag = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 wFile_mag = 0
-inputPath_modifier_deltaE = 'l3'
+inputPath_modifier_deltaE = 'l3/deltaE'
 wFile_deltaE =0
-inputPath_modifier_deltaB = 'l3'
+inputPath_modifier_deltaB = 'l3/deltaB'
 wFile_deltaB =0
 outputPath_modifier = 'science/AlfvenSpeed_rkt' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 outputData = True
@@ -56,12 +56,13 @@ outputData = True
 
 # --- reduce data ---
 reduceData = True
-targetTimes = [dt.datetime(2022,11,20,17,24,20,00),dt.datetime(2022,11,20,17,28,00,00)]
+targetTimes = [dt.datetime(2022,11,20,17,24,30,00),dt.datetime(2022,11,20,17,25,30,00)]
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 from ACESII_code.class_var_func import u0,IonMasses
+from numpy.fft import rfft, fftfreq
 
 def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -75,11 +76,9 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
 
     inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore_rktFrm*')
     inputFiles_density = glob(f'{rocketFolderPath}{inputPath_modifier_density}\{fliers[wflyer]}{modifier}\*fixed*.cdf')
-    inputFiles_deltaE = glob(f'{rocketFolderPath}{inputPath_modifier_deltaE}\{fliers[wflyer]}{modifier}\*Field_Aligned*.cdf')
-    inputFiles_deltaB = glob(f'{rocketFolderPath}{inputPath_modifier_deltaB}\{fliers[wflyer]}{modifier}\*Field_Aligned*.cdf')
+    inputFiles_deltaE = glob(f'{rocketFolderPath}{inputPath_modifier_deltaE}\{fliers[wflyer]}{modifier}\*Field_Aligned*')
+    inputFiles_deltaB = glob(f'{rocketFolderPath}{inputPath_modifier_deltaB}\{fliers[wflyer]}{modifier}\*Field_Aligned*')
 
-    print(inputFiles_deltaE)
-    print(inputFiles_deltaB)
 
     fileoutName = f'ACESII_{rocketID}_AlfvenSpeed_flight.cdf'
 
@@ -138,20 +137,27 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
                                                       targetEpochArray=dateTimetoTT2000(data_dict_mag['Epoch'][0],False))
         Done(start_time)
 
+        if wRocket == 5:
+            prgMsg('Downsampling deltaE on deltaB')
+
+            data_dict_deltaE = InterpolateDataDict(InputDataDict=data_dict_deltaE,
+                                                          InputEpochArray=dateTimetoTT2000(data_dict_deltaE['Epoch'][0], False),
+                                                          wKeys=['E_e','E_p','E_r', 'Epoch'],
+                                                          targetEpochArray=dateTimetoTT2000(data_dict_deltaB['Epoch'][0], False))
+
+
+            Done(start_time)
+
         #############################
         # --- SMOOTH DENSITY DATA ---
         #############################
 
         from scipy.signal import savgol_filter
+        # densityVar =  savgol_filter(x=data_dict_densityInterp['ni'][0],
+        #                             window_length=1000,
+        #                             polyorder=5)
 
-        densityVar =  savgol_filter(x=data_dict_densityInterp['ni'][0],
-                                    window_length=1000,
-                                    polyorder=5)
-
-        fig,ax = plt.subplots()
-        ax.plot(data_dict_densityInterp['Epoch'][0], data_dict_densityInterp['ni'][0],color='blue')
-        ax.plot(data_dict_densityInterp['Epoch'][0], densityVar,color='red')
-        plt.show()
+        data_dict_densityInterp['ni'][0] = savgol_filter(x=data_dict_densityInterp['ni'][0], window_length=1000, polyorder=5)
 
 
 
@@ -165,12 +171,35 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             ((1E-9)*data_dict_mag['Bmag'][0][i])/np.sqrt(u0*(100**3)*data_dict_densityInterp['ni'][0][i]*IonMasses[0]) for i in range(len(data_dict_mag['Epoch'][0]))
         ])
 
-        # Alfven Speed - dEr/dBe
-        AlfvenSpeed_ErBe = (1000/1E-9)*np.array(data_dict_deltaE['E_r'][0])/np.array(data_dict_deltaB['B_e'][0])
+        if wRocket == 5:
+            # Alfven Speed - dEr/dBe
+            AlfvenSpeed_ErBe = (1/1E-6)*np.array(data_dict_deltaE['E_r'][0])/np.array(data_dict_deltaB['B_e'][0])
 
-        # Alfven Speed - -dEe/dBr
-        AlfvenSpeed_EeBr = -1*(1000/1E-9)*np.array(data_dict_deltaE['E_e'][0])/np.array(data_dict_deltaB['B_r'][0])
+            # Alfven Speed - -dEe/dBr
+            AlfvenSpeed_EeBr = -1*(1/1E-6)*np.array(data_dict_deltaE['E_e'][0])/np.array(data_dict_deltaB['B_r'][0])
 
+            # FFT of Br and -Ee
+            N, T = len(data_dict_deltaB['Epoch'][0]), 1 / 128
+            FFT_freqs = fftfreq(N, T)[:N // 2]
+
+            yf_Br = rfft(data_dict_deltaB['B_r'][0])
+            FFT_Br = 2.0 / N * np.abs(yf_Br[0:N // 2])
+
+            yf_Ee = rfft(data_dict_deltaE['E_e'][0])
+            FFT_Ee = 2.0 / N * np.abs(yf_Ee[0:N // 2])
+
+            AlfvenSpeed_FFT = 1E6*FFT_Ee/FFT_Br
+
+
+        # fig, ax = plt.subplots(2)
+        # ax[0].plot(FFT_freqs, FFT_Br,color='blue')
+        # ax[0].plot(FFT_freqs, FFT_Ee, color='red')
+        # ax[1].plot(FFT_freqs, 1E6*AlfvenSpeed_FFT)
+        # ax[1].set_ylim(1E5,3E8)
+        # for i in range(2):
+        #     ax[i].set_xlim(0, 20)
+        #     ax[i].set_yscale('log')
+        # plt.show()
 
         # --- --- --- --- --- --- ---
         # --- WRITE OUT THE DATA ---
@@ -183,12 +212,29 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             data_dict_output = {}
 
             #prepare the alfven data
-            AlfvenData = [AlfvenSpeed_MHD,AlfvenSpeed_ErBe,AlfvenSpeed_EeBr]
-            epochNames = ['Epoch','Epoch_delta','Epoch_delta']
-            varNames = ['MHD','ErBe','mEeBr']
-            for i,data in enumerate(AlfvenData):
-                varAttrs = {'LABLAXIS': "AlfvenSpeed", 'DEPEND_0': epochNames[i], 'DEPEND_1': None, 'DEPEND_2': None,
-                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'm/s',
+            AlfvenData = [AlfvenSpeed_MHD, AlfvenSpeed_ErBe, AlfvenSpeed_EeBr, AlfvenSpeed_FFT, FFT_freqs, FFT_Br, FFT_Ee]
+            epochNames = ['Epoch', 'Epoch_delta', 'Epoch_delta', 'FFT_freqs', None,'FFT_freqs','FFT_freqs']
+            varNames = ['MHD', 'ErBe', 'mEeBr', 'FFT_division','FFT_freqs','FFT_Br','FFT_Ee']
+            for i, data in enumerate(AlfvenData):
+
+                if i==1 and wRocket == 4:
+                    break
+
+                if i == 4:
+                    lablaxis = 'Frequency'
+                    units = 'Hz'
+                elif i == 5:
+                    lablaxis = 'B_r'
+                    units = 'nT'
+                elif i == 6:
+                    lablaxis = 'E_e'
+                    units = 'mV/m'
+                else:
+                    lablaxis = 'Alfven Speed'
+                    units = 'm/s'
+
+                varAttrs = {'LABLAXIS': lablaxis, 'DEPEND_0': epochNames[i], 'DEPEND_1': None, 'DEPEND_2': None,
+                            'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': units,
                             'VALIDMIN': data.min(), 'VALIDMAX': data.max(),
                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
@@ -198,9 +244,11 @@ def AlfvenSpeed_rkt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer
             Epoch_output = deepcopy(data_dict_mag['Epoch'])
             Epoch_output[1]['VAR_TYPE'] = 'support_data'
             data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
-            Epoch_output = deepcopy(data_dict_deltaB['Epoch'])
-            Epoch_output[1]['VAR_TYPE'] = 'support_data'
-            data_dict_output = {**data_dict_output, **{'Epoch_delta': Epoch_output}}
+
+            if wRocket == 5:
+                Epoch_output = deepcopy(data_dict_deltaB['Epoch'])
+                Epoch_output[1]['VAR_TYPE'] = 'support_data'
+                data_dict_output = {**data_dict_output, **{'Epoch_delta': Epoch_output}}
 
             #output the data
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'

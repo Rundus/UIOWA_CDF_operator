@@ -22,8 +22,6 @@ from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 
-
-
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
@@ -117,7 +115,7 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
         prgMsg(f'Loading ACESII traj data')
         data_dicts_traj = []
         for i in range(2):
-            data_dict_traj = loadDictFromFile(inputFilesTraj[i], {})
+            data_dict_traj = loadDictFromFile(inputFilesTraj[i])
             data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
             data_dicts_traj.append(data_dict_traj)
         Done(start_time)
@@ -331,6 +329,7 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
                     ]
                 )
 
+
         ###########################
         # --- PLOT ALLSKY MOVIE ---
         ###########################
@@ -373,7 +372,26 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
                             imgIndicies[i].append(j)
 
             imgIndicies = np.array(imgIndicies)
-            EpochMovie = np.array([ pycdf.lib.tt2000_to_datetime(EpochRocket[0][i]) for i in range(len(EpochRocket[0])) ])
+            EpochMovie = np.array([pycdf.lib.tt2000_to_datetime(EpochRocket[0][i]) for i in range(len(EpochRocket[0])) ])
+
+            # Target time of interest
+            targTime = dt.datetime(2022,11,20,17,25,000)
+
+            # determine target time index for trajectory - High Flyer
+            # HF_targTime_index = np.abs(EpochMovie - targTime).argmin()
+            HF_targTime_index = 0
+
+            # determine target time index for trajectory - Low Flyer
+            # LF_targTime_index = np.abs(EpochMovie - targTime).argmin()
+            LF_targTime_index = 0
+
+            # determine target time index for all skies - 5570
+            # image_tarTime_5570 = imgIndicies[0][HF_targTime_index]
+            image_tarTime_5570 = 0
+
+            # determine target time index for all skies - 6300
+            # image_tarTime_6300 = imgIndicies[1][HF_targTime_index]
+            image_tarTime_6300 = 0
 
             ##########################
             # --- INITIALIZE PLOTS ---
@@ -423,8 +441,6 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
 
             # define the axes
             axAlt = fig.add_subplot(gs[0:smallPlotSize, 0:51])
-
-
             ax5577 = fig.add_subplot(gs[smallPlotSize+verticalSpacing:nRows, 0:22+1], projection=projType)
             ax5577cbar = fig.add_subplot(gs[smallPlotSize+verticalSpacing:nRows, 23])
             ax6300 = fig.add_subplot(gs[smallPlotSize+verticalSpacing:nRows, 27:50], projection=projType)
@@ -457,13 +473,14 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
             cbarVmin = 0
             cbarVmax = 16000
             # 5577A
-            cmap5577 = ax5577.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=allSkyCmap, transform=projPC,vmin=cbarVmin,vmax=cbarVmax)
+            # cmap5577 = ax5577.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=allSkyCmap, transform=projPC,vmin=cbarVmin,vmax=cbarVmax)
+            cmap5577 = ax5577.pcolormesh(allGLongs[0], allGlats[0], allImages[0][image_tarTime_5570], cmap='viridis', transform=projPC, vmin=cbarVmin, vmax=cbarVmax)
             plt.colorbar(mappable=cmap5577, cax=ax5577cbar, orientation='vertical',fraction=0.046, pad=0.04)
             ax5577cbar.set_ylabel('Brightness (Rayleigh)',fontsize=20)
             ax5577cbar.tick_params(labelsize=20)
 
             # 6300A
-            cmap6300 = ax6300.pcolormesh(allGLongs[1], allGlats[1], allImages[1][0], cmap=allSkyCmap, transform=projPC,vmin=cbarVmin,vmax=cbarVmax)
+            cmap6300 = ax6300.pcolormesh(allGLongs[1], allGlats[1], allImages[1][image_tarTime_6300], cmap=allSkyCmap, transform=projPC,vmin=cbarVmin,vmax=cbarVmax)
             plt.colorbar(mappable=cmap6300, cax=ax6300cbar, orientation='vertical',fraction=0.046, pad=0.04)
             ax6300cbar.set_ylabel('Brightness (Rayleigh)',fontsize=20)
             ax6300cbar.tick_params(labelsize=20)
@@ -472,37 +489,43 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
 
             # --- GREEN ---
             # plot projected B on 5577 Allsky
-            ax5577.plot(data_dict_IonoProj['geoILong_GREEN'][1], data_dict_IonoProj['geoILat_GREEN'][1], color=LowFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth,label='Low Flyer Projected IGRF - ')
-            ax5577.plot(data_dict_IonoProj['geoILong_GREEN'][0], data_dict_IonoProj['geoILat_GREEN'][0], color=HighFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth,label='High Flyer Projected IGRF') if not useOnlyLowFlyer else [0,]
+            # ax5577.plot(data_dict_IonoProj['geoILong_GREEN'][1], data_dict_IonoProj['geoILat_GREEN'][1], color=LowFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth,label='Low Flyer Projected IGRF - ')
+            # ax5577.plot(data_dict_IonoProj['geoILong_GREEN'][0], data_dict_IonoProj['geoILat_GREEN'][0], color=HighFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth,label='High Flyer Projected IGRF') if not useOnlyLowFlyer else [0,]
 
             # plot Ilat/Ilong marker on 5577 on allsky
-            AllSky5577_projected_marker_low = ax5577.scatter(data_dict_IonoProj['geoILong_GREEN'][1][0], data_dict_IonoProj['geoILat_GREEN'][1][0], color=LowFlyerProjectionColor, marker='x', linewidth=10, transform=projPC)
-            AllSky5577_projected_marker_high = ax5577.scatter(data_dict_IonoProj['geoILong_GREEN'][0][0], data_dict_IonoProj['geoILat_GREEN'][0][0], color=HighFlyerProjectionColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
+            # AllSky5577_projected_marker_low = ax5577.scatter(data_dict_IonoProj['geoILong_GREEN'][1][0], data_dict_IonoProj['geoILat_GREEN'][1][0], color=LowFlyerProjectionColor, marker='x', linewidth=10, transform=projPC)
+            # AllSky5577_projected_marker_high = ax5577.scatter(data_dict_IonoProj['geoILong_GREEN'][0][0], data_dict_IonoProj['geoILat_GREEN'][0][0], color=HighFlyerProjectionColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
 
             # plot on 5577 Allsky
             ax5577.plot(geoLong[1], geoLat[1], color=LowFlyerColor,linewidth=4, transform=projPC, label='Low Flyer Trajectory')
             ax5577.plot(geoLong[0], geoLat[0], color=HighFlyerColor,linewidth=4, transform=projPC,label='High Flyer Trajectory') if not useOnlyLowFlyer else [0,]
 
             # plot marker on 5577 Allsky
-            AllSky5577_marker_low = ax5577.scatter(geoLong[1][0], geoLat[1][0], color=LowFlyerColor, marker='x', linewidth=10, transform=projPC)
-            AllSky5577_marker_high = ax5577.scatter(geoLong[0][0], geoLat[0][0], color=HighFlyerColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
+            # AllSky5577_marker_low = ax5577.scatter(geoLong[1][0], geoLat[1][0], color=LowFlyerColor, marker='x', linewidth=10, transform=projPC)
+            # AllSky5577_marker_high = ax5577.scatter(geoLong[0][0], geoLat[0][0], color=HighFlyerColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
+            AllSky5577_marker_low = ax5577.scatter(geoLong[1][LF_targTime_index], geoLat[1][LF_targTime_index], color=LowFlyerColor, marker='x', linewidth=10, transform=projPC)
+            AllSky5577_marker_high = ax5577.scatter(geoLong[0][HF_targTime_index], geoLat[0][HF_targTime_index], color=HighFlyerColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0, ]
 
             # --- RED ---
             # plot projected B on 6300 Allsky
-            ax6300.plot(data_dict_IonoProj['geoILong_RED'][1], data_dict_IonoProj['geoILat_RED'][1], color=LowFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth)
-            ax6300.plot(data_dict_IonoProj['geoILong_RED'][0], data_dict_IonoProj['geoILat_RED'][0], color=HighFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth) if not useOnlyLowFlyer else [0,]
+            # ax6300.plot(data_dict_IonoProj['geoILong_RED'][1], data_dict_IonoProj['geoILat_RED'][1], color=LowFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth)
+            # ax6300.plot(data_dict_IonoProj['geoILong_RED'][0], data_dict_IonoProj['geoILat_RED'][0], color=HighFlyerProjectionColor, transform=projPC, linewidth=AllSkyLineWidth) if not useOnlyLowFlyer else [0,]
 
             # plot Ilat/Ilong marker on 6300 on allsky
-            AllSky6300_projected_marker_low = ax6300.scatter(data_dict_IonoProj['geoILong_RED'][1][0], data_dict_IonoProj['geoILat_RED'][1][0], color=LowFlyerProjectionColor, marker='x', linewidth=10, transform=projPC)
-            AllSky6300_projected_marker_high = ax6300.scatter(data_dict_IonoProj['geoILong_RED'][0][0], data_dict_IonoProj['geoILat_RED'][0][0], color=HighFlyerProjectionColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
+            # AllSky6300_projected_marker_low = ax6300.scatter(data_dict_IonoProj['geoILong_RED'][1][0], data_dict_IonoProj['geoILat_RED'][1][0], color=LowFlyerProjectionColor, marker='x', linewidth=10, transform=projPC)
+            # AllSky6300_projected_marker_high = ax6300.scatter(data_dict_IonoProj['geoILong_RED'][0][0], data_dict_IonoProj['geoILat_RED'][0][0], color=HighFlyerProjectionColor, marker='x', linewidth=10, transform=projPC) if not useOnlyLowFlyer else [0,]
 
             # plot on 6300 Allsky
             ax6300.plot(geoLong[1], geoLat[1], color=LowFlyerColor,linewidth=4, transform=projPC)
             ax6300.plot(geoLong[0], geoLat[0], color=HighFlyerColor,linewidth=4, transform=projPC) if not useOnlyLowFlyer else [0,]
 
             # plot marker on 6300 Allsky
-            AllSky6300_marker_low = ax6300.scatter(geoLong[1][0], geoLat[1][0], color=LowFlyerColor, linewidth=10, marker='x', transform=projPC)
-            AllSky6300_marker_high = ax6300.scatter(geoLong[0][0], geoLat[0][0], color=HighFlyerColor, linewidth=10, marker='x', transform=projPC) if not useOnlyLowFlyer else [0,]
+            AllSky6300_marker_low = ax6300.scatter(geoLong[1][LF_targTime_index], geoLat[1][LF_targTime_index], color=LowFlyerColor, linewidth=10, marker='x', transform=projPC)
+            AllSky6300_marker_high = ax6300.scatter(geoLong[0][HF_targTime_index], geoLat[0][HF_targTime_index], color=HighFlyerColor, linewidth=10, marker='x', transform=projPC) if not useOnlyLowFlyer else [0,]
+            # AllSky6300_marker_low = ax6300.scatter(geoLong[1][0], geoLat[1][0], color=LowFlyerColor, linewidth=10,
+            #                                        marker='x', transform=projPC)
+            # AllSky6300_marker_high = ax6300.scatter(geoLong[0][0], geoLat[0][0], color=HighFlyerColor, linewidth=10,
+            #                                         marker='x', transform=projPC) if not useOnlyLowFlyer else [0, ]
 
             # -----------------------------------------------------------------------------------
             # stylization parameters of text labels in alt vs lat and lat vs long plots
@@ -531,48 +554,52 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
 
             # B-projection
             legendAltLatLabel = f'Projected IGRF'
-            BprojectionHigh, = axAlt.plot(projectB[0][0][0], projectB[0][0][1], color='white', alpha=0.7, linestyle='--') if not useOnlyLowFlyer else [0,]  # high flyer
-            BprojectionLow, = axAlt.plot(projectB[1][0][0], projectB[1][0][1], color='white', alpha=0.7, linestyle='--', label=legendAltLatLabel)  # low flyer
+            BprojectionHigh, = axAlt.plot(projectB[0][HF_targTime_index][0], projectB[0][HF_targTime_index][1], color='white', alpha=0.7, linestyle='--') if not useOnlyLowFlyer else [0,]  # high flyer
+            BprojectionLow, = axAlt.plot(projectB[1][LF_targTime_index][0], projectB[1][LF_targTime_index][1], color='white', alpha=0.7, linestyle='--', label=legendAltLatLabel)  # low flyer
 
             # legend for AltvsLat projection
             axAlt.legend(loc="upper left", fontsize=15)
 
             # marker
-            Altlat_marker_high = axAlt.scatter(geoLat[0][0], geoAlt[0][0], color=HighFlyerColor, marker='x', linewidth=15) if not useOnlyLowFlyer else [0,]
-            Altlat_marker_low = axAlt.scatter(geoLat[1][0], geoAlt[1][0], color=LowFlyerColor, marker='x', linewidth=15)
+            Altlat_marker_high = axAlt.scatter(geoLat[0][HF_targTime_index], geoAlt[0][HF_targTime_index], color=HighFlyerColor, marker='x', linewidth=15) if not useOnlyLowFlyer else [0,]
+            Altlat_marker_low = axAlt.scatter(geoLat[1][LF_targTime_index], geoAlt[1][LF_targTime_index], color=LowFlyerColor, marker='x', linewidth=15)
 
             # text labels
-            Altlat_text_high = axAlt.text(geoLat[0][0] - textOffset_alt, geoAlt[0][0],
-                                       f'{round(geoAlt[0][0], altrounding)} km', ha=text_alignment[1],
+            Altlat_text_high = axAlt.text(geoLat[0][HF_targTime_index] - textOffset_alt, geoAlt[0][HF_targTime_index],
+                                       f'{round(geoAlt[0][HF_targTime_index], altrounding)} km', ha=text_alignment[1],
                                        **textUTC_style_alt[0]) if not useOnlyLowFlyer else [0,]
-            Altlat_text_low = axAlt.text(geoLat[1][0] - textOffset_alt, geoAlt[1][0],
-                                      f'{round(geoAlt[1][0], altrounding)} km', ha=text_alignment[1],
+            Altlat_text_low = axAlt.text(geoLat[1][LF_targTime_index] - textOffset_alt, geoAlt[1][LF_targTime_index],
+                                      f'{round(geoAlt[1][LF_targTime_index], altrounding)} km', ha=text_alignment[1],
                                       **textUTC_style_alt[1])
 
             # --- intialize Trajectory ILat vs Ilong projection ---
 
             # plot the lat/long coordinates that update on the 5577 graph
-            IlatILong_text_low_GREEN = ax5577.text(12, 73.25, f'({round(data_dict_IonoProj["geoILong_GREEN"][1][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_GREEN"][1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
-            IlatILong_text_high_GREEN = ax5577.text(12.05, 73, f'({round(data_dict_IonoProj["geoILong_GREEN"][0][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_GREEN"][0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
-            latLong_text_low_GREEN = ax5577.text(12.1, 72.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
-            latLong_text_high_GREEN = ax5577.text(12.15, 72.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
+            # IlatILong_text_low_GREEN = ax5577.text(12, 73.25, f'({round(data_dict_IonoProj["geoILong_GREEN"][1][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_GREEN"][1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
+            # IlatILong_text_high_GREEN = ax5577.text(12.05, 73, f'({round(data_dict_IonoProj["geoILong_GREEN"][0][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_GREEN"][0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
+            # latLong_text_low_GREEN = ax5577.text(12.1, 72.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
+            # latLong_text_high_GREEN = ax5577.text(12.15, 72.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0],transform=projPC) if not useOnlyLowFlyer else [0, ]
 
             ax5577.legend(loc='upper left', prop={'size': 14})
 
             # plot the lat/long coordinates that update on the 6300 graph
-            IlatILong_text_low_RED = ax6300.text(12.5, 70.25, f'({round(data_dict_IonoProj["geoILong_RED"][1][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_RED"][1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
-            IlatILong_text_high_RED = ax6300.text(12.55, 70, f'({round(data_dict_IonoProj["geoILong_RED"][0][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_RED"][0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0], transform=projPC) if not useOnlyLowFlyer else [0, ]
-            latLong_text_low_RED = ax6300.text(12.6, 69.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
-            latLong_text_high_RED = ax6300.text(12.65, 69.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0], transform=projPC) if not useOnlyLowFlyer else [0, ]
+            # IlatILong_text_low_RED = ax6300.text(12.5, 70.25, f'({round(data_dict_IonoProj["geoILong_RED"][1][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_RED"][1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[1], transform=projPC)
+            # IlatILong_text_high_RED = ax6300.text(12.55, 70, f'({round(data_dict_IonoProj["geoILong_RED"][0][0], altrounding)}' + '$^{\circ}$' + f', {round(data_dict_IonoProj["geoILat_RED"][0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_project_lat[0], transform=projPC) if not useOnlyLowFlyer else [0, ]
+            # latLong_text_low_RED = ax6300.text(12.6, 69.75, f'({round(geoLong[1][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[1][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[1], transform=projPC)
+            # latLong_text_high_RED = ax6300.text(12.65, 69.5, f'({round(geoLong[0][0], altrounding)}' + '$^{\circ}$' + f', {round(geoLat[0][0], altrounding)}' + '$^{\circ}$)', ha='center', **textUTC_style_lat[0], transform=projPC) if not useOnlyLowFlyer else [0, ]
 
             # ax6300.legend(loc='upper left', prop={'size': 14})
 
             Done(start_time)
 
+            # fig.savefig(r'C:\Users\cfelt\OneDrive\Desktop\TRACERS_at_SSL_trajectory.png')
+            # plt.show()
+
             ###########################
             # --- ANIMATE THE MOVIE ---
-            ###########################
+            # ###########################
             def animatePlot(i):
+                print('', end='\r' + color.RED + f'{round(100 * i / len(EpochMovie), 1)} %' + color.END)
 
                 # update the title
                 supTitle.set_text(f'ACESII\n'
@@ -589,14 +616,14 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
                 # update the allsky5577 rocket marker positions
                 AllSky5577_marker_high.set_offsets([geoLong[0][i], geoLat[0][i]]) if not useOnlyLowFlyer else [0, ]
                 AllSky5577_marker_low.set_offsets([geoLong[1][i], geoLat[1][i]])
-                AllSky5577_projected_marker_high.set_offsets([data_dict_IonoProj['geoILong_GREEN'][0][i], data_dict_IonoProj['geoILat_GREEN'][0][i]]) if not useOnlyLowFlyer else [0, ]
-                AllSky5577_projected_marker_low.set_offsets([data_dict_IonoProj['geoILong_GREEN'][1][i], data_dict_IonoProj['geoILat_GREEN'][1][i]])
+                # AllSky5577_projected_marker_high.set_offsets([data_dict_IonoProj['geoILong_GREEN'][0][i], data_dict_IonoProj['geoILat_GREEN'][0][i]]) if not useOnlyLowFlyer else [0, ]
+                # AllSky5577_projected_marker_low.set_offsets([data_dict_IonoProj['geoILong_GREEN'][1][i], data_dict_IonoProj['geoILat_GREEN'][1][i]])
 
                 # update the allsky6300 rocket marker positions
                 AllSky6300_marker_high.set_offsets([geoLong[0][i], geoLat[0][i]]) if not useOnlyLowFlyer else [0, ]
                 AllSky6300_marker_low.set_offsets([geoLong[1][i], geoLat[1][i]])
-                AllSky6300_projected_marker_high.set_offsets([data_dict_IonoProj['geoILong_RED'][0][i], data_dict_IonoProj['geoILat_RED'][0][i]]) if not useOnlyLowFlyer else [0, ]
-                AllSky6300_projected_marker_low.set_offsets([data_dict_IonoProj['geoILong_RED'][1][i], data_dict_IonoProj['geoILat_RED'][1][i]])
+                # AllSky6300_projected_marker_high.set_offsets([data_dict_IonoProj['geoILong_RED'][0][i], data_dict_IonoProj['geoILat_RED'][0][i]]) if not useOnlyLowFlyer else [0, ]
+                # AllSky6300_projected_marker_low.set_offsets([data_dict_IonoProj['geoILong_RED'][1][i], data_dict_IonoProj['geoILat_RED'][1][i]])
 
                 # --- ALT VS LAT ---
                 # update Alt vs Lat marker
@@ -609,8 +636,6 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
                 BprojectionLow.set_xdata(projectB[1][i][0])
                 BprojectionLow.set_ydata(projectB[1][i][1])
 
-
-
                 # update Alt vs lat text
                 Altlat_text_high.set_x(geoLat[0][i]) if not useOnlyLowFlyer else [0, ]
                 Altlat_text_high.set_y(geoAlt[0][i]) if not useOnlyLowFlyer else [0, ]
@@ -622,32 +647,31 @@ def AllSkyTrajecMovie(wSite, justPrintSiteNames, rocketFolderPath):
 
                 # --- GREEN ---
                 # update lat vs long text
-                latLong_text_high_GREEN.set_text(f'({round(geoLong[0][i], altrounding)}' + '$^{\circ}$' +
-                                           f', {round(geoLat[0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
-                latLong_text_low_GREEN.set_text(f'({round(geoLong[1][i], altrounding)}' + '$^{\circ}$' +
-                                           f', {round(geoLat[1][i], altrounding)}' + '$^{\circ}$)')
+                # latLong_text_high_GREEN.set_text(f'({round(geoLong[0][i], altrounding)}' + '$^{\circ}$' +
+                #                            f', {round(geoLat[0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
+                # latLong_text_low_GREEN.set_text(f'({round(geoLong[1][i], altrounding)}' + '$^{\circ}$' +
+                #                            f', {round(geoLat[1][i], altrounding)}' + '$^{\circ}$)')
 
                 # update Ilat vs Ilong text
-                IlatILong_text_high_GREEN.set_text(f'({round(data_dict_IonoProj["geoILong_GREEN"][0][i], altrounding)}' + '$^{\circ}$' +
-                                           f', {round(data_dict_IonoProj["geoILat_GREEN"][0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0,]
-
-                IlatILong_text_low_GREEN.set_text(f'({round(data_dict_IonoProj["geoILong_GREEN"][1][i], altrounding)}' + '$^{\circ}$' +
-                                          f', {round(data_dict_IonoProj["geoILat_GREEN"][1][i], altrounding)}' + '$^{\circ}$)')
+                # IlatILong_text_high_GREEN.set_text(f'({round(data_dict_IonoProj["geoILong_GREEN"][0][i], altrounding)}' + '$^{\circ}$' +
+                #                            f', {round(data_dict_IonoProj["geoILat_GREEN"][0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0,]
+                #
+                # IlatILong_text_low_GREEN.set_text(f'({round(data_dict_IonoProj["geoILong_GREEN"][1][i], altrounding)}' + '$^{\circ}$' +
+                #                           f', {round(data_dict_IonoProj["geoILat_GREEN"][1][i], altrounding)}' + '$^{\circ}$)')
 
                 # --- RED ---
                 # update lat vs long text
-                latLong_text_high_RED.set_text(f'({round(geoLong[0][i], altrounding)}' + '$^{\circ}$' +
-                                                 f', {round(geoLat[0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
-                latLong_text_low_RED.set_text(f'({round(geoLong[1][i], altrounding)}' + '$^{\circ}$' +
-                                                f', {round(geoLat[1][i], altrounding)}' + '$^{\circ}$)')
+                # latLong_text_high_RED.set_text(f'({round(geoLong[0][i], altrounding)}' + '$^{\circ}$' +
+                #                                  f', {round(geoLat[0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
+                # latLong_text_low_RED.set_text(f'({round(geoLong[1][i], altrounding)}' + '$^{\circ}$' +
+                #                                 f', {round(geoLat[1][i], altrounding)}' + '$^{\circ}$)')
 
                 # update Ilat vs Ilong text
-                IlatILong_text_high_RED.set_text(f'({round(data_dict_IonoProj["geoILong_RED"][0][i], altrounding)}' + '$^{\circ}$' +
-                                                   f', {round(data_dict_IonoProj["geoILat_RED"][0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
-
-                IlatILong_text_low_RED.set_text(f'({round(data_dict_IonoProj["geoILong_RED"][1][i], altrounding)}' + '$^{\circ}$' +
-                                                  f', {round(data_dict_IonoProj["geoILat_RED"][0][i], altrounding)}' + '$^{\circ}$)')
-
+                # IlatILong_text_high_RED.set_text(f'({round(data_dict_IonoProj["geoILong_RED"][0][i], altrounding)}' + '$^{\circ}$' +
+                #                                    f', {round(data_dict_IonoProj["geoILat_RED"][0][i], altrounding)}' + '$^{\circ}$)') if not useOnlyLowFlyer else [0, ]
+                #
+                # IlatILong_text_low_RED.set_text(f'({round(data_dict_IonoProj["geoILong_RED"][1][i], altrounding)}' + '$^{\circ}$' +
+                #                                   f', {round(data_dict_IonoProj["geoILat_RED"][0][i], altrounding)}' + '$^{\circ}$)')
 
             prgMsg('Creating AllSky Movie')
 

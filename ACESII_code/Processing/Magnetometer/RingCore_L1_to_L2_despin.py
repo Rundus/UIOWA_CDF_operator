@@ -97,7 +97,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
     input_names_searchable = [ifile.replace('_v00', '') for ifile in input_names]
 
-    fileoutName_despin = f'ACESII_{rocketID}_l2_RingCore_DeSpun_ENU'
+    fileoutName_despin = f'ACESII_{rocketID}_l2_RingCore_ENU'
 
 
     if justPrintFileNames:

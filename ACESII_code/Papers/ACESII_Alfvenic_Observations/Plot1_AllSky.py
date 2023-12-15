@@ -144,17 +144,19 @@ Done(start_time)
 ############################
 
 # some pre-amble
-trajColors = ['tab:red','tab:blue']
-cmapColor = 'inferno'
+trajColors = ['red','black']
+cmapColor = 'viridis'
+faceColorChoice = (156 / 255, 156 / 255, 156 / 255, 0.5) # in normalize RGBA
 
 # --- figure info  ---
 # plt.style.use('dark_background')
 fig = plt.figure()
-figure_height = 10
-figure_width = 10
+figure_height = 8
+figure_width = 8
 
 fig.set_figwidth(figure_width)
 fig.set_figheight(figure_height)
+fig.suptitle('Skibotn AllSky (5570 A)',fontsize=10,fontweight='bold')
 
 # --- title ---
 # fig.suptitle('ACES II')
@@ -163,10 +165,12 @@ fig.set_figheight(figure_height)
 ##### Define the primary Gridspec #####
 gs0 = gridspec.GridSpec(nrows=2, ncols=1, figure=fig, height_ratios=[0.99, 0.01], hspace=0.25) # splits figure between the plots and the colorbar at the very bottom
 cbarVmin = 0
-cbarVmax = 16
+cbarVmax = 14
+
+
 
 # --- Split Data-half into two columns ---
-gsData = gridspec.GridSpecFromSubplotSpec(nrows=1, ncols=2, width_ratios=[3/5, 2/5], subplot_spec=gs0[0])
+gsData = gridspec.GridSpecFromSubplotSpec(nrows=1, ncols=2, width_ratios=[1/5, 1/5], subplot_spec=gs0[0])
 
 # -*- Altitude/AllSky Plots -*-
 gs_altLat_BigAllSky = gridspec.GridSpecFromSubplotSpec(nrows=2, ncols=1, height_ratios=[3/10, 7/10], subplot_spec=gsData[0], hspace=0.3)
@@ -182,7 +186,11 @@ axAltLat.set_ylim(0, 460)
 # plot the psudo geomagnetic field line
 slope = -1*(111/np.sin(np.radians(90 - 78.13))) # corresponds to line with -78.13deg inclination
 for i in range(21):
-    axAltLat.axline(xy1=(66+i*0.5, 0), slope=slope,color='black', linewidth=2, linestyle='-.', alpha=0.15)
+    axAltLat.axline(xy1=(66+i*0.5, 0), slope=slope,color='tab:blue', linewidth=2, linestyle='-.', alpha=0.3)
+
+# set the facecolor of the axAltLat plot
+axAltLat.set_facecolor(faceColorChoice)
+
 
 # plot the UTC labels
 axGeographicLat = axAltLat.twiny()
@@ -249,6 +257,8 @@ axBigAllSky.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/lon
 axBigAllSky.coastlines(resolution=res, color='black', alpha=0.8)  # adds coastlines with resolution
 # axBigAllSky.set_aspect(1)
 cmapBigAllSky = axBigAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][0], cmap=cmapColor, transform=projPC, vmin=cbarVmin,vmax=cbarVmax)
+axBigAllSky.set_facecolor(faceColorChoice)
+
 
 # --- plot the rocket trajectory data on the large AllSky plot ---
 axBigAllSky.plot(geoLong[0], geoLat[0], color=trajColors[0], transform=projPC) # High
@@ -297,15 +307,17 @@ smallPlotTargetTimes = [dt.datetime(2022, 11, 20, 17, 20, 00, 000),
 
 nRows= int(len(smallPlotTargetTimes)/2)
 nCols = 2
-gs_smallerAllSkys = gridspec.GridSpecFromSubplotSpec(nrows=nRows, ncols=nCols, subplot_spec=gsData[1], hspace=0.0)
+gs_smallerAllSkys = gridspec.GridSpecFromSubplotSpec(nrows=nRows, ncols=nCols, subplot_spec=gsData[1], hspace=0.15)
 
 counter = 0
 for i in range(nRows):
     for j in range(nCols):
+
         axSmallAllSky = fig.add_subplot(gs_smallerAllSkys[i, j], projection=projType)
-        gl = axSmallAllSky.gridlines(draw_labels=True, linewidth=1, alpha=0.2, linestyle='--')
-        gl.xlabel_style = {'size': 6, 'color': 'black', 'weight': 'bold'}
-        gl.ylabel_style = {'size': 6, 'color': 'black', 'weight': 'bold'}
+        gl = axSmallAllSky.gridlines(draw_labels=True, linewidth=1, alpha=0.35, linestyle='--',color='k')
+        axSmallAllSky.set_facecolor(faceColorChoice)
+        gl.xlabel_style = {'size': 0, 'color': 'black', 'weight': 'bold'}
+        gl.ylabel_style = {'size': 0, 'color': 'black', 'weight': 'bold'}
         gl.top_labels = False
         axSmallAllSky.set_extent([lonW, lonE, latS, latN], crs=projPC)  # controls lat/long axes display
         axSmallAllSky.coastlines(resolution=res, color='black', alpha=0.8)  # adds coastlines with resolution
@@ -313,6 +325,7 @@ for i in range(nRows):
         pltIndex = np.abs(np.array(Epoch_AllSky[0]) - smallPlotTargetTimes[counter]).argmin()
         axSmallAllSky.set_title(Epoch_AllSky[0][pltIndex].strftime("%H:%M:%S") + ' UTC', fontsize=10, weight='bold')
         axSmallAllSky.pcolormesh(allGLongs[0], allGlats[0], allImages[0][pltIndex], cmap=cmapColor, transform=projPC, vmin=cbarVmin, vmax=cbarVmax)
+
 
         # plot the rocket trajectories on all the small AllSky Plots
         # axSmallAllSky.plot(geoLong[0], geoLat[0], color=trajColors[0], transform=projPC)  # High
@@ -330,10 +343,10 @@ for i in range(nRows):
 # --- COLORBAR ---
 # --- --- --- ----
 gsColorBar = fig.add_subplot(gs0[1])
-plt.colorbar(mappable=cmapBigAllSky, cax=gsColorBar, orientation='horizontal',fraction=0.046, pad=0.04)
-gsColorBar.set_title('Intensity [kR]', fontsize=15)
+cbar = plt.colorbar(mappable=cmapBigAllSky, cax=gsColorBar, orientation='horizontal',fraction=0.046, pad=0.04)
+cbar.set_label('Intensity [kR]', fontsize=15)
 gsColorBar.tick_params(labelsize=20)
 
-# plt.tight_layout()
+plt.tight_layout()
 plt.savefig(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Papers\ACESII_Alfvenic_Observations\Plots\\Plot1_AllSky.png')
 # plt.show()

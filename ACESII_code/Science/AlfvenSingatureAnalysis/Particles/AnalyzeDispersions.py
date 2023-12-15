@@ -39,7 +39,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 ######################################
 # plot all of the dispersion functions over a range of pitch angles (user input)
 plotKeyDispersions = True
-wDispersions = [3] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitches = [2] # plots specific pitch angles by their index
 # ---------------------------
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature

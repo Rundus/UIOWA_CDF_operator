@@ -24,7 +24,7 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 modifier = ''
 inputPath_modifier = '\science\SSAcomponents_B' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier_db = 'science\deltaB'
@@ -53,8 +53,6 @@ from ACESII_code.myImports import *
 from numpy.fft import rfft, fftfreq
 from ACESII_code.supportCode.Support_Libraries.pymssa import MSSA
 from scipy.signal import spectrogram
-
-
 
 def mSSA_to_deltaB(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
@@ -112,7 +110,7 @@ def mSSA_to_deltaB(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer)
         mssa = MSSA(n_components=None, window_size=SSA_window_Size, verbose=False)
 
         prgMsg('Grouping mSSA elements')
-        from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import groupings
+        from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_B import groupings
         groupings = groupings(wRocket=wRocket, SSA_window_Size=SSA_window_Size, wUseData=wUseData)
 
         # get all the SSA components for the three axes

@@ -1,6 +1,6 @@
 def timeWindow(wTargetTimes,wRocket): # MAKE SURE THESE ARE THE SAME AS THOSE IN SSAgrouping_and_Target_times_B
 
-    from ACESII_code.Processing.Magnetometer.SSAgrouping_and_target_times_B import timeWindow
+    from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_B import timeWindow
 
     return timeWindow(wTargetTimes,wRocket)
 
