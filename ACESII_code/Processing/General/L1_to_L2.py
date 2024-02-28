@@ -4,6 +4,9 @@
 
 # TODO: Need to determine: (1) geometric factor (2) Count Interval (3) Deadtime
 
+# BIIIIG NOTE: When we did our ESA calibrations for the energy, the geometric factor
+# was already included
+
 
 
 

@@ -10,9 +10,6 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -38,12 +35,12 @@ altLatPlot = True
 altLat_wScatterPoints = np.linspace(200, 400, 6)
 trajColors = ['tab:red', 'tab:orange']
 altLat_labelFontSize = 60
-altLat_textSize = 45
+altLat_textSize = 40
 altLat_tickSize = 55
 altLat_scatterSize = 400
 altLat_lineThickness = 8
 # ---------------BigAllSky-----------------
-BigAllSkyPlot = True
+BigAllSkyPlot = False
 BigAllSky_wScatterPoints = np.linspace(150, 500, 7)
 # lonW = 10
 # lonE = 23.5
@@ -68,7 +65,7 @@ latS = 68
 latN = 75
 res = '10m'
 # --------------------------------
-makeColorbarPlot = True
+makeColorbarPlot = False
 
 
 # --- --- --- --- --- --- -
@@ -76,24 +73,20 @@ makeColorbarPlot = True
 # --- --- --- --- --- --- -
 
 # trajectory
-trajFolderPath = f'{ACES_data_folder}trajectories\\'
-inputFilesTraj = [glob(trajFolderPath + rf'{fliers[0]}\\*_ILat_ILong*')[0],
-                  glob(trajFolderPath + rf'{fliers[1]}\\\\*_ILat_ILong*')[0]]
+attitudeFolderPath = f'{ACES_data_folder}\\attitude'
+inputFilesTraj = [glob(f'{attitudeFolderPath}\\{fliers[0]}\\*.cdf*')[0],
+                  glob(f'{attitudeFolderPath}\\{fliers[1]}\\*.cdf*')[0]]
 
 # --- GET TRAJECTORY DATA ---
 prgMsg(f'Loading ACESII traj data')
-data_dicts_traj = []
-for i in range(2):
-    data_dict_traj = loadDictFromFile(inputFilesTraj[i], input_data_dict={}, reduceData=False, targetTimes=[], wKeys=[])
-    data_dict_traj['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict_traj['Epoch_esa'][0][i]) for i in (range(len(data_dict_traj['Epoch_esa'][0])))])
-    data_dicts_traj.append(data_dict_traj)
+data_dicts_attitude = [loadDictFromFile(inputFilesTraj[0]),loadDictFromFile(inputFilesTraj[1])]
 
 # define some variables
-EpochRocket = [data_dicts_traj[0]['Epoch_esa'][0], data_dicts_traj[1]['Epoch_esa'][0]]
-geoAlt = [data_dicts_traj[0]['geoAlt'][0], data_dicts_traj[1]['geoAlt'][0]]
-geoLat = [data_dicts_traj[0]['geoLat'][0], data_dicts_traj[1]['geoLat'][0]]
-geoLong = [data_dicts_traj[0]['geoLong'][0], data_dicts_traj[1]['geoLong'][0]]
-geoMagLat = [data_dicts_traj[0]['geomagLat'][0], data_dicts_traj[1]['geomagLat'][0]]
+EpochRocket = [data_dicts_attitude[0]['Epoch'][0], data_dicts_attitude[1]['Epoch'][0]]
+geoAlt = [data_dicts_attitude[0]['Alt'][0], data_dicts_attitude[1]['Alt'][0]]
+geoLat = [data_dicts_attitude[0]['Lat'][0], data_dicts_attitude[1]['Lat'][0]]
+geoLong = [data_dicts_attitude[0]['Long'][0], data_dicts_attitude[1]['Long'][0]]
+geoMagLat = [data_dicts_attitude[0]['Lat_geom'][0], data_dicts_attitude[1]['Lat_geom'][0]]
 Done(start_time)
 
 
@@ -102,8 +95,6 @@ prgMsg('Loading Allsky Data')
 data_dict_allSky5577 = loadDictFromFile(glob(r'C:\Data\ACESII\all_sky\skibotn\5577\\*.cdf')[0])
 data_dict_allSky6300 = loadDictFromFile(glob(r'C:\Data\ACESII\all_sky\skibotn\6300\\*.cdf')[0])
 Done(start_time)
-
-
 
 
 ############################
@@ -122,32 +113,37 @@ if altLatPlot:
     # --- --- --- --- ---
     # axAltLat = fig.add_subplot(gs_altLat_BigAllSky[0])
     fig, axAltLat = plt.subplots()
-    figure_height = 10
+    figure_height = 11
     figure_width = 43
     fig.set_figwidth(figure_width)
     fig.set_figheight(figure_height)
 
     axAltLat.set_ylabel('Altitude [km]', fontsize=altLat_labelFontSize,weight='bold')
-    axAltLat.set_xlabel('Geomagnetic Lat [deg]',fontsize=altLat_labelFontSize,weight='bold')
-    axAltLat.set_xlim(67.25, 72.5)
+    axAltLat.set_xlabel('Geographic Lat [deg]',fontsize=altLat_labelFontSize,weight='bold')
+    axAltLat.set_xlim(69, 75)
     axAltLat.set_ylim(0, 460)
 
     # plot the pseudo geomagnetic field line
     slope = -1 * (111 / np.sin(np.radians(90 - 78.13)))  # corresponds to line with -78.13deg inclination
-    for i in range(21):
-        axAltLat.axline(xy1=(66 + i * 0.5, 0), slope=slope, color='tab:blue', linewidth=altLat_lineThickness, linestyle='-.', alpha=0.3)
+    for i in range(31):
+        axAltLat.axline(xy1=(69 + i * 0.25, 0), slope=slope, color='tab:blue', linewidth=altLat_lineThickness, linestyle='-.', alpha=0.3)
     axAltLat.legend(['B$_{Geo}$'], loc='upper right',fontsize=65)
 
     # set the facecolor of the axAltLat plot
     axAltLat.set_facecolor(faceColorChoice)
 
     # plot the UTC labels
-    axGeographicLat = axAltLat.twiny()
-    axGeographicLat.plot(geoLat[0], geoAlt[0], color=trajColors[0], alpha=0)  # High
-    axGeographicLat.plot(geoLat[1], geoAlt[1], color=trajColors[1], alpha=0)  # Low
-    axGeographicLat.set_xlabel('Geographic Lat [deg]',fontsize=altLat_labelFontSize,weight='bold')
-    timeTargetsUTC_labels = [int(num) for num in altLat_wScatterPoints]
-    AltLat_vertical_Alignments = ['bottom' for tme in timeTargetsUTC_labels]
+    axGeomLat = axAltLat.twiny()
+    axGeomLat.plot(geoMagLat[0], geoAlt[0]/1000, color=trajColors[0], alpha=0)  # High
+    axGeomLat.plot(geoMagLat[1], geoAlt[1]/1000, color=trajColors[1], alpha=0)  # Low
+    axGeomLat.set_xlabel('Geomagnetic Latitude [deg]',fontsize=altLat_labelFontSize,weight='bold')
+    timeTargetsUTC = [dt.datetime(2022,11,20,17,23,20,000),
+                      dt.datetime(2022,11,20,17,24,00,000),
+                      dt.datetime(2022,11,20,17,24,40,000),
+                      dt.datetime(2022,11,20,17,25,20,000),
+                      dt.datetime(2022,11,20,17,26,00,000),
+                      dt.datetime(2022,11,20,17,26,40,000)] # find the UTC dates times of the specifically sampled labels
+    AltLat_vertical_Alignments = ['bottom' for tme in timeTargetsUTC]
     AltLat_horizontal_Alignments = ['right', 'right', 'right', 'center', 'left', 'left']
     vertical_text_label_adjustments = [-0.05, 0.01, 0.025, 0.025, 0.01, -0.03]
     horizontal_text_label_adjustments = [-0.002, -0.001, 0.000, 0.0, -0.001, 0.001]
@@ -155,23 +151,23 @@ if altLatPlot:
     # plot the scatterpoint of each of the timeTargetUTC_labels. Plot the text itself only for the High Flyer and
     # create a connecting line between the scatterpoints between the flyers
     for i in range(2):  # for each rocket
-        for j, ttme in enumerate(timeTargetsUTC_labels):
-            Index = np.abs(EpochRocket[i] - (ttme * 1E9 + EpochRocket[i][0])).argmin()
-            xPos = geoMagLat[i][Index]
-            yPos = geoAlt[i][Index]
+        for j, ttme in enumerate(timeTargetsUTC):
+            Index = np.abs(EpochRocket[i] - ttme).argmin()
+            xPos = geoLat[i][Index]
+            yPos = geoAlt[i][Index]/1000
 
             if i == 0:
                 # plot the text itself
-                label = pycdf.lib.tt2000_to_datetime(EpochRocket[i][Index])
+                label = EpochRocket[i][Index]
                 deltaY = vertical_text_label_adjustments[j] * yPos
                 deltaX = horizontal_text_label_adjustments[j] * xPos
-                axAltLat.text(x=xPos + deltaX, y=yPos + deltaY, s=label.strftime("%H:%M:%S"), color=trajColors[i],
+                axAltLat.text(x=xPos + deltaX, y=yPos + deltaY, s=label.strftime("%H:%M:%S"), color='black',weight='bold',
                               va=AltLat_vertical_Alignments[j], ha=AltLat_horizontal_Alignments[j], size=altLat_textSize)
 
                 # plot the connecting line
-                Index_LF = Index = np.abs(EpochRocket[1] - (ttme * 1E9 + EpochRocket[1][0])).argmin()
-                xPos_LF = geoMagLat[1][Index_LF]
-                yPos_LF = geoAlt[1][Index_LF]
+                Index_LF = np.abs(EpochRocket[1] - ttme).argmin()
+                xPos_LF = geoLat[1][Index_LF]
+                yPos_LF = geoAlt[1][Index_LF]/1000
                 axAltLat.plot([xPos, xPos_LF], [yPos, yPos_LF], color='green', linestyle='--', alpha=0.5,linewidth=altLat_lineThickness)
                 # axAltLat.axline(xy1=(xPos, yPos), xy2=(xPos_LF, yPos_LF), color='green', linestyle='--', alpha=0.5)
 
@@ -180,13 +176,12 @@ if altLatPlot:
 
     # adjust the tick label size
     axAltLat.tick_params(axis='both',labelsize=altLat_tickSize)
-    axGeographicLat.tick_params(axis='both',labelsize=altLat_tickSize)
-
+    axGeomLat.tick_params(axis='both',labelsize=altLat_tickSize)
 
     # plot the trajectory over everything
-    axAltLat.plot(geoMagLat[0], geoAlt[0], color=trajColors[0], label='High Flyer',linewidth=altLat_lineThickness)  # High
-    axAltLat.plot(geoMagLat[1], geoAlt[1], color=trajColors[1], label='Low Flyer',linewidth=altLat_lineThickness)  # Low
-    plt.tight_layout()
+    axAltLat.plot(geoLat[0], geoAlt[0]/1000, color=trajColors[0], label='High Flyer',linewidth=altLat_lineThickness)  # High
+    axAltLat.plot(geoLat[1], geoAlt[1]/1000, color=trajColors[1], label='Low Flyer',linewidth=altLat_lineThickness)  # Low
+
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\AltLat.png')
     Done(start_time)
     # plt.show()
@@ -277,7 +272,8 @@ if BigAllSkyPlot:
 
                 # plot the text itself
                 deltaX = 0.0075*xPos if i == 0 else -1*0.0075*xPos
-                axBigAllSky.text(x=xPos + deltaX, y=yPos, s =label.strftime("%H:%M:%S"),color=trajColors[i], ha=alignment[i], transform=projTransform,size=BigAllSky_textSize)
+                axBigAllSky.text(x=xPos + deltaX, y=yPos, s =label.strftime("%H:%M:%S"),color='black', weight='bold',
+                                 ha=alignment[i], transform=projTransform,size=BigAllSky_textSize)
 
         plt.tight_layout()
         plt.savefig(BigAllSky_outputPath)

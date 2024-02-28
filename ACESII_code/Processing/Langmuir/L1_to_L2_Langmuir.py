@@ -19,6 +19,7 @@ __version__ = "1.0.0"
 import itertools
 import math
 
+import matplotlib.pyplot as plt
 import matplotlib.scale
 import numpy as np
 
@@ -51,10 +52,9 @@ useNanoAmps = True
 # --- FIXED VOLTAGE TOGGLES ---
 ###############################
 unit_conversion = 1e9 # 1 for Amps 10**9 for nano amps, etc
-
 SECTION_fixedProbeCal = True
 applyFixedCalCurve = True
-plotFixedCalCurve = False
+plotFixedCalCurve = True
 
 ##################################
 # --- SWEPT TO VOLTAGE TOGGLES ---
@@ -62,7 +62,7 @@ plotFixedCalCurve = False
 # Does a little analysis on the "step" variable to determine the average values of the steps.
 # Needed to calculate from "Step" variable to voltage
 # MUST BE ==TRUE WHEN SWEPT PROBE ==TRUE
-SECTION_stepToVoltage = True
+SECTION_stepToVoltage = False
 
 # the capacitive effect between the probe and plasma cause an RC decay on the data.
 downSample_RCeffect = True # This toggle only uses the 10th (the last) datapoint of each voltage setpoint to eliminate this effect
@@ -86,7 +86,7 @@ indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff nee
 #####################
 # --- DATA OUTPUT ---
 #####################
-outputData = True
+outputData = False
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -197,37 +197,45 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 plt.show()
 
             # Apply the calibration function curve
+            print(parameters)
+            index = np.abs(data_dict['Epoch_ni'][0] - dt.datetime(2022,11,20,17,25,44,500000)).argmin()
+            print(data_dict['ni'][0][index])
+            print(len(data_dict['ni'][0]))
+            print(np.exp(calFunction_fixed(data_dict['ni'][0][index], parameters[0],parameters[1])))
+
             if applyFixedCalCurve:
-                ni = np.array([ np.exp(calFunction_fixed(data_dict['ni'][0][i], *parameters)) for i in range(len(data_dict['ni'][0]))])
+                caldCurrent = np.array([
+                    np.exp(calFunction_fixed(data_dict['ni'][0][i], parameters[0],parameters[1]))
+                    for i in range(len(data_dict['ni'][0]))])
                 fixedLPunits = 'nA'
             else:
-                ni = np.array(data_dict['ni'][0])
+                caldCurrent = np.array(data_dict['ni'][0])
                 fixedLPunits = 'ADC'
-
 
             # apply a quality assurance step:
             if applyFixedCalCurve:
                 if wRocket == 4:
-                    for i in range(len(ni)):
-                        if np.abs(ni[i]) > 700:
-                            ni[i] = rocketAttrs.epoch_fillVal
+                    for i in range(len(caldCurrent)):
+                        if np.abs(caldCurrent[i]) > 2000:
+                            caldCurrent[i] = rocketAttrs.epoch_fillVal
                 elif wRocket == 5:
-                    for i in range(len(ni)):
-                        if np.abs(ni[i]) > 1500:
-                            ni[i] = rocketAttrs.epoch_fillVal
+                    for i in range(len(caldCurrent)):
+                        if np.abs(caldCurrent[i]) > 2000:
+                            caldCurrent[i] = rocketAttrs.epoch_fillVal
 
-            data_dict = {**data_dict, **{'fixed_current': [ni, {'LABLAXIS': 'current',
+            data_dict = {**data_dict, **{'fixed_current': [caldCurrent, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
                                                             'DEPEND_1': None,
                                                             'DEPEND_2': None,
                                                             'FILLVAL': rocketAttrs.epoch_fillVal,
                                                             'FORMAT': 'E12.2',
                                                             'UNITS': fixedLPunits,
-                                                            'VALIDMIN': ni.min(),
-                                                            'VALIDMAX': ni.max(),
+                                                            'VALIDMIN': caldCurrent.min(),
+                                                            'VALIDMAX': caldCurrent.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
             data_dict['fixed_Epoch'] = data_dict.pop('Epoch_ni') # rename to fixed
             Done(start_time)
+
 
         #########################
         # --- STEP to Voltage ---

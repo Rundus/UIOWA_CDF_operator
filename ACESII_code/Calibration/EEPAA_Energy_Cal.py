@@ -38,45 +38,39 @@ import pandas as pd
 
 
 def EEPAA_Energy_Cal(inputFile):
-
     # collect the csv data
     df = pd.read_excel(inputFile)
     steps = np.array(df.STEP)
     Energy_Theory = np.array(df['Energy (Theoretical) [eV]'])
     Energy_cal = np.array(df['Calibration Estimate [eV]'])
+    dataForCal = np.array([list(pair) for pair in zip(steps,Energy_cal) if not (np.isnan(pair[0]) or np.isnan(pair[1]))])
 
-    dataForCal = np.array([list(pair) for pair in zip(Energy_Theory,Energy_cal) if not (np.isnan(pair[0]) or np.isnan(pair[1]))])
+    xData = dataForCal[:, 0]
+    yData = np.log(np.array(dataForCal[:, 1]))
+    def fitFunc(x,A,B):
+        return A*x + B
 
-    xData = dataForCal[:,0]
-    yData = dataForCal[:,1]
-
-
-    def fitFunc(x,A):
-        return A*x
-
-    params, cov = curve_fit(fitFunc,xData,yData)
-
-    xDataFit = np.linspace(min(xData),max(xData),200)
+    params, cov = curve_fit(fitFunc, xData, yData)
+    xDataFit = np.linspace(min(xData), max(xData), 200)
     yDataFit = np.array([fitFunc(x,*params) for x in xDataFit])
 
     if plotCalData_vs_Theoretical:
         fig, ax = plt.subplots()
-        fig.suptitle('Theoretical Energy vs Chamber Calibration Estimate')
-        ax.scatter(xData,yData,label='Raw',color='blue')
-        ax.plot(xDataFit, yDataFit, label=f'Fit Function: y = A*x\n A={params[0]}',color='red')
-        ax.set_ylabel('Calibration Estimate [eV]')
-        ax.set_xlabel('Energy (Theoretical) [eV]')
+        fig.suptitle('Measured E vs Step #')
+        ax.scatter(xData, yData,label='Raw',color='blue')
+        ax.plot(xDataFit, yDataFit, label=f'Fit Function: Ln(E_measured) = A*(Step #) + B\n A={params[0]} \n B = {params[1]}',color='red')
+        ax.set_ylabel('$Ln(E_{measured})$ ')
+        ax.set_xlabel('Step #')
         ax.legend()
         plt.show()
 
-    new_EEPAA_Energies = list(Energy_Theory*params[0])[2:]
-    new_EEPAA_Energies.append(Energy_Theory[0]*params[0])
-    new_EEPAA_Energies = [round(engy,2) for engy in new_EEPAA_Energies]
-    print(new_EEPAA_Energies[::-1])
+    np.set_printoptions(formatter={'float_kind':'{:25f}'.format})
+    new_EEPAA_Energies = np.array([ round(np.exp(fitFunc(x,*params)),2) for x in range(1,50)],dtype='float64')[::-1]
 
-
-
-
+    print('[',end='')
+    for thing in new_EEPAA_Energies:
+        print(thing,', ',end='')
+    print(']',end='')
 
 
 

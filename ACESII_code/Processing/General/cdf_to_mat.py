@@ -38,8 +38,8 @@ wRocket = 5
 wFiles = [0]
 
 modifier = ''
-inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'l1' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+inputPath_modifier = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'attitude' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 
 
 # --- --- --- ---
@@ -48,7 +48,7 @@ outputPath_modifier = 'l1' # e.g. 'L2' or 'Langmuir'. It's the name of the broad
 from scipy.io import savemat
 
 
-def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def cdf_to_mat(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
     outputrocketFolderPath = rocketFolderPath + 'ACESII_matlab'
 
     # --- ACESII ---
@@ -90,13 +90,11 @@ def main(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
 
         # --- get the data from the tmCDF file ---
         prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict = loadDictFromFile(inputFiles[wFile], {})
+        data_dict = loadDictFromFile(inputFiles[wFile])
 
         # convert epoch to tt2000
         data_dict['Epoch'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch'][0][i]) for i in range(len(data_dict['Epoch'][0]))])
-
-        data_dict['Epoch_esa'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_esa'][0][i]) for i in range(len(data_dict['Epoch_esa'][0]))])
-        data_dict['Epoch_monitors'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_monitors'][0][i]) for i in range(len(data_dict['Epoch_monitors'][0]))])
+        # data_dict['Epoch_monitors'][0] = np.array([pycdf.lib.datetime_to_tt2000(data_dict['Epoch_monitors'][0][i]) for i in range(len(data_dict['Epoch_monitors'][0]))])
         Done(start_time)
 
         #####################################
@@ -149,10 +147,10 @@ if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) =
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        main(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        cdf_to_mat(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
     elif not wFiles:
         for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
-            main(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
+            cdf_to_mat(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
     else:
         for filesNo in wFiles:
-            main(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+            cdf_to_mat(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)

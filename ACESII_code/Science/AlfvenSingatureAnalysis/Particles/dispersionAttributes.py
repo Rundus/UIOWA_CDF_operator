@@ -1,7 +1,7 @@
 # --- dispersionAttributes.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Location to store the information for the dispersion times
-
+import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
 
@@ -10,72 +10,184 @@ import datetime as dt
 # --- PLOT 1: BOTH FLYERS, ALT VS LAT (w/ CONNECTING LINES) ---
 ###############################################################
 def boxRemove(Data, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time):
-    newData = Data
-    for tme in range(len(Data)):
-        for engy in range(len(Data[tme])):
-            if Energy[engy] > EnergyMin and Energy[engy] < EnergyMax and Time[tme] > TimeMin and Time[tme] < TimeMax:
-                newData[tme][engy] = 0
-    return Data
 
-def diagonalRemove(Data, indexSum ,TimeMin, TimeMax, Energy, Time, upper):
-    newData = Data
-    for tme in range(len(Data)):
-        for engy in range(len(Data[tme])):
-            if upper:
-                if Time[tme] > TimeMin and Time[tme] < TimeMax and engy - tme <= indexSum:
-                    newData[tme][engy] = 0
-            else:
-                if Time[tme] > TimeMin and Time[tme] < TimeMax and engy - tme >= indexSum:
-                    newData[tme][engy] = 0
-    return Data
+    # perform the removal
+    newData = np.array(Data)
+    for tme in range(len(Time)):
+        for engy in range(len(Energy)):
+            if Energy[engy] >= EnergyMin and Energy[engy] <= EnergyMax and Time[tme] >= TimeMin and Time[tme] <= TimeMax:
+                for ptch in range(len(newData[0])):
+                    newData[tme][ptch][engy] = 0
 
-class dispersionAttributes:
+    return newData
+
+def diagonalRemove(Data, EnergyStartPoint ,TimeStart, TimeEnd, Energy, Time, upper):
+
+    # find the indices of energy cor
+    # responding to EnergyMin,EnergyMax
+    Esp = np.abs(Energy - EnergyStartPoint).argmin()
+
+    # find time indicies of Tmin, Tmax
+    Tmin = np.abs(Time - TimeStart).argmin()
+    Tmax = np.abs(Time - TimeEnd).argmin()
+    k = (Tmin - Esp)
+
+    # remove any super large negative fillvals
+    newData = np.array(Data).clip(min=0)
+
+    # Construct the Diagonal Mask
+    from copy import deepcopy
+    zeroDiagonal_mask = np.array(deepcopy(newData)).T
+
+    for ptch in range(21): # loop through all pitch angles
+        pitchSlice = np.array(Data[:, ptch, :]).T
+
+        # get the upper diagonal elements that will mask out the data later
+        if upper:  # zero the upper section of the array
+            zeroDiagonal_mask[:, ptch, :] = np.triu(pitchSlice, k)
+        else: # zero the lower section of the array
+            zeroDiagonal_mask[:, ptch, :] = pitchSlice - np.triu(pitchSlice, k+1)
+
+    # Construct the adjusted mask - LEFT
+    # description: remove vertical chunks from left or right of the mask based on Tmin and Tmax
+    zeroDiagonal_mask_left = boxRemove(Data=zeroDiagonal_mask.T,
+                                            EnergyMin=0,
+                                            EnergyMax=20000,
+                                            TimeMin=0,
+                                            TimeMax=TimeStart,
+                                            Energy=Energy,
+                                            Time=Time)
+
+    # right
+    zeroDiagonal_mask_right = boxRemove(Data=zeroDiagonal_mask_left,
+                                            EnergyMin=0,
+                                            EnergyMax=20000,
+                                            TimeMin=TimeEnd,
+                                            TimeMax=Time[-1],
+                                            Energy=Energy,
+                                            Time=Time)
+    # subtract mask from original data
+    newData = np.array(newData - zeroDiagonal_mask_right)
+
+    return newData
+
+class dispersionAttributes(object):
 
     # taken from the 10deg bin on eepaa_fullCal. These are the most noticable
     keyDispersionTimes = [
         [dt.datetime(2022, 11, 20, 17, 24, 56, 000000), dt.datetime(2022, 11, 20, 17, 24, 57, 600000)],# s1
-        [dt.datetime(2022, 11, 20, 17, 24, 57, 710000), dt.datetime(2022, 11, 20, 17, 24, 59, 186000)],# s2
-        [dt.datetime(2022, 11, 20, 17, 24, 58, 558000), dt.datetime(2022, 11, 20, 17, 24, 59, 958000)],# s3
+        [dt.datetime(2022, 11, 20, 17, 24, 57, 630000), dt.datetime(2022, 11, 20, 17, 24, 59, 186000)],# s2
+        [dt.datetime(2022, 11, 20, 17, 24, 58, 700000), dt.datetime(2022, 11, 20, 17, 25, 00, 50000)],# s3
         [dt.datetime(2022, 11, 20, 17, 24, 59, 965000), dt.datetime(2022, 11, 20, 17, 25, 00, 758000)],# s4  right before Inverted V
-        [dt.datetime(2022, 11, 20, 17, 25, 00, 501000), dt.datetime(2022, 11, 20, 17, 25, 1, 513000)], # s5 inside inverted V's left edge
-        [dt.datetime(2022, 11, 20, 17, 25, 00, 909000), dt.datetime(2022, 11, 20, 17, 25, 2, 16000)], # s6 under V, it's faint
-        [dt.datetime(2022, 11, 20, 17, 25, 3, 500000), dt.datetime(2022, 11, 20, 17, 25, 4, 550000)], # s7 Faint signature after small inverted V
-        [dt.datetime(2022, 11, 20, 17, 25, 3, 800000), dt.datetime(2022, 11, 20, 17, 25, 5, 200000)], # s8 in choatic region
-        [dt.datetime(2022, 11, 20, 17, 25, 5, 450000), dt.datetime(2022, 11, 20, 17, 25, 5, 920000)], # s9 VERTICAL BAR that doesn't look like it's in an inverted V
-        [dt.datetime(2022, 11, 20, 17, 25, 5, 806000), dt.datetime(2022, 11, 20, 17, 25, 6, 506000)], # s10 Last dispersive feature in the chaotic region
-        [dt.datetime(2022, 11, 20, 17, 25, 6, 562000), dt.datetime(2022, 11, 20, 17, 25, 6, 945000)], # s11 small feature right before Very Strong feature outside inverted V region
-        [dt.datetime(2022, 11, 20, 17, 25, 6, 760000), dt.datetime(2022, 11, 20, 17, 25, 7, 606000)], # s12 Very Strong Wave-like feature on north end of Inverted V
-        [dt.datetime(2022, 11, 20, 17, 25, 7, 641000), dt.datetime(2022, 11, 20, 17, 25, 8, 406000)], # s13 Smaller feature, similar to s1
-        [dt.datetime(2022, 11, 20, 17, 25, 8, 434000), dt.datetime(2022, 11, 20, 17, 25, 8, 946000)] # s14 Tiny Feature, similar to s10 and s11
+        [dt.datetime(2022, 11, 20, 17, 25, 00, 501000), dt.datetime(2022, 11, 20, 17, 25, 1, 350000)], # s5 inside inverted V's left edge
+        [dt.datetime(2022, 11, 20, 17, 25, 0, 850000),  dt.datetime(2022, 11, 20, 17, 25, 2, 0000)], # s6 under V, it's faint
+        [dt.datetime(2022, 11, 20, 17, 25, 3, 800000), dt.datetime(2022, 11, 20, 17, 25, 5, 200000)], # s7 in choatic region
+        [dt.datetime(2022, 11, 20, 17, 25, 5, 450000), dt.datetime(2022, 11, 20, 17, 25, 5, 920000)], # s8 VERTICAL BAR that doesn't look like it's in an inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 5, 806000), dt.datetime(2022, 11, 20, 17, 25, 6, 506000)], # s9 Last dispersive feature in the chaotic region
+        [dt.datetime(2022, 11, 20, 17, 25, 6, 760000), dt.datetime(2022, 11, 20, 17, 25, 7, 606000)], # s10 Very Strong Wave-like feature on north end of Inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 7, 641000), dt.datetime(2022, 11, 20, 17, 25, 8, 406000)], # s11 Smaller feature, similar to s1
+        [dt.datetime(2022, 11, 20, 17, 24, 18, 000), dt.datetime(2022, 11, 20, 17, 24, 19, 000)], # s12 first STEB observed. Dispersion underneath inverted V
+        [dt.datetime(2022, 11, 20, 17, 24, 21, 000), dt.datetime(2022, 11, 20, 17, 24, 22, 000)], # s13 STEB northward of first aurora observed. Faint
+        [dt.datetime(2022, 11, 20, 17, 24, 31, 00000), dt.datetime(2022, 11, 20, 17, 24, 32, 271000)], # s14 edge-type STEB on 2nd auroral form observed
+        [dt.datetime(2022, 11, 20, 17, 24, 32, 600000), dt.datetime(2022, 11, 20, 17, 24, 33, 461000)], # s15 Undearath aurora
+        [dt.datetime(2022, 11, 20, 17, 24, 45, 200000), dt.datetime(2022, 11, 20, 17, 24, 46, 000)], # s16 near the south edge of inverted V, almost undernearth it.
+        [dt.datetime(2022, 11, 20, 17, 25, 23, 700000), dt.datetime(2022, 11, 20, 17, 25, 24, 300000)], # s17 Strong edge-type STEB near big aurora
+        [dt.datetime(2022, 11, 20, 17, 26, 10, 000000), dt.datetime(2022, 11, 20, 17, 26, 11, 000000)], # s18 small STEB above aurora
     ]
 
     # the overhead noise on the dispersion features shouldn't be included. Here we have the energy indicies for the ~max energy the feature appears to be at when looking at pitch 0deg
-    # NOTE: these indicies assume you're using the full 49 length energy array
+    # NOTE: these are in Energy units (eV) where [min, Max]
+    # This data was collected on the COUNTS graphs
     keyDispersionEnergyLimits = np.array([
-        24,  # s1
-        26,  # s2
-        26,  # s3
-        20,  # s4
-        19,  # s5
-        18,  # s6
-        25,  # s7
-        24,  # s8
-        23,  # s9
-        22,  # s10
-        24,  # s11
-        22,  # s12
-        27,  # s13
-        31  # s14
+        [28.22, 400],  # s1
+        [28.22, 300],  # s2
+        [28.22, 330],  # s3
+        [28.22, 1000],  # s4
+        [28.22, 1200],  # s5
+        [114, 900],  # s6
+        [83, 618],  # s7
+        [28.22, 460],  # s8
+        [28.22, 618],  # s9
+        [28.22, 722],  # s10
+        [28.22, 330],  # s11
+        [28.22, 2000],  # s12
+        [28.22, 1000],  # s13
+        [28.22, 1000],  # s14
+        [28.22, 1100],  # s15
+        [28.22, 1000],  # s16
+        [28.22, 600],  # s17
+        [28.22, 360]  # s18
         ])
 
-    additionalDispersionTimes = [
-        [dt.datetime(2022, 11, 20, 17, 24, 31, 193000), dt.datetime(2022, 11, 20, 17, 24, 32, 656000)], # sa1 near the beginning of the flight
-        [dt.datetime(2022, 11, 20, 17, 25, 23, 500000), dt.datetime(2022, 11, 20, 17, 24, 24, 461000)], # sa2 at the beginnig edge of the largest inverted V
-        [dt.datetime(2022, 11, 20, 17, 26, 10, 107000), dt.datetime(2022, 11, 20, 17, 26, 11, 159000)],  # sa3 near the south edge of inverted V, almost undernearth it. NORTH side of Big Inverted V
-        [dt.datetime(2022, 11, 20, 17, 26, 20, 603000), dt.datetime(2022, 11, 20, 17, 26, 21, 308000)] # sa4 underneath an inverted  V on the northernmost edge of the big inverted V
-        # sa3 underneath an inverted  V on the northernmost edge of the big inverted V
+    # For the results of the study we need to know the EXACT deltaE and deltaT that the STEBS had, not just
+    # limits useful for isolating data. this is hard to do by programming, so data was collected by hand
+    # NOTE: Energy data is in eV
+    keyDispersionDeltaE = np.array([
+        [28.22, 340],  # s1
+        [28.22, 256],  # s2
+        [28.22, 293],  # s3
+        [80, 750],  # s4
+        [28.22, 845],  # s5
+        [114, 630],  # s6
+        [83, 288],  # s7
+        [28.22, 460],  # s8
+        [28.22, 540],  # s9
+        [28.22, 540],  # s10
+        [28.22, 245],  # s11
+        [155, 990],  # s12
+        [28.22, 250],  # s13
+        [28.22, 470],  # s14
+        [85, 714],  # s15
+        [28.22, 115],  # s16
+        [40, 290],  # s17
+        [28.22, 250]  # s18
     ]
+    )
 
+    keyDispersionDeltaT = np.array([
+        [dt.datetime(2022, 11, 20, 17, 24, 56, 205000), dt.datetime(2022, 11, 20, 17, 24, 57, 610000)],  # s1
+        [dt.datetime(2022, 11, 20, 17, 24, 57, 710000), dt.datetime(2022, 11, 20, 17, 24, 59, 160000)],  # s2
+        [dt.datetime(2022, 11, 20, 17, 24, 59, 55000), dt.datetime(2022, 11, 20, 17, 25, 0, 10000)],  # s3
+        [dt.datetime(2022, 11, 20, 17, 25, 00, 60000), dt.datetime(2022, 11, 20, 17, 25, 00, 552000)], # s4  right before Inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 00, 563000), dt.datetime(2022, 11, 20, 17, 25, 1, 312000)], # s5 inside inverted V's left edge
+        [dt.datetime(2022, 11, 20, 17, 25, 1, 10000), dt.datetime(2022, 11, 20, 17, 25, 1, 462000)], # s6 under V, it's faint
+        [dt.datetime(2022, 11, 20, 17, 25, 4, 8000), dt.datetime(2022, 11, 20, 17, 25, 4, 412000)], # s7 in choatic region
+        [dt.datetime(2022, 11, 20, 17, 25, 5, 514000), dt.datetime(2022, 11, 20, 17, 25, 5, 870000)], # s8 VERTICAL BAR that doesn't look like it's in an inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 5, 906000), dt.datetime(2022, 11, 20, 17, 25, 6, 506000)], # s9 Last dispersive feature in the chaotic region
+        [dt.datetime(2022, 11, 20, 17, 25, 6, 858000), dt.datetime(2022, 11, 20, 17, 25, 7, 362000)], # s10 Very Strong Wave-like feature on north end of Inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 7, 714000), dt.datetime(2022, 11, 20, 17, 25, 8, 310000)], # s11 Smaller feature, similar to s1
+        [dt.datetime(2022, 11, 20, 17, 24, 18, 37000), dt.datetime(2022, 11, 20, 17, 24, 18, 666000)], # s12 first STEB observed. Dispersion underneath inverted V
+        [dt.datetime(2022, 11, 20, 17, 24, 21, 152000), dt.datetime(2022, 11, 20, 17, 24, 21, 000)], # s13 STEB northward of first aurora observed. Faint
+        [dt.datetime(2022, 11, 20, 17, 24, 31, 164000), dt.datetime(2022, 11, 20, 17, 24, 32, 00000)], # s14 edge-type STEB on 2nd auroral form observed
+        [dt.datetime(2022, 11, 20, 17, 24, 32, 616000), dt.datetime(2022, 11, 20, 17, 24, 33, 356000)], # s15 Undearath aurora
+        [dt.datetime(2022, 11, 20, 17, 24, 45, 558000), dt.datetime(2022, 11, 20, 17, 24, 45, 800000)], # s16 near the south edge of inverted V, almost undernearth it.
+        [dt.datetime(2022, 11, 20, 17, 25, 23, 758000), dt.datetime(2022, 11, 20, 17, 25, 24, 166000)], # s17 Strong edge-type STEB near big aurora
+
+        [dt.datetime(2022, 11, 20, 17, 26, 10, 262000), dt.datetime(2022, 11, 20, 17, 26, 10, 860000)], # s18 small STEB above aurora
+    ]
+    )
+
+    # type options: (1) Auroral (2) isolated (3) edgetype
+    keyDispersionType = [
+        'isolated',  # s1
+        'isolated',  # s2
+        'isolated',  # s3
+        'edgetype',  # s4
+        'Auroral',  # s5
+        'Auroral',  # s6
+        'Auroral',  # s7
+        'Auroral',  # s8
+        'edgetype',  # s9
+        'isolated',  # s10
+        'isolated',  # s11
+        'Auroral',  # s12
+        'isolated',  # s13
+        'edgetype',  # s14
+        'Auroral',  # s15
+        'edgetype',  # s16
+        'edgetype',  # s17
+        'edgetype'  # s18
+    ]
 
     ##############################
     # --- CLEAN THE SIGNATURES ---
@@ -84,18 +196,30 @@ class dispersionAttributes:
     # I need to isolate the dispersion signatures so I can T.O.F. fit them. To do this,
     # have to manually isolate them. Lets create a special set of functions for each dispersion to do just this.
 
+    additionalRemoval = True
 
     @staticmethod
-    def cleanS1(inputData,Energy,Time): # doesn't need anything
-        return inputData
+    def cleanS1(inputData,Energy,Time): # cleans up the corners
+
+        newData = inputData
+
+        # --- DIAGONAL REMOVE ---
+        # remove upper Right stuff (COARSE)
+        upper = True
+        EnergyStartPoint, TimeStart, TimeEnd = 600, 0.8, 1.6
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+        return newData
 
     @staticmethod
     def cleanS2(inputData,Energy,Time): # remove data in top right
         newData = inputData
 
-        # --- BOX REMOVE ---
-        EnergyMin, EnergyMax,TimeMin,TimeMax = 90, 200, 1, 1.5
-        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
+        # --- DIAGONAL REMOVE ---
+        # remove upper Right stuff (COARSE)
+        upper = True
+        EnergyStartPoint, TimeStart, TimeEnd = 480, 0.9, 1.6
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         return newData
 
@@ -105,13 +229,28 @@ class dispersionAttributes:
 
         # --- BOX REMOVE ---
         # remove lower left
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 75, -0.1, 0.58
-        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
+        # EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 75, -0.1, 0.58
+        # newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
 
-        # --- BOX REMOVE ---
-        # upper right
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 95, 300, 1, 2
-        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+        # --- DIAGONAL REMOVE ---
+        # remove lower left stuff (COARSE)
+        upper = False
+        EnergyStartPoint, TimeStart, TimeEnd = 200, -0.2, 0.6
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        # remove upper Right stuff (COARSE)
+        upper = True
+        EnergyStartPoint, TimeStart, TimeEnd = 500, 0.9, 1.6
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+        if dispersionAttributes.additionalRemoval:
+            # --- DIAGONAL REMOVE ---
+            # remove upper Right stuff (COARSE)
+            upper = True
+            EnergyStartPoint, TimeStart, TimeEnd = 330, 0.6, 0.96
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
 
         return newData
 
@@ -119,35 +258,35 @@ class dispersionAttributes:
     def cleanS4(inputData, Energy, Time):  # doesn't need anything
         newData = inputData
 
-        # # --- BOX REMOVE ---
-        # # remove bottom left
-        # EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 90, -0.1, 0.28
-        # newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
-
         # --- DIAGONAL REMOVE ---
-        # remove lower right stuff (COARSE)
+        # remove bottom left stuff (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 4, -0.1, 0.55
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
-
-        # --- BOX REMOVE ---
-        # remove bottom (COARSE)
-        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 41, -0.1, 1
-        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+        EnergyStartPoint, TimeStart, TimeEnd = 190, -0.2, 0.3
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
-        # remove lower right stuff (COARSE)
+        # remove upper Right stuff (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -2, 0.5, 2
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        EnergyStartPoint, TimeStart, TimeEnd = 350, 0.6, 1
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove middle top stuff
+        # remove upper Right stuff (FINE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -4, 0.2, 0.6
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        EnergyStartPoint, TimeStart, TimeEnd = 220, 0.7, 1
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
+        if dispersionAttributes.additionalRemoval:
+            ############ ADDITIONAL REMOVAL ############
+            upper = False
+            EnergyStartPoint, TimeStart, TimeEnd = 300, -0.1, 1
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
+            upper = True
+            EnergyStartPoint, TimeStart, TimeEnd = 220, 0.45, 1
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+            EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 1000, 0.65, 1
+            newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
 
         return newData
 
@@ -155,27 +294,37 @@ class dispersionAttributes:
     def cleanS5(inputData, Energy, Time):  # doesn't need anything
         newData = inputData
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
-        upper = False
-        diagonalCounter, TimeMin, TimeMax = 7, -0.1, 0.3
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        if dispersionAttributes.additionalRemoval:
+            # --- DIAGONAL REMOVE ---
+            # remove lower left (COARSE)
+            upper = False
+            EnergyStartPoint, TimeStart, TimeEnd = 210, -0.1, 0.25
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove upper right (COARSE)
-        upper = True
-        diagonalCounter, TimeMin, TimeMax = -5, 0.3, 2
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+            # --- DIAGONAL REMOVE ---
+            upper = False
+            EnergyStartPoint, TimeStart, TimeEnd = 400, -0.1, 0.25
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
-        # remove upper right (FINE)
-        upper = True
-        diagonalCounter, TimeMin, TimeMax = 0, 0.4, 2
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+            # --- DIAGONAL REMOVE ---
+            upper = False
+            EnergyStartPoint, TimeStart, TimeEnd = 80, 0.2, 0.6
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
-        # remove upper right (FINE)
-        upper = True
-        diagonalCounter, TimeMin, TimeMax = 1, 0.48, 0.7
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+            # --- DIAGONAL REMOVE ---
+            upper = True
+            EnergyStartPoint, TimeStart, TimeEnd = 380, 0.4, 1.5
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+            # --- DIAGONAL REMOVE ---
+            upper = True
+            EnergyStartPoint, TimeStart, TimeEnd = 280, 0.45, 1.5
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+            # --- DIAGONAL REMOVE ---
+            upper = True
+            EnergyStartPoint, TimeStart, TimeEnd = 200, 0.5, 1.5
+            newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         return newData
 
@@ -186,14 +335,24 @@ class dispersionAttributes:
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 5, -0.1, 0.6
+        diagonalCounter, TimeMin, TimeMax = 540, -0.1, 2
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
-        upper = True
-        diagonalCounter, TimeMin, TimeMax = -2, 0.3, 2
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 240, 0.15, 2
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # # --- DIAGONAL REMOVE ---
+        # # remove lower left (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 520, 0.3, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # --- BOX REMOVE ---
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 1000, 0.62, 2
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
 
         return newData
 
@@ -204,15 +363,20 @@ class dispersionAttributes:
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 9, -0.1, 0.35
+        diagonalCounter, TimeMin, TimeMax = 250, -0.1, 0.8
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove upper right (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -3, 0.45, 2
+        diagonalCounter, TimeMin, TimeMax = 400, 0.4, 1.6
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
+        # --- DIAGONAL REMOVE ---
+        # remove upper right (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 180, 0.55, 1.6
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
 
@@ -220,25 +384,44 @@ class dispersionAttributes:
     def cleanS8(inputData, Energy, Time):
         newData = inputData
 
-        # --- DIAGONAL REMOVE ---
+        # # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 3, -0.1, 0.7
+        diagonalCounter, TimeMin, TimeMax = 180, -0.1, 0.2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        #
+        # # --- DIAGONAL REMOVE ---
+        # remove upper right (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 450, 0.2, 1
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        #
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 60, 0.14, 0.25
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        #
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 615, 0.0, 0.7
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove upper right (COARSE)
-        # upper = True
-        # diagonalCounter, TimeMin, TimeMax = -5, 0.6, 2
-        # newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
-
-        # --- DIAGONAL REMOVE ---
-        # remove upper right (Fine)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -6, 0.4, 2
+        diagonalCounter, TimeMin, TimeMax = 280, 0.17, 0.7
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 70, 0.13, 0.25
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 180, 0.24, 0.6
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 335, -0.1, 0.05
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
+
 
     @staticmethod
     def cleanS9(inputData, Energy, Time):
@@ -247,17 +430,22 @@ class dispersionAttributes:
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 13, -0.1, 0.2
+        diagonalCounter, TimeMin, TimeMax = 280, -0.1, 0.05
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
-        # remove upper right (COARSE)
-        upper = True
-        diagonalCounter, TimeMin, TimeMax = -5, 0.15, 1
+        # remove lower left (COARSE)
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 112, -0.1, 0.4
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
-        return newData
+        # remove lower left (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 390, 0.35, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
+
+        return newData
 
     @staticmethod
     def cleanS10(inputData, Energy, Time):
@@ -266,25 +454,25 @@ class dispersionAttributes:
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 11, -0.1, 0.4
+        diagonalCounter, TimeMin, TimeMax = 240, -0.1, 0.15
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
-        # remove lower left (FINE)
+        # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 6, -0.1, 0.15
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
-
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (FINE FINE)
-        upper = False
-        diagonalCounter, TimeMin, TimeMax = 8, 0.1, 0.3
+        diagonalCounter, TimeMin, TimeMax = 60, 0.1, 0.5
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -3, 0.3, 2
+        diagonalCounter, TimeMin, TimeMax = 280, 0.5, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        # remove lower left (COARSE)
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 94, 0.646, 2
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
@@ -296,19 +484,24 @@ class dispersionAttributes:
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 9, -0.1, 0.16
+        diagonalCounter, TimeMin, TimeMax = 180, -0.1, 0.3
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
-        # remove lower left (FINE)
+        # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 4, -0.1, 0.06
+        diagonalCounter, TimeMin, TimeMax = 60, 0.26, 0.5
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
-        # remove upper right (COARSE)
+        # remove lower left (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -2, 0.2, 2
+        diagonalCounter, TimeMin, TimeMax = 120,  0.6, 1
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 380, 0.14, 2
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
@@ -317,17 +510,37 @@ class dispersionAttributes:
     def cleanS12(inputData, Energy, Time):
         newData = inputData
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
-        upper = False
-        diagonalCounter, TimeMin, TimeMax = 9, -0.1, 0.25
-        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 2000, -0.1, 0.35
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 2000, 0.7, 2
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 1404, 10000, 0.0, 2
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
 
         # --- DIAGONAL REMOVE ---
         # remove lower left (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax =-3, 0.55, 2
+        diagonalCounter, TimeMin, TimeMax = 900, 0.44, 2
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        # remove lower left (COARSE)
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 350, 0.3455, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        # upper = False
+        # diagonalCounter, TimeMin, TimeMax = 500, 0.34, 1
+        # newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+        #
+        # upper = True
+        # diagonalCounter, TimeMin, TimeMax = 1000, 0.4,2
+        # newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
 
         return newData
 
@@ -335,16 +548,12 @@ class dispersionAttributes:
     def cleanS13(inputData, Energy, Time):
         newData = inputData
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 5, -0.1, 0.2
+        diagonalCounter, TimeMin, TimeMax = 350, -0.1, 0.65
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -5, 0.6, 2
+        diagonalCounter, TimeMin, TimeMax = 400, 0.48, 1.5
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
@@ -353,16 +562,105 @@ class dispersionAttributes:
     def cleanS14(inputData, Energy, Time):
         newData = inputData
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
         upper = False
-        diagonalCounter, TimeMin, TimeMax = 4, -0.1, 0.15
+        diagonalCounter, TimeMin, TimeMax = 240, -0.1, 0.4
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove lower left (COARSE)
         upper = True
-        diagonalCounter, TimeMin, TimeMax = -4, 0.25, 2
+        diagonalCounter, TimeMin, TimeMax = 175, 0.78, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 972, 0.1, 0.55
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 95, 0.54, 0.855
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 96, 0.948, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 1182, 0.447, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 10000, -0.1, 0.43
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        return newData
+
+    @staticmethod
+    def cleanS15(inputData, Energy, Time):
+        newData = inputData
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 400, -0.1, 0.24
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 110, 0.4, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 400, 0.45, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 60, -0.1, 2
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 10000, -0.1, 0.21
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax, Energy, Time)
+
+        return newData
+
+    @staticmethod
+    def cleanS16(inputData, Energy, Time):
+        newData = inputData
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 550, 0.2, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 250, 0.38, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 130, 0.56, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 150, -0.1,0.45
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 200, 0.09, 0.3
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        return newData
+
+    @staticmethod
+    def cleanS17(inputData, Energy, Time):
+        newData = inputData
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 400, 0.25, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        return newData
+
+    @staticmethod
+    def cleanS18(inputData, Energy, Time):
+        newData = inputData
+
+        upper = True
+        diagonalCounter, TimeMin, TimeMax = 250, 0.6, 2
+        newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
+
+        upper = False
+        diagonalCounter, TimeMin, TimeMax = 120, -0.1, 0.4
         newData = diagonalRemove(newData, diagonalCounter, TimeMin, TimeMax, Energy, Time, upper)
 
         return newData
@@ -382,4 +680,8 @@ class dispersionAttributes:
                           's11': cleanS11,
                           's12': cleanS12,
                           's13': cleanS13,
-                          's14': cleanS14}
+                          's14': cleanS14,
+                          's15': cleanS15,
+                          's16': cleanS16,
+                          's17': cleanS17,
+                          's18': cleanS18}
