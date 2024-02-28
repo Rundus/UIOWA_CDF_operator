@@ -16,7 +16,6 @@ plot_BField = False
 def geomagneticFieldProfile(altRange, **kwargs):
     plotBool = kwargs.get('showPlot', False)
 
-
     geomagAlts = [((alt + R_REF) / R_REF) for alt in altRange]
     geomagLats = array([degrees(arccos(radi / BgeoToggles.Lshell)) for radi in geomagAlts])
     geomagLongs = array([111.83 for i in range(len(altRange))])
