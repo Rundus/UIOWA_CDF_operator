@@ -1,6 +1,6 @@
 # --- imports ---
 from simToggles import m_to_km, R_REF, GenToggles, EToggles
-from ACESII_code.class_var_func import lightSpeed, u0,q0,m_e,ep0,cm_to_m
+from ACESII_code.class_var_func import lightSpeed, u0,q0,m_e,ep0,cm_to_m, IonMasses
 from numpy import exp, sqrt, array, pi, abs, tanh
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField_Generator import geomagneticFieldProfile
 
@@ -9,8 +9,9 @@ from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomag
 ##################
 # --- PLOTTING ---
 ##################
-plot_Temperature = True
+plot_Temperature = False
 plot_Density = False
+plot_ionMass = True
 plot_PlasmaFreq = False
 plot_PlasmaBeta = False
 plot_skinDepth = False
@@ -144,20 +145,38 @@ def ionMassProfile(altRange, **kwargs):
     z_i = 2370*m_to_km  #
     h_i = 1800*m_to_km  # height of plasma sheet (in meters)
     n_Op = array([plasmaDensity_total[i]*0.5 * (1 - tanh((altRange[i] - z_i) / h_i)) for i in range(len(altRange))])
+    n_Hp = plasmaDensity_total - n_Op
+    m_0p = IonMasses[1]
+    m_Hp = IonMasses[2]
+    m_eff_i = array([ m_Hp*0.5*(1 + tanh( (altRange[i] - z_i)/h_i )) + m_0p*0.5*(1 - tanh( (altRange[i] - z_i)/h_i )) for i in range(len(altRange))])
 
 
     if plotBool:
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        ax.plot(altRange / R_REF, n_density / (cm_to_m ** 3))
-        ax.set_title('$n_{i}$ vs Altitude')
-        ax.set_ylabel('Plasma Density [$cm^{-3}$]')
-        ax.set_xlabel('Altitude [$R_{E}$]')
-        ax.axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        fig, ax = plt.subplots(3)
+        ax[0].plot(altRange / R_REF, n_Op)
+        ax[0].set_title('$n_{0^{+}}$ vs Altitude')
+        ax[0].set_ylabel('Monatomic-Oxygen number density [cm^{3}]')
+        ax[0].set_xlabel('Altitude [$R_{E}$]')
+        ax[0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+
+
+        ax[1].plot(altRange / R_REF, n_Hp)
+        ax[1].set_title('$n_{H^{+}}$ vs Altitude')
+        ax[1].set_ylabel('Monatomic-Hydrogen number density [cm^{3}]')
+        ax[1].set_xlabel('Altitude [$R_{E}$]')
+        ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+
+        ax[2].plot(altRange / R_REF, m_eff_i)
+        ax[2].set_title('$m_{eff_{i}}$ vs Altitude')
+        ax[2].set_ylabel('Effective Ion Mass [kg]')
+        ax[2].set_xlabel('Altitude [$R_{E}$]')
+        ax[2].axvline(x=400000 / R_REF, label='Observation Height', color='red')
         plt.legend()
+        plt.tight_layout()
         plt.show()
 
-    return n_density
+    return n_Op,n_Hp, m_eff_i
 
 
 # --- PLASMA BETA ---
@@ -413,6 +432,9 @@ if plot_Temperature:
 
 if plot_Density:
     plasmaDensityProfile(simulationAlt, showPlot=plot_Density)
+
+if plot_ionMass:
+    ionMassProfile(simulationAlt, showPlot=plot_ionMass)
 
 if plot_PlasmaBeta:
     plasmaBetaProfile(simulationAlt, showPlot=plot_PlasmaBeta)
