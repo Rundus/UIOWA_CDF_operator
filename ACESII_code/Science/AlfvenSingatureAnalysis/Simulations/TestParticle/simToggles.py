@@ -12,8 +12,8 @@ R_REF = 6371.2 * m_to_km  # in meters
 class GenToggles:
     simLen = 330 # how many delta T steps to simulate
     deltaT = 0.01 # in seconds
-    simAltLow = 300*m_to_km # low altitude (in meters)
-    simAltHigh = 12000*m_to_km # high altitude (in meters)
+    simAltLow = 1*m_to_km # low altitude (in meters)
+    simAltHigh = 20000*m_to_km # high altitude (in meters)
     obsHeight = 400*m_to_km # height of observation (in meters)
     simAlt = linspace(simAltLow, simAltHigh, 2000)  # in METERS
     simTime = linspace(0, deltaT*simLen, simLen+1)  # in seconds
@@ -46,7 +46,7 @@ class EToggles:
     waveFreq = 1 # in Hz
     lambdaPerp0 = 1 * m_to_km  # in meters
     peakPotential = 400 # volts
-    static_Kperp = True
+    static_Kperp = False
     flipEField = True
 
     # --- Static Toggles ---

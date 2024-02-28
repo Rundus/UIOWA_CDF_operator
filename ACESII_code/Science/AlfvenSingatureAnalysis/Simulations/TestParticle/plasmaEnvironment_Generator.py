@@ -3,26 +3,27 @@ from simToggles import m_to_km, R_REF, GenToggles, EToggles
 from ACESII_code.class_var_func import lightSpeed, u0,q0,m_e,ep0,cm_to_m, IonMasses
 from numpy import exp, sqrt, array, pi, abs, tanh
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField_Generator import geomagneticFieldProfile
-
+simulationAlt = GenToggles.simAlt
 
 
 ##################
 # --- PLOTTING ---
 ##################
 plot_Temperature = False
+plot_lambdaPerp = True
 plot_Density = False
-plot_ionMass = True
-plot_PlasmaFreq = False
+plot_ionMass = False
 plot_PlasmaBeta = False
+plot_PlasmaFreq = False
 plot_skinDepth = False
 plot_ionCyclotron = False
 plot_ionLarmorRadius = False
 plot_MHDalfvenSpeed = False
-plot_lambdaPerp = False
+plot_kineticTerms =False
 plot_lambdaPara = False
 plot_kineticAlfSpeed = False
 
-simulationAlt = GenToggles.simAlt
+
 
 
 # --- Temperature ---
@@ -41,7 +42,7 @@ def temperatureProfile(altRange, **kwargs):
     w = 0.5*(1 - tanh((altRange - z_ps)/deltaZ)) # models the transition to the plasma sheet
 
     # determine the overall temperature profile
-    T_e = [T_iono[i]*w[i] + T_ps*(1 - w[i]) for i in range(len(altRange))]
+    T_e = array([T_iono[i]*w[i] + T_ps*(1 - w[i]) for i in range(len(altRange))])
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -74,18 +75,15 @@ def temperatureProfile(altRange, **kwargs):
 
     return T_e
 
-
-
 # --- Kperp ---
-
 def lambdaPerpProfile(altRange, **kwargs):
     plotBool = kwargs.get('showPlot', False)
 
     Bmag,Bgrad = geomagneticFieldProfile(altRange)
     initindex = abs(altRange - EToggles.Z0_wave).argmin() # the index of the startpoint of the Wave
     initBmag = Bmag[initindex] # <--- This determines where the scaling begins
-    LambdaPerp = array([EToggles.lambdaPerp0*sqrt(initBmag/Bmag[i]) for i in range(len(altRange))]) if not EToggles.static_Kperp else array([EToggles.lambdaPerp0 for i in range(len(altRange))])
-    kperp = array([2*pi/LambdaPerp[i] for i in range(len(altRange))])
+    LambdaPerp = EToggles.lambdaPerp0*sqrt(initBmag/Bmag) if not EToggles.static_Kperp else array([EToggles.lambdaPerp0 for i in range(len(altRange))])
+    kperp = 2*pi/LambdaPerp
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -107,8 +105,6 @@ def lambdaPerpProfile(altRange, **kwargs):
         plt.show()
 
     return LambdaPerp, kperp
-
-
 
 # --- PLASMA DENSITY ---
 # uses the Klezting Model to return an array of plasma density (in m^-3) from [Alt_low, ..., Alt_High]
@@ -136,7 +132,6 @@ def plasmaDensityProfile(altRange, **kwargs):
 
     return n_density
 
-
 # --- Ion Mass ---
 def ionMassProfile(altRange, **kwargs):
     plotBool = kwargs.get('showPlot', False)
@@ -154,30 +149,29 @@ def ionMassProfile(altRange, **kwargs):
     if plotBool:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(3)
+        fig.set_figwidth(15)
+        fig.set_figheight(10)
         ax[0].plot(altRange / R_REF, n_Op)
-        ax[0].set_title('$n_{0^{+}}$ vs Altitude')
-        ax[0].set_ylabel('Monatomic-Oxygen number density [cm^{3}]')
+        ax[0].set_title('Plasma densities vs Altitude')
+        ax[0].set_ylabel('$n_{0^{+}}$ [$m^{-3}$]')
         ax[0].set_xlabel('Altitude [$R_{E}$]')
         ax[0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
 
 
         ax[1].plot(altRange / R_REF, n_Hp)
-        ax[1].set_title('$n_{H^{+}}$ vs Altitude')
-        ax[1].set_ylabel('Monatomic-Hydrogen number density [cm^{3}]')
+        ax[1].set_ylabel('$n_{H^{+}}$ [$m^{-3}$]')
         ax[1].set_xlabel('Altitude [$R_{E}$]')
         ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
 
         ax[2].plot(altRange / R_REF, m_eff_i)
-        ax[2].set_title('$m_{eff_{i}}$ vs Altitude')
-        ax[2].set_ylabel('Effective Ion Mass [kg]')
+        ax[2].set_ylabel('$m_{eff_{i}}$ [kg]')
         ax[2].set_xlabel('Altitude [$R_{E}$]')
         ax[2].axvline(x=400000 / R_REF, label='Observation Height', color='red')
         plt.legend()
         plt.tight_layout()
         plt.show()
 
-    return n_Op,n_Hp, m_eff_i
-
+    return n_Op, n_Hp, m_eff_i
 
 # --- PLASMA BETA ---
 def plasmaBetaProfile(altRange, **kwargs):
@@ -187,8 +181,8 @@ def plasmaBetaProfile(altRange, **kwargs):
     Bgeo, Bgrad = geomagneticFieldProfile(altRange)
     Te = 50
     plasmaBeta = array([(plasmaDensity[i]*q0*Te)/(Bgeo[i]**2 /(2*u0)) for i in range(len(altRange))])
-    IonMass = 5E-26
-    ratio = m_e/IonMass
+    n_Op, n_Hp, m_eff_i = ionMassProfile(altRange)
+    ratio = m_e/m_eff_i
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -213,7 +207,6 @@ def plasmaBetaProfile(altRange, **kwargs):
         plt.show()
 
     return plasmaBeta
-
 
 # --- PLASMA FREQ ---
 def plasmaFreqProfile(altRange,**kwargs):
@@ -259,9 +252,8 @@ def ionCyclotronProfile(altRange,**kwargs):
     plotBool = kwargs.get('showPlot', False)
 
     Bgeo,Bgrad = geomagneticFieldProfile(altRange)
-    IonMass = 5E-26
-
-    ionCyclotron = array([q0*Bgeo[i]/IonMass for i in range(len(Bgeo))])
+    n_Op, n_Hp, m_eff_i = ionMassProfile(altRange)
+    ionCyclotron = array([q0*Bgeo[i]/m_eff_i[i] for i in range(len(altRange))])
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -270,28 +262,35 @@ def ionCyclotronProfile(altRange,**kwargs):
         ax[0].set_title('$\omega_{ci}$ vs Altitude')
         ax[0].set_ylabel('Ion Cyclotron [m]')
         ax[0].set_xlabel('Altitude [$R_{E}$]')
-        ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red')
+        ax[0].axvline(x=400000/R_REF, label='Observation Height',color='red')
+        ax[0].set_yscale('log')
+        ax[0].set_ylim(0.1,1000)
+        ax[0].margins(0)
 
         ax[1].plot(altRange / R_REF, ionCyclotron / (2*pi))
         ax[1].set_title('$\Omega_{ci}$ vs Altitude')
         ax[1].set_ylabel('Ion Cyclotron [Hz]')
         ax[1].set_xlabel('Altitude [$R_{E}$]')
         ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        ax[1].set_yscale('log')
+        ax[1].set_ylim(0.1, 1000)
+        ax[1].margins(0)
         plt.legend()
         plt.tight_layout()
         plt.show()
 
     return ionCyclotron
 
-
 # --- Ion Larmor Radius ---
 def ionLarmorRadiusProfile(altRange,**kwargs):
     plotBool = kwargs.get('showPlot', False)
 
     ionCyclo = ionCyclotronProfile(altRange)
-    IonMass = 5E-26
-    vth = sqrt(8*q0*Ti/IonMass)
-    ionLarmorRadius = array([vth/ionCyclo[i] for i in range(len(ionCyclo))])
+    n_Op, n_Hp, m_eff_i = ionMassProfile(altRange)
+    Ti = temperatureProfile(altRange)
+    vth = sqrt(8*q0*Ti/m_eff_i)
+
+    ionLarmorRadius = vth/ionCyclo
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -303,7 +302,8 @@ def ionLarmorRadiusProfile(altRange,**kwargs):
         ax.axvline(x=400000 / R_REF, label='Observation Height', color='red',linestyle='--')
         ax.axvline(x=10000000 / R_REF, label='Magnetosheath Proton Limit', color='tab:green',linestyle='--')
         ax.set_yscale('log')
-        ax.set_ylim(0,1E4)
+        ax.set_ylim(1, 4E5)
+        ax.margins(0)
         ax.grid(True)
         plt.legend()
         plt.tight_layout()
@@ -311,33 +311,32 @@ def ionLarmorRadiusProfile(altRange,**kwargs):
 
     return ionLarmorRadius
 
-
 # --- MHD Alfven Speed ---
 def MHD_alfvenSpeedProfile(altRange,**kwargs):
     plotBool = kwargs.get('showPlot', False)
 
     plasmaDensity = plasmaDensityProfile(altRange)
     Bmag,Bgrad = geomagneticFieldProfile(altRange)
-    IonMass_Avg = 3*1.67E-27
-    VA_MHD = array([ Bmag[i]/sqrt(u0*IonMass_Avg*plasmaDensity[i]) for i in range(len(plasmaDensity))])
+    n_Op, n_Hp, m_eff_i = ionMassProfile(altRange)
+    VA_MHD = array(Bmag/sqrt(u0*m_eff_i*plasmaDensity))
 
     if plotBool:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        ax.plot(altRange / R_REF, VA_MHD/(m_to_km))
+        ax.plot(altRange / R_REF, VA_MHD/(10000*m_to_km), label='$V_{A} (MHD)$')
         ax.set_title(r'$V_{A}$ vs Altitude')
-        ax.set_ylabel('MHD Alfven Speed  [km/s]')
+        ax.set_ylabel('MHD Alfven Speed  [10,000 km/s]')
         ax.set_xlabel('Altitude [$R_{E}$]')
         ax.axvline(x=400000 / R_REF, label='Observation Height', color='red', linestyle='--')
         ax.grid(True)
 
         # plot some thermal velocity comparisons
-        Vth_low = sqrt(8*q0*1/(9.11E-31))/m_to_km
-        ax.axhline(y=Vth_low)
+        Vth_low = sqrt(8*q0*1/(9.11E-31))/(10000*m_to_km)
+        ax.axhline(y=Vth_low, color='black')
         ax.text(x=R_REF/R_REF,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black')
 
-        Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/m_to_km
-        ax.axhline(y=Vth_high)
+        Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/(10000*m_to_km)
+        ax.axhline(y=Vth_high, color='black')
         ax.text(x=R_REF/R_REF, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black')
 
         plt.legend()
@@ -345,6 +344,58 @@ def MHD_alfvenSpeedProfile(altRange,**kwargs):
         plt.show()
 
     return VA_MHD
+
+# --- 3 Kinetic Terms ---
+def kineticTermsProfiles(altRange, **kwargs):
+    plotBool = kwargs.get('showPlot', False)
+
+    # collect profiles
+    lambdaPerp, kperp = lambdaPerpProfile(altRange)
+    ionCyclo = ionCyclotronProfile(altRange)
+    ionLarmorRadi = ionLarmorRadiusProfile(altRange)
+    skinDepth = skinDepthProfile(altRange)
+    alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
+
+    inertialTerm = 1 + (kperp*skinDepth)**2
+    finitFreqTerm = 1 - (EToggles.waveFreq/ionCyclo)**2
+    LarmorTerm = 1 + (kperp*ionLarmorRadi)**2
+
+    if plotBool:
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(nrows=2,ncols=2)
+
+        # Alfven Velocity
+        ax[0, 0].plot(altRange / R_REF, alfSpdMHD/m_to_km)
+        ax[0, 0].set_title('Alfven velocity')
+        ax[0, 0].set_ylabel('Velocity [km/s]')
+        ax[0, 0].set_xlabel('Altitude [$R_{E}$]')
+        ax[0, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        ax[0, 0].set_ylim(0, 3E5)
+        ax[0, 0].margins(0)
+
+        # inerital term
+        ax[0, 1].plot(altRange / R_REF, inertialTerm)
+        ax[0, 1].set_title('Inertial Effect')
+        ax[0, 1].set_ylabel('Length [m]')
+        ax[0, 1].set_xlabel('Altitude [$R_{E}$]')
+        ax[0, 1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        ax[0, 1].set_yscale('log')
+        ax[0, 1].set_ylim(10, 1E5)
+        ax[0, 1].margins(0)
+
+        # inerital term
+        ax[1, 0].plot(altRange / R_REF, LarmorTerm)
+        ax[1, 0].set_title('Larmor radius effect')
+        ax[1, 0].set_ylabel('Ion Larmor radius [m]')
+        ax[1, 0].set_xlabel('Altitude [$R_{E}$]')
+        ax[1, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        ax[1, 0].set_yscale('log')
+        ax[1, 0].set_ylim(1, 5E5)
+        ax[1, 0].margins(0)
+
+
+
 
 
 # --- Lambda Parallel Wavelength ---
@@ -358,8 +409,8 @@ def lambdaParallelProfile(altRange, **kwargs):
     skinDepth = skinDepthProfile(altRange)
     alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
 
-    LambdaPara = array([2*pi*alfSpdMHD[i]*sqrt(1 - (EToggles.waveFreqionCyclo[i])**2)*sqrt(1 + (kperp[i]*ionLarmorRadi[i])**2)/(EToggles.waveFreqsqrt(1 + (kperp[i]*skinDepth[i])**2)) for i in range(len(altRange))])
-    kpara = array([2*pi/LambdaPara[i] for i in range(len(altRange))])
+    LambdaPara = 2*pi*alfSpdMHD*sqrt(1 - (EToggles.waveFreq/ionCyclo)**2)*sqrt(1 + (kperp*ionLarmorRadi)**2)/(EToggles.waveFreq*sqrt(1 + (kperp*skinDepth)**2))
+    kpara = 2*pi/LambdaPara
 
     if plotBool:
         import matplotlib.pyplot as plt
@@ -450,6 +501,12 @@ if plot_ionCyclotron:
 
 if plot_ionLarmorRadius:
     ionLarmorRadiusProfile(simulationAlt,showPlot=plot_ionLarmorRadius)
+
+if plot_lambdaPerp:
+    lambdaPerpProfile(simulationAlt,showPlot=plot_lambdaPerp)
+
+if plot_lambdaPara:
+    lambdaParallelProfile(simulationAlt,showPlot=plot_lambdaPara)
 
 if plot_MHDalfvenSpeed:
     MHD_alfvenSpeedProfile(simulationAlt,showPlot=plot_MHDalfvenSpeed)
