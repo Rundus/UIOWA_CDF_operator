@@ -1,4 +1,5 @@
 # --- imports ---
+import numpy as np
 from numpy import linspace
 from numpy import array
 
@@ -43,10 +44,11 @@ class BgeoToggles:
 ########################
 class EToggles:
     Z0_wave = (1.3*6371+3000)*m_to_km # initial altitude of the wave (in meters)
-    waveFreq = 1 # in Hz
-    lambdaPerp0 = 1 * m_to_km  # in meters
+    waveFreq_Hz = 4 # in Hz
+    waveFreq_rad = 2*np.pi*waveFreq_Hz
+    lambdaPerp0 = 2 * m_to_km  # in meters
     peakPotential = 400 # volts
-    static_Kperp = False
+    static_Kperp = True
     flipEField = True
 
     # --- Static Toggles ---

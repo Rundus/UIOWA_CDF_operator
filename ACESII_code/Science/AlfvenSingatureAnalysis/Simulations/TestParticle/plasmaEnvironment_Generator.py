@@ -10,8 +10,8 @@ simulationAlt = GenToggles.simAlt
 # --- PLOTTING ---
 ##################
 plot_Temperature = False
-plot_lambdaPerp = True
-plot_Density = False
+plot_lambdaPerp = False
+plot_Density = True
 plot_ionMass = False
 plot_PlasmaBeta = False
 plot_PlasmaFreq = False
@@ -19,7 +19,7 @@ plot_skinDepth = False
 plot_ionCyclotron = False
 plot_ionLarmorRadius = False
 plot_MHDalfvenSpeed = False
-plot_kineticTerms =False
+plot_kineticTerms = False
 plot_lambdaPara = False
 plot_kineticAlfSpeed = False
 
@@ -122,11 +122,17 @@ def plasmaDensityProfile(altRange, **kwargs):
     if plotBool:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        ax.plot(altRange/R_REF, n_density/(cm_to_m**3))
+        # ax.plot(altRange/R_REF, n_density/(cm_to_m**3))
+        ax.plot(altRange/m_to_km, n_density/(cm_to_m**3))
         ax.set_title('$n_{i}$ vs Altitude')
         ax.set_ylabel('Plasma Density [$cm^{-3}$]')
-        ax.set_xlabel('Altitude [$R_{E}$]')
+        # ax.set_xlabel('Altitude [$R_{E}$]')
+        ax.set_xlabel('Altitude [km]')
         ax.axvline(x=400000/R_REF,label='Observation Height',color='red')
+        ax.set_xscale('log')
+        ax.set_xlim(500,1.1E4)
+        ax.set_yscale('log')
+        ax.set_ylim(1E-2,1E6)
         plt.legend()
         plt.show()
 
@@ -243,6 +249,10 @@ def skinDepthProfile(altRange,**kwargs):
         ax.set_ylabel('Skin Depth [m]')
         ax.set_xlabel('Altitude [$R_{E}$]')
         ax.axvline(x=400000/R_REF,label='Observation Height',color='red')
+        ax.set_yscale('log')
+        ax.set_ylim(10,1E5)
+        ax.margins(0)
+        ax.grid(True)
         plt.legend()
         plt.show()
     return skinDepth
@@ -357,7 +367,7 @@ def kineticTermsProfiles(altRange, **kwargs):
     alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
 
     inertialTerm = 1 + (kperp*skinDepth)**2
-    finitFreqTerm = 1 - (EToggles.waveFreq/ionCyclo)**2
+    finitFreqTerm = 1 - (EToggles.waveFreq_rad/ionCyclo)**2
     LarmorTerm = 1 + (kperp*ionLarmorRadi)**2
 
     if plotBool:
@@ -367,32 +377,46 @@ def kineticTermsProfiles(altRange, **kwargs):
 
         # Alfven Velocity
         ax[0, 0].plot(altRange / R_REF, alfSpdMHD/m_to_km)
-        ax[0, 0].set_title('Alfven velocity')
+        ax[0, 0].set_title('Alfven velocity (MHD)')
         ax[0, 0].set_ylabel('Velocity [km/s]')
         ax[0, 0].set_xlabel('Altitude [$R_{E}$]')
         ax[0, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
-        ax[0, 0].set_ylim(0, 3E5)
+        ax[0, 0].set_ylim(0, 5E4)
         ax[0, 0].margins(0)
+        ax[0, 0].grid(True)
 
         # inerital term
         ax[0, 1].plot(altRange / R_REF, inertialTerm)
-        ax[0, 1].set_title('Inertial Effect')
+        ax[0, 1].set_title('Inertial Effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
         ax[0, 1].set_ylabel('Length [m]')
         ax[0, 1].set_xlabel('Altitude [$R_{E}$]')
         ax[0, 1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
-        ax[0, 1].set_yscale('log')
-        ax[0, 1].set_ylim(10, 1E5)
+        ax[0, 1].set_ylim(0, 7)
         ax[0, 1].margins(0)
+        ax[0, 1].grid(True)
 
-        # inerital term
+        # larmor radius term
         ax[1, 0].plot(altRange / R_REF, LarmorTerm)
-        ax[1, 0].set_title('Larmor radius effect')
+        ax[1, 0].set_title('Larmor radius effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
         ax[1, 0].set_ylabel('Ion Larmor radius [m]')
         ax[1, 0].set_xlabel('Altitude [$R_{E}$]')
         ax[1, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
-        ax[1, 0].set_yscale('log')
-        ax[1, 0].set_ylim(1, 5E5)
+        ax[1, 0].set_ylim(0, 4)
         ax[1, 0].margins(0)
+        ax[1, 0].grid(True)
+
+        # finite frequency term
+        ax[1, 1].plot(altRange / R_REF, finitFreqTerm)
+        ax[1, 1].set_title('Finite Freq. effect\n' + '$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
+        ax[1, 1].set_ylabel('Ion Larmor Frequency [m]')
+        ax[1, 1].set_xlabel('Altitude [$R_{E}$]')
+        ax[1, 1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+        ax[1, 1].set_ylim(0, 2)
+        ax[1, 1].margins(0)
+        ax[1, 1].grid(True)
+
+        plt.tight_layout()
+        plt.show()
 
 
 
@@ -409,7 +433,7 @@ def lambdaParallelProfile(altRange, **kwargs):
     skinDepth = skinDepthProfile(altRange)
     alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
 
-    LambdaPara = 2*pi*alfSpdMHD*sqrt(1 - (EToggles.waveFreq/ionCyclo)**2)*sqrt(1 + (kperp*ionLarmorRadi)**2)/(EToggles.waveFreq*sqrt(1 + (kperp*skinDepth)**2))
+    LambdaPara = 2*pi*alfSpdMHD*sqrt(1 - (EToggles.waveFreq_rad/ionCyclo)**2)*sqrt(1 + (kperp*ionLarmorRadi)**2)/(EToggles.waveFreq_rad*sqrt(1 + (kperp*skinDepth)**2))
     kpara = 2*pi/LambdaPara
 
     if plotBool:
@@ -443,14 +467,14 @@ def kinetic_alfvenSpeedProfile(altRange, **kwargs):
     ionLarmorRadi = ionLarmorRadiusProfile(altRange)
     skinDepth = skinDepthProfile(altRange)
     alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
-    kineticAlfSpeed = array([ alfSpdMHD[i] * sqrt(1 - (EToggles.waveFreq/ionCyclo[i])**2) *sqrt(1 + (kperp[i]*ionLarmorRadi[i])**2)/(sqrt(1 + (kperp[i]*skinDepth[i])**2)) for i in range(len(altRange))])
+    kineticAlfSpeed = array([ alfSpdMHD[i] * sqrt(1 - (EToggles.waveFreq_rad/ionCyclo[i])**2) *sqrt(1 + (kperp[i]*ionLarmorRadi[i])**2)/(sqrt(1 + (kperp[i]*skinDepth[i])**2)) for i in range(len(altRange))])
 
     if plotBool:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.plot(altRange / R_REF, kineticAlfSpeed/(m_to_km), label='kinetic Alf speed', color='blue')
         ax.set_title(r'$\omega_{wave}/k_{\parallel}$ vs Altitude' +
-                     '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq} rad/s')
+                     '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq_rad} rad/s')
         ax.set_ylabel('Kinetic Alfven Speed  [km/s]')
         ax.set_xlabel('Altitude [$R_{E}$]')
         ax.axvline(x=400000 / R_REF, label='Observation Height', color='red', linestyle='--')
@@ -504,6 +528,9 @@ if plot_ionLarmorRadius:
 
 if plot_lambdaPerp:
     lambdaPerpProfile(simulationAlt,showPlot=plot_lambdaPerp)
+
+if plot_kineticTerms:
+    kineticTermsProfiles(simulationAlt,showPlot=plot_kineticTerms)
 
 if plot_lambdaPara:
     lambdaParallelProfile(simulationAlt,showPlot=plot_lambdaPara)
