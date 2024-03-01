@@ -2,10 +2,6 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: Test particle simulaton that was recreated using ideas from a Knudsen and Wu paper:
 # https://doi. org/10.1029/2020JA028005
-import numpy as np
-
-# TODO: Use ion concentrations to better estimate rho_m in alfven velocity
-
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
@@ -22,8 +18,6 @@ start_time = time.time()
 # --- --- --- --- --- --- --
 ############################
 # --- diagnostic plotting ---
-plotEField = False
-plotMirror_vs_electrostatic = False
 plotInputEnergies = False
 plotEuler_1step = False
 
