@@ -3,9 +3,6 @@
 # DESCRIPTION: Takes as input the despun B-Field data or E-Field data,bandpass filters, then mSSAs the data.
 # The output are SSA component files found in \L3\SSAcomponents_B
 # or deltaB/deltaE files.
-import os.path
-
-import numpy as np
 
 # it this code must be able to do the following SIMPLY
 # [0] handle Electric or magnetic data
@@ -102,6 +99,7 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
     Done(start_time)
 
     # --- Determine which coordinate system the data uses ---
+    from ACESII_code.class_var_func import determineCoordCompNames
     coordSys, compNames, fileWL = determineCoordCompNames(inputDataFiles[wFile])
 
     ##############################
