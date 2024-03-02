@@ -8,12 +8,14 @@
 #   ,...]
 
 # --- imports ---
-from ACESII_code.myImports import *
-from ACESII_code.class_var_func import L2_ACES_Quick
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles,EToggles
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
-from ACESII_code.class_var_func import loadDictFromFile
+import time
+import numpy as np
+from itertools import product
+from copy import deepcopy
+from ACESII_code.class_var_func import prgMsg,Done, outputCDFdata, loadDictFromFile
 start_time = time.time()
 
 ##################
@@ -87,7 +89,7 @@ def alfvenEperpGenerator(outputData, **kwargs):
 
             spaceGrid = np.zeros(shape=(len(altRange),len(simXRange)))
 
-            for z,x in itertools.product(*[range(len(altRange)),range(len(simXRange))]):
+            for z,x in product(*[range(len(altRange)),range(len(simXRange))]):
                 zVal = altRange[z]
                 xVal = simXRange[x]
                 spaceGrid[z][x] = Eperp_generator(x=xVal,
@@ -130,47 +132,32 @@ def alfvenEperpGenerator(outputData, **kwargs):
     if outputData:
         prgMsg('Writing out Eperp Data')
 
-        # --- ACES II Flight/Integration Data ---
-        wRocket = 4
-        rocketAttrs, b, c = ACES_mission_dicts()
-        globalAttrsMod = rocketAttrs.globalAttributes[wRocket - 4]
-        globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-        ModelData = L2_ACES_Quick(wRocket - 4)
-
         # get all the variables
         Eperp, simXRange = EperpProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, **kwargs)
 
         # --- Construct the Data Dict ---
-        exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+        exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808,
                       'FORMAT': 'I5', 'UNITS': 'm', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
                       'SCALETYP': 'linear', 'LABLAXIS': 'simAlt'}
 
-        data_dict = {'Eperp': [Eperp, deepcopy(exampleVar)],
-                     'simXRange': [simXRange, deepcopy(exampleVar)],
-                     'simTime': [GenToggles.simTime, deepcopy(exampleVar)],
-                     'simAlt': [GenToggles.simAlt, deepcopy(exampleVar)]}
 
-        data_dict['Eperp'][1]['UNITS'] = 'V/m'
-        data_dict['Eperp'][1]['LABLAXIS'] = 'Eperp'
-        data_dict['Eperp'][1]['DEPEND_0'] = 'simTime'
-        data_dict['Eperp'][1]['DEPEND_1'] = 'simAlt'
-        data_dict['Eperp'][1]['DEPEND_2'] = 'simXRange'
+        data_dict = {'Eperp': [Eperp, {'DEPEND_0': 'simTime', 'DEPEND_1': 'simAlt', 'DEPEND_2': 'simXRange', 'UNITS': 'V/m', 'LABLAXIS': 'Eperp'}],
+                     'simXRange': [simXRange, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'simXRange'}],
+                     'simTime': [GenToggles.simTime, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simTime'}],
+                     'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]}
 
-        data_dict['simXRange'][1]['UNITS'] = 'm'
-        data_dict['simXRange'][1]['LABLAXIS'] = 'simXRange'
-        data_dict['simXRange'][1]['DEPEND_0'] = 'simXRange'
+        # update the data dict attrs
+        for key, val in data_dict.items():
+            newAttrs = deepcopy(exampleVar)
 
-        data_dict['simTime'][1]['UNITS'] = 'seconds'
-        data_dict['simTime'][1]['LABLAXIS'] = 'simTime'
-        data_dict['simTime'][1]['DEPEND_0'] = 'simTime'
+            for subKey, subVal in data_dict[key][1].items():
+                newAttrs[subKey] = subVal
 
-        data_dict['simAlt'][1]['UNITS'] = 'm'
-        data_dict['simAlt'][1]['LABLAXIS'] = 'simAlt'
-        data_dict['simAlt'][1]['DEPEND_0'] = 'simAlt'
+            data_dict[key][1] = newAttrs
 
         # --- output the data ---
-        outputPath = rf'{GenToggles.simFolderPath}\alfvenWave\Eperp\alfvenWave_Eperp.cdf'
-        outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, 'simulation')
+        outputPath = rf'{GenToggles.simOutputPath}\Eperp\Eperp.cdf'
+        outputCDFdata(outputPath, data_dict)
         Done(start_time)
 
 
