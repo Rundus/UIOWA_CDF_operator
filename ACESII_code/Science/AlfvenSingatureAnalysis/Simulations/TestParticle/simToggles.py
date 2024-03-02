@@ -20,6 +20,7 @@ class GenToggles:
     simTime = linspace(0, deltaT*simLen, simLen+1)  # in seconds
     simColors = ['tab:purple', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green', 'tab:brown', 'tab:pink'] # the color choices available for the simulation to use
     simFolderPath = r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Science\AlfvenSingatureAnalysis\Simulations\TestParticle'
+    simOutputPth = r'C:\Data\ACESII\science\simulations\TestParticle'
 
 
 ################################
