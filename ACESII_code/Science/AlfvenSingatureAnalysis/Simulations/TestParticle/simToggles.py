@@ -19,6 +19,7 @@ class GenToggles:
     simAlt = linspace(simAltLow, simAltHigh, 2000)  # in METERS
     simTime = linspace(0, deltaT*simLen, simLen+1)  # in seconds
     simColors = ['tab:purple', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green', 'tab:brown', 'tab:pink'] # the color choices available for the simulation to use
+    simFolderPath = r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Science\AlfvenSingatureAnalysis\Simulations\TestParticle'
 
 
 ################################
@@ -47,7 +48,7 @@ class EToggles:
     waveFreq_Hz = 4 # in Hz
     waveFreq_rad = 2*np.pi*waveFreq_Hz
     lambdaPerp0 = 2 * m_to_km  # in meters
-    Eperp0 # volts
+    Eperp0 = 0.04 # volts
     static_Kperp = True
     flipEField = True
 

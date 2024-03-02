@@ -230,8 +230,7 @@ def outputCDFdata(outputPath, data_dict, **kwargs):
 
     ModelData = kwargs.get('ModelData', [])
     globalAttrsMod = kwargs.get('globalAttrsMod', {})
-    instrNam = kwargs.get('instrNam', None)
-
+    instrNam = kwargs.get('instrNam', 'None')
 
     if ModelData == []:
         ModelData = L2_ACES_Quick(0)
@@ -455,10 +454,6 @@ def mSSA_grouping_Plotting(B_SSA, groupings, SSA_window_Size, compNames, wAxesSS
         ax[i, 1].set_ylim(0, max(FFT))
 
     plt.show()
-
-
-
-
 
 # def mSSA_wCorMatrix_Plotting(B_SSA, grouping, SSA_window_Size,compNames):
 #

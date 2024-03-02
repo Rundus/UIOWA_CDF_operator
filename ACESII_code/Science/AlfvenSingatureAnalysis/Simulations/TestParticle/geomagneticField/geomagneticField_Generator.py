@@ -44,7 +44,7 @@ def generateGeomagneticField(outputData, **kwargs):
 
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(2)
-            ax[0].plot(altRange/R_REF, Bmag/(1E-9))
+            ax[0].plot(altRange/R_REF, Bgeo/(1E-9))
             ax[0].set_title('|B| vs Altitude')
             ax[0].set_ylabel('$B_{geo}$ [nT]')
             ax[0].set_xlabel('Altitude [$R_{E}$]')
@@ -89,7 +89,7 @@ def generateGeomagneticField(outputData, **kwargs):
 
             data_dict[key][1] = newAttrs
 
-        outputPath = rf'{GenToggles.simFolderPath}\alfvenWave\geomagneticField\geomagneticfield.cdf'
+        outputPath = rf'{GenToggles.simFolderPath}\geomagneticField\geomagneticfield.cdf'
         outputCDFdata(outputPath, data_dict)
 
 
