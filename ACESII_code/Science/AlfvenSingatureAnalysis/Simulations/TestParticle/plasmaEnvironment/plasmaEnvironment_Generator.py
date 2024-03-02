@@ -5,11 +5,17 @@ from numpy import exp, sqrt, array, pi, abs, tanh
 simulationAlt = GenToggles.simAlt
 
 
+# TODO: look at
+#  (1) k_parallel
+#  (2) kinetic alfven speed terms
+#  (3) Ion mass Profile.
+#  Something isn't right....
+
 ##################
 # --- PLOTTING ---
 ##################
-plotting = True
-xNorm = R_REF # use m_to_km otherwise
+plotting = False
+xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
 plottingDict = {'Temperature':False,
                 'lambdaPerp':False,
@@ -18,18 +24,18 @@ plottingDict = {'Temperature':False,
                 'Beta': False,
                 'plasmaFreq': False,
                 'skinDepth': False,
-                'ionCyclotron':False,
-                'ionLarmorRadius':False,
-                'alfSpdMHD': False,
-                'kineticTerms': False,
-                'lambdaPara': False,
-                'alfSpdInertial': False}
+                'ionCyclotron': True,
+                'ionLarmorRadius':True,
+                'alfSpdMHD': True,
+                'kineticTerms': True,
+                'lambdaPara': True,
+                'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = False
+outputData = True
 
 # get the geomagnetic field data dict
-data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPth}\geomagneticField\geomagneticField.cdf')
+data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
 
 
 def generatePlasmaEnvironment(outputData, **kwargs):
@@ -65,6 +71,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[0].set_xlabel(f'Altitude [{xLabel}]')
             ax[0].set_yscale('log')
             ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[0].grid(True)
 
             ax[1].plot(altRange / xNorm, w)
             ax[1].set_title('Weighting Function vs Altitude')
@@ -78,6 +85,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[2].set_ylabel('Electron Temperature [eV]')
             ax[2].set_xlabel(f'Altitude [{xLabel}]')
             ax[2].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[2].grid(True)
             plt.legend()
             plt.tight_layout()
             plt.show()
@@ -131,15 +139,17 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange/xNorm, n_density/(cm_to_m**3))
+            ax.plot(altRange/m_to_km, n_density/(cm_to_m**3))
             ax.set_title('$n_{i}$ vs Altitude')
             ax.set_ylabel('Plasma Density [$cm^{-3}$]')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
+            ax.set_xlabel(f'Altitude [km]')
             ax.axvline(x=400000/xNorm,label='Observation Height',color='red')
             ax.set_xscale('log')
             ax.set_xlim(500,1.1E4)
             ax.set_yscale('log')
             ax.set_ylim(1E-2,1E6)
+            ax.margins(0)
+            ax.grid(True)
             plt.legend()
             plt.show()
 
@@ -168,11 +178,15 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[0].set_ylabel('$n_{0^{+}}$ [$m^{-3}$]')
             ax[0].set_xlabel(f'Altitude [{xLabel}]')
             ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[0].set_yscale('log')
+            ax[0].grid(True)
 
             ax[1].plot(altRange / xNorm, n_Hp)
             ax[1].set_ylabel('$n_{H^{+}}$ [$m^{-3}$]')
             ax[1].set_xlabel(f'Altitude [{xLabel}]')
             ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[1].set_yscale('log')
+            ax[1].grid(True)
 
             ax[2].plot(altRange / xNorm, m_eff_i)
             ax[2].set_ylabel('$m_{eff_{i}}$ [kg]')
@@ -232,6 +246,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax.plot(altRange/xNorm, plasmaFreq)
             ax.set_title('$\omega_{pe}$ vs Altitude')
             ax.set_ylabel('Plasma Freq [rad/s]')
+            ax.set_yscale('log')
             ax.set_xlabel(f'Altitude [{xLabel}]')
             ax.axvline(x=400000/xNorm,label='Observation Height',color='red')
             plt.legend()
@@ -244,13 +259,15 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
         plasmaFreq = plasmaFreqProfile(altRange)
+        LambdaPerp, kperp = lambdaPerpProfile(altRange)
         skinDepth = array([lightSpeed/plasmaFreq[i] for i in range(len(plasmaFreq))])
 
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange/xNorm, skinDepth)
-            ax.set_title('$\lambda_{e}$ vs Altitude')
+            ax.plot(altRange/xNorm, skinDepth, color='blue',label='SkinDepth')
+            ax.plot(altRange / xNorm, LambdaPerp, color='black', label=r'$\lambda_{\perp}$')
+            ax.set_title('$\lambda_{e}$ vs Altitude\n' + '$\lambda_{\perp}$= ' + rf'{EToggles.lambdaPerp0}m')
             ax.set_ylabel('Skin Depth [m]')
             ax.set_xlabel(f'Altitude [{xLabel}]')
             ax.axvline(x=400000/xNorm, label='Observation Height', color='red')
@@ -283,14 +300,17 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[0].plot(altRange / xNorm, ionCyclotron_Op, color='black', label='$\omega_{Op}$')
             ax[0].plot(altRange / xNorm, ionCyclotron_Hp, color='red', label='$\omega_{Hp}$')
             ax[0].set_title('$\omega_{ci}$ vs Altitude')
-            ax[0].set_ylabel('Ion Cyclotron [m]')
+            ax[0].set_ylabel('Ion Cyclotron [rad/s]')
             ax[0].set_xlabel(f'Altitude [{xLabel}]')
             ax[0].axvline(x=400000/xNorm, label='Observation Height',color='red')
             ax[0].set_yscale('log')
-            ax[0].set_ylim(0.1,1000)
+            ax[0].set_ylim(0.1,1E4)
             ax[0].margins(0)
+            ax[0].legend()
 
-            ax[1].plot(altRange / xNorm, ionCyclotron / (2*pi))
+            ax[1].plot(altRange / xNorm, ionCyclotron / (2*pi), color='blue', label='$f_{avg}$')
+            ax[1].plot(altRange / xNorm, ionCyclotron_Op/ (2*pi), color='black', label='$f_{Op}$')
+            ax[1].plot(altRange / xNorm, ionCyclotron_Hp/ (2*pi), color='green', label='$f_{Hp}$')
             ax[1].set_title('$\Omega_{ci}$ vs Altitude')
             ax[1].set_ylabel('Ion Cyclotron [Hz]')
             ax[1].set_xlabel(f'Altitude [{xLabel}]')
@@ -298,6 +318,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[1].set_yscale('log')
             ax[1].set_ylim(0.1, 1000)
             ax[1].margins(0)
+            ax[1].grid(True)
             plt.legend()
             plt.tight_layout()
             plt.show()
@@ -312,7 +333,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         n_Op, n_Hp, m_eff_i = ionMassProfile(altRange)
         plasmaDensity = plasmaDensityProfile(altRange)
         Ti = temperatureProfile(altRange)
-        vth_Op = sqrt(2)*sqrt(8 * q0 * Ti / IonMasses[1]) # the sqrt(2) comes from the vector sum of two dimensions
+        vth_Op = sqrt(2)*sqrt(8 * q0 * Ti /IonMasses[1]) # the sqrt(2) comes from the vector sum of two dimensions
         vth_Hp = sqrt(2)*sqrt(8 * q0 * Ti/ IonMasses[2])
 
         ionLarmorRadius_Op = vth_Op / ionCyclotron_Op
@@ -322,7 +343,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange / xNorm, ionLarmorRadius, label=r'$\rho_{total}$')
+            ax.plot(altRange / xNorm, ionLarmorRadius, label=r'$\rho_{avg}$')
             ax.plot(altRange / xNorm, ionLarmorRadius_Op, label=r'$\rho_{Op}$')
             ax.plot(altRange / xNorm, ionLarmorRadius_Hp, label=r'$\rho_{Hp}$')
             ax.set_title(r'$\rho_{i}$ vs Altitude')
@@ -380,14 +401,13 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         # collect profiles
         lambdaPerp, kperp = lambdaPerpProfile(altRange)
-        ionCyclo = ionCyclotronProfile(altRange)
-        ionLarmorRadi = ionLarmorRadiusProfile(altRange)
+        ionCyclotron, ionCyclotron_Op, ionCyclotron_Hp = ionCyclotronProfile(altRange)
+        ionLarmorRadius, ionLarmorRadius_Op, ionLarmorRadius_Hp = ionLarmorRadiusProfile(altRange)
         skinDepth = skinDepthProfile(altRange)
         alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
-
         inertialTerm = 1 + (kperp*skinDepth)**2
-        finitFreqTerm = 1 - (EToggles.waveFreq_rad/ionCyclo)**2
-        LarmorTerm = 1 + (kperp*ionLarmorRadi)**2
+        finiteFreqTerm = 1 - (EToggles.waveFreq_rad/ionCyclotron)**2
+        LarmorTerm = 1 + (kperp*ionLarmorRadius)**2
 
         if plotBool:
 
@@ -395,41 +415,41 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             fig, ax = plt.subplots(nrows=2,ncols=2)
 
             # Alfven Velocity
-            ax[0, 0].plot(altRange / R_REF, alfSpdMHD/m_to_km)
+            ax[0, 0].plot(altRange / xNorm, alfSpdMHD/m_to_km)
             ax[0, 0].set_title('Alfven velocity (MHD)')
             ax[0, 0].set_ylabel('Velocity [km/s]')
-            ax[0, 0].set_xlabel('Altitude [$R_{E}$]')
-            ax[0, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[0, 0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0, 0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[0, 0].set_ylim(0, 5E4)
             ax[0, 0].margins(0)
             ax[0, 0].grid(True)
 
             # inerital term
-            ax[0, 1].plot(altRange / R_REF, inertialTerm)
+            ax[0, 1].plot(altRange / xNorm, inertialTerm)
             ax[0, 1].set_title('Inertial Effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
             ax[0, 1].set_ylabel('Length [m]')
-            ax[0, 1].set_xlabel('Altitude [$R_{E}$]')
-            ax[0, 1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[0, 1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[0, 1].set_ylim(0, 7)
             ax[0, 1].margins(0)
             ax[0, 1].grid(True)
 
             # larmor radius term
-            ax[1, 0].plot(altRange / R_REF, LarmorTerm)
+            ax[1, 0].plot(altRange / xNorm, LarmorTerm)
             ax[1, 0].set_title('Larmor radius effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
             ax[1, 0].set_ylabel('Ion Larmor radius [m]')
-            ax[1, 0].set_xlabel('Altitude [$R_{E}$]')
-            ax[1, 0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[1, 0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1, 0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[1, 0].set_ylim(0, 4)
             ax[1, 0].margins(0)
             ax[1, 0].grid(True)
 
             # finite frequency term
-            ax[1, 1].plot(altRange / R_REF, finitFreqTerm)
+            ax[1, 1].plot(altRange / xNorm, finiteFreqTerm)
             ax[1, 1].set_title('Finite Freq. effect\n' + '$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
             ax[1, 1].set_ylabel('Ion Larmor Frequency [m]')
-            ax[1, 1].set_xlabel('Altitude [$R_{E}$]')
-            ax[1, 1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[1, 1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[1, 1].set_ylim(0, 2)
             ax[1, 1].margins(0)
             ax[1, 1].grid(True)
@@ -437,82 +457,75 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             plt.tight_layout()
             plt.show()
 
+        return inertialTerm, finiteFreqTerm, LarmorTerm
+
     # --- Lambda Parallel Wavelength ---
     def lambdaParallelProfile(altRange, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
         # collect profiles
-        lambdaPerp, kperp = lambdaPerpProfile(altRange)
-        ionCyclo = ionCyclotronProfile(altRange)
-        ionLarmorRadi = ionLarmorRadiusProfile(altRange)
-        skinDepth = skinDepthProfile(altRange)
         alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
-
-        LambdaPara = 2*pi*alfSpdMHD*sqrt(1 - (EToggles.waveFreq_rad/ionCyclo)**2)*sqrt(1 + (kperp*ionLarmorRadi)**2)/(EToggles.waveFreq_rad*sqrt(1 + (kperp*skinDepth)**2))
+        inertialTerm, finiteFreqTerm, LarmorTerm = kineticTermsProfiles(altRange)
+        LambdaPara = 2*pi*alfSpdMHD*sqrt(finiteFreqTerm)*sqrt(LarmorTerm)/(EToggles.waveFreq_rad*sqrt(inertialTerm))
         kpara = 2*pi/LambdaPara
 
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(2)
-            ax[0].plot(altRange / R_REF, LambdaPara/m_to_km)
+            ax[0].plot(altRange / xNorm, LambdaPara/m_to_km)
             ax[0].set_title('$\lambda_{\parallel}$ vs Altitude')
             ax[0].set_ylabel('Parallel Wavelength [km]')
-            ax[0].set_xlabel('Altitude [$R_{E}$]')
-            ax[0].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
 
-            ax[1].plot(altRange / R_REF, kpara)
+            ax[1].plot(altRange / xNorm, kpara)
             ax[1].set_title('$k_{\parallel}$ vs Altitude')
             ax[1].set_ylabel('Parallel Wavenumber [m$^{-1}$]')
-            ax[1].set_xlabel('Altitude [$R_{E}$]')
-            ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
+            ax[1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             plt.legend()
             plt.tight_layout()
             plt.show()
 
         return LambdaPara,kpara
 
-
     # --- Kinetic Alfven Speed ---
     def Intertial_alfvenSpeedProfile(altRange, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
         # collect profiles
-        lambdaPerp, kperp = lambdaPerpProfile(altRange)
-        ionCyclo = ionCyclotronProfile(altRange)
-        ionLarmorRadi = ionLarmorRadiusProfile(altRange)
-        skinDepth = skinDepthProfile(altRange)
+        inertialTerm, finiteFreqTerm, LarmorTerm = kineticTermsProfiles(altRange)
         alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
-        kineticAlfSpeed = array([ alfSpdMHD[i] * sqrt(1 - (EToggles.waveFreq_rad/ionCyclo[i])**2) *sqrt(1 + (kperp[i]*ionLarmorRadi[i])**2)/(sqrt(1 + (kperp[i]*skinDepth[i])**2)) for i in range(len(altRange))])
+        kineticAlfSpeed = alfSpdMHD * sqrt(finiteFreqTerm) *sqrt(LarmorTerm)/(inertialTerm)
 
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange / R_REF, kineticAlfSpeed/(m_to_km), label='kinetic Alf speed', color='blue')
+            ax.plot(altRange / xNorm, kineticAlfSpeed/(m_to_km), label='kinetic Alf speed', color='blue')
             ax.set_title(r'$\omega_{wave}/k_{\parallel}$ vs Altitude' +
                          '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq_rad} rad/s')
             ax.set_ylabel('Kinetic Alfven Speed  [km/s]')
-            ax.set_xlabel('Altitude [$R_{E}$]')
-            ax.axvline(x=400000 / R_REF, label='Observation Height', color='red', linestyle='--')
+            ax.set_xlabel(f'Altitude [{xLabel}]')
+            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--')
             ax.grid(True)
 
             # plot the MHD alfven speed
-            ax.plot(altRange / R_REF, alfSpdMHD/(m_to_km), color='red')
+            ax.plot(altRange / xNorm, alfSpdMHD/(m_to_km), color='red')
 
             # plot some thermal velocity comparisons
             Vth_low = sqrt(8*q0*1/(9.11E-31))/m_to_km
-            ax.axhline(y=Vth_low)
-            ax.text(x=R_REF/R_REF,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black')
+            ax.axhline(y=Vth_low, color='black')
+            ax.text(x=R_REF/xNorm,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black')
 
             Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/m_to_km
-            ax.axhline(y=Vth_high)
-            ax.text(x=R_REF/R_REF, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black')
+            ax.axhline(y=Vth_high, color='black')
+            ax.text(x=R_REF/xNorm, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black')
 
             plt.legend()
             plt.tight_layout()
             plt.show()
 
         return kineticAlfSpeed
-
 
     # --- collect all the functions ---
     profileFuncs = [temperatureProfile,
@@ -537,7 +550,6 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         for key, val in plottingDict.items():
             if val:
                 profileFuncs[counter](altRange = GenToggles.simAlt, showPlot = True)
-
             counter+= 1
 
 
@@ -546,10 +558,21 @@ def generatePlasmaEnvironment(outputData, **kwargs):
     #####################
     if outputData:
 
-        # get all the variables and plot them if required
-        Bgeo, Bgrad = geomagneticFieldProfile(altRange=GenToggles.simAlt, plotBool=plotBool)
-
-
+        # get all the variables
+        Bgeo, Bgrad = Bgeo,Bgrad = data_dict_Bgeo['Bgeo'][0],data_dict_Bgeo['Bgrad'][0]
+        Temp = temperatureProfile(GenToggles.simAlt)
+        LambdaPerp, kperp = lambdaPerpProfile(GenToggles.simAlt)
+        plasmaDensity = plasmaDensityProfile(GenToggles.simAlt)
+        n_Op, n_Hp, m_eff_i = ionMassProfile(GenToggles.simAlt)
+        beta = plasmaBetaProfile(GenToggles.simAlt)
+        plasmaFreq = plasmaFreqProfile(GenToggles.simAlt)
+        skinDepth = skinDepthProfile(GenToggles.simAlt)
+        ionCyclotron, ionCyclotron_Op, ionCyclotron_Hp = ionCyclotronProfile(GenToggles.simAlt)
+        ionLarmorRadius, ionLarmorRadius_Op, ionLarmorRadius_Hp = ionLarmorRadiusProfile(GenToggles.simAlt)
+        alfSpdMHD = MHD_alfvenSpeedProfile(GenToggles.simAlt)
+        inertialTerm, finiteFreqTerm, LarmorTerm = kineticTermsProfiles(GenToggles.simAlt)
+        LambdaPara, kpara = lambdaParallelProfile(GenToggles.simAlt)
+        alfSpdInertial = Intertial_alfvenSpeedProfile(GenToggles.simAlt)
 
         if outputData:
 
@@ -563,6 +586,26 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
             data_dict = {'Bgeo': [Bgeo, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'Bgeo'}],
                          'Bgrad': [Bgrad, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'Bgrad'}],
+                         'Temp': [Temp, {'DEPEND_0': 'simAlt', 'UNITS': 'eV', 'LABLAXIS': 'Temperature'}],
+                         'LambdaPerp': [LambdaPerp, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPerp'}],
+                         'kperp': [kperp, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-1!N', 'LABLAXIS': 'kperp'}],
+                         'plasmaDensity': [plasmaDensity, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-3!N', 'LABLAXIS': 'plasmaDensity'}],
+                         'n_Op': [n_Op, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-3!N', 'LABLAXIS': 'n_Op'}],
+                         'n_Hp': [n_Hp, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-3!N', 'LABLAXIS': 'n_Hp'}],
+                         'm_eff_i': [m_eff_i, {'DEPEND_0': 'simAlt', 'UNITS': 'kg', 'LABLAXIS': 'm_eff_i'}],
+                         'beta': [beta, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': 'beta'}],
+                         'plasmaFreq': [plasmaFreq, {'DEPEND_0': 'simAlt', 'UNITS': 'rad/s', 'LABLAXIS': 'plasmaFreq'}],
+                         'skinDepth': [skinDepth, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'skinDepth'}],
+                         'ionCyclotron': [ionCyclotron, {'DEPEND_0': 'simAlt', 'UNITS': 'rad/s', 'LABLAXIS': 'ionCyclotron'}],
+                         'ionCyclotron_Op': [ionCyclotron_Op, {'DEPEND_0': 'simAlt', 'UNITS': 'rad/s', 'LABLAXIS': 'ionCyclotron_Op'}],
+                         'ionLarmorRadius_Hp': [ionLarmorRadius_Hp, {'DEPEND_0': 'simAlt', 'UNITS': 'rad/s', 'LABLAXIS': 'ionLarmorRadius_Hp'}],
+                         'alfSpdMHD': [alfSpdMHD, {'DEPEND_0': 'simAlt', 'UNITS': 'm/s', 'LABLAXIS': 'alfSpdMHD'}],
+                         'inertialTerm': [inertialTerm, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': 'inertialTerm'}],
+                         'finiteFreqTerm': [finiteFreqTerm, {'DEPEND_0': 'finiteFreqTerm', 'UNITS': None, 'LABLAXIS': 'finiteFreqTerm'}],
+                         'LarmorTerm': [LarmorTerm, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': 'LarmorTerm'}],
+                         'LambdaPara': [LambdaPara, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPara'}],
+                         'kpara': [kpara, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-1!N', 'LABLAXIS': 'kpara'}],
+                         'alfSpdInertial': [alfSpdInertial, {'DEPEND_0': 'simAlt', 'UNITS': 'm/s', 'LABLAXIS': 'alfSpdInertial'}],
                          'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]}
 
             # update the data dict attrs
@@ -574,7 +617,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
                 data_dict[key][1] = newAttrs
 
-            outputPath = rf'{GenToggles.simOutputPth}\geomagneticField\geomagneticfield.cdf'
+            outputPath = rf'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf'
             outputCDFdata(outputPath, data_dict)
 
 

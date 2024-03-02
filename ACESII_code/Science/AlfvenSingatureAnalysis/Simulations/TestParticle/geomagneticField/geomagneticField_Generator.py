@@ -89,7 +89,7 @@ def generateGeomagneticField(outputData, **kwargs):
 
             data_dict[key][1] = newAttrs
 
-        outputPath = rf'{GenToggles.simOutputPth}\geomagneticField\geomagneticfield.cdf'
+        outputPath = rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticfield.cdf'
         outputCDFdata(outputPath, data_dict)
 
 
