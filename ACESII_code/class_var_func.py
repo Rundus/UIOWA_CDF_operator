@@ -12,7 +12,6 @@ import math
 
 import matplotlib.pyplot as plt
 # -------------------
-
 import numpy as np,time
 from ACESII_code import data_paths
 from cdflib import cdfread
@@ -224,7 +223,22 @@ def loadDictFromFile(inputFilePath, **kwargs):
 
     return output_data_dict
 
-def outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, instrNam):
+
+
+
+def outputCDFdata(outputPath, data_dict, **kwargs):
+
+    ModelData = kwargs.get('ModelData', [])
+    globalAttrsMod = kwargs.get('globalAttrsMod', {})
+    instrNam = kwargs.get('instrNam', None)
+
+
+    if ModelData == []:
+        ModelData = L2_ACES_Quick(0)
+    if globalAttrsMod == {}:
+        from ACESII_code.missionAttributes import ACES_mission_dicts
+        rocketAttrs, b, c = ACES_mission_dicts()
+        globalAttrsMod = rocketAttrs.globalAttributes[0]
 
     # --- delete output file if it already exists ---
     if os.path.exists(outputPath):

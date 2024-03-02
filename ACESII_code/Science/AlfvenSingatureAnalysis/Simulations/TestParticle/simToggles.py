@@ -47,7 +47,7 @@ class EToggles:
     waveFreq_Hz = 4 # in Hz
     waveFreq_rad = 2*np.pi*waveFreq_Hz
     lambdaPerp0 = 2 * m_to_km  # in meters
-    peakPotential = 400 # volts
+    Eperp0 # volts
     static_Kperp = True
     flipEField = True
 
