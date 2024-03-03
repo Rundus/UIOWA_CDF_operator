@@ -32,7 +32,7 @@ plottingDict = {'Temperature':False,
                 'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = True
+outputData = False
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -97,7 +97,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
         Bgeo,Bgrad = data_dict_Bgeo['Bgeo'][0],data_dict_Bgeo['Bgrad'][0]
-        initindex = abs(altRange - EToggles.Z0_wave).argmin() # the index of the startpoint of the Wave
+        initindex = abs(altRange - GenToggles.obsHeight).argmin() # the index of the startpoint of the Wave
         initBgeo = Bgeo[initindex] # <--- This determines where the scaling begins
         LambdaPerp = EToggles.lambdaPerp0*sqrt(initBgeo/Bgeo) if not EToggles.static_Kperp else array([EToggles.lambdaPerp0 for i in range(len(altRange))])
         kperp = 2*pi/LambdaPerp
@@ -559,9 +559,9 @@ def generatePlasmaEnvironment(outputData, **kwargs):
     if outputData:
 
         # get all the variables
-        Bgeo, Bgrad = Bgeo,Bgrad = data_dict_Bgeo['Bgeo'][0],data_dict_Bgeo['Bgrad'][0]
+        Bgeo, Bgrad  = data_dict_Bgeo['Bgeo'][0],data_dict_Bgeo['Bgrad'][0]
         Temp = temperatureProfile(GenToggles.simAlt)
-        LambdaPerp, kperp = lambdaPerpProfile(GenToggles.simAlt)
+        lambdaPerp, kperp = lambdaPerpProfile(GenToggles.simAlt)
         plasmaDensity = plasmaDensityProfile(GenToggles.simAlt)
         n_Op, n_Hp, m_eff_i = ionMassProfile(GenToggles.simAlt)
         beta = plasmaBetaProfile(GenToggles.simAlt)
@@ -571,7 +571,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         ionLarmorRadius, ionLarmorRadius_Op, ionLarmorRadius_Hp = ionLarmorRadiusProfile(GenToggles.simAlt)
         alfSpdMHD = MHD_alfvenSpeedProfile(GenToggles.simAlt)
         inertialTerm, finiteFreqTerm, LarmorTerm = kineticTermsProfiles(GenToggles.simAlt)
-        LambdaPara, kpara = lambdaParallelProfile(GenToggles.simAlt)
+        lambdaPara, kpara = lambdaParallelProfile(GenToggles.simAlt)
         alfSpdInertial = Intertial_alfvenSpeedProfile(GenToggles.simAlt)
 
         if outputData:
@@ -587,7 +587,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             data_dict = {'Bgeo': [Bgeo, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'Bgeo'}],
                          'Bgrad': [Bgrad, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'Bgrad'}],
                          'Temp': [Temp, {'DEPEND_0': 'simAlt', 'UNITS': 'eV', 'LABLAXIS': 'Temperature'}],
-                         'LambdaPerp': [LambdaPerp, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPerp'}],
+                         'lambdaPerp': [lambdaPerp, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPerp'}],
                          'kperp': [kperp, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-1!N', 'LABLAXIS': 'kperp'}],
                          'plasmaDensity': [plasmaDensity, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-3!N', 'LABLAXIS': 'plasmaDensity'}],
                          'n_Op': [n_Op, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-3!N', 'LABLAXIS': 'n_Op'}],
@@ -603,7 +603,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
                          'inertialTerm': [inertialTerm, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': 'inertialTerm'}],
                          'finiteFreqTerm': [finiteFreqTerm, {'DEPEND_0': 'finiteFreqTerm', 'UNITS': None, 'LABLAXIS': 'finiteFreqTerm'}],
                          'LarmorTerm': [LarmorTerm, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': 'LarmorTerm'}],
-                         'LambdaPara': [LambdaPara, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPara'}],
+                         'lambdaPara': [lambdaPara, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'LambdaPara'}],
                          'kpara': [kpara, {'DEPEND_0': 'simAlt', 'UNITS': 'm!A-1!N', 'LABLAXIS': 'kpara'}],
                          'alfSpdInertial': [alfSpdInertial, {'DEPEND_0': 'simAlt', 'UNITS': 'm/s', 'LABLAXIS': 'alfSpdInertial'}],
                          'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]}

@@ -10,8 +10,11 @@
 # --- imports ---
 import numpy as np
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles,EToggles
-import time, tqdm
+import time
+import numpy as np
+from itertools import product
 from copy import deepcopy
+from tqdm import tqdm
 from ACESII_code.class_var_func import prgMsg,Done, outputCDFdata, loadDictFromFile
 start_time = time.time()
 
@@ -23,7 +26,7 @@ plot_Epara = False
 ################
 # --- OUTPUT ---
 ################
-outputData = True
+outputData = False
 
 # get the Eperp and plasma environment Profiles
 data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf')
@@ -31,9 +34,10 @@ data_dict_Eperp = loadDictFromFile(rf'{GenToggles.simOutputPath}\Eperp\Eperp.cdf
 
 
 def alfvenEparaGenerator(outputData, **kwargs):
-    plotBool = kwargs.get('showPlot', False)
 
-    def EparaProfile(altRange, timeRange, plotBool):
+
+    def EparaProfile(altRange, timeRange, **kwargs):
+        plotBool = kwargs.get('showPlot', False)
 
         # get the profiles and flip them so we begin with high altitudes
         altRange = altRange
@@ -42,23 +46,21 @@ def alfvenEparaGenerator(outputData, **kwargs):
 
         # create the X dimension
         simXRange = np.linspace(0, EToggles.lambdaPerp0, EToggles.lambdaPerp_Rez)
+        lambdaPerpRange = np.linspace(0, 1, EToggles.lambdaPerp_Rez)  # 0 to 2 because I've cut the pulse in half
 
         # create a meshgrid for determining dE_perp /dz
-        Epara = []
-        for tme, timeVal in tqdm(enumerate(timeRange)):
+        PhiPara = np.zeros(shape=(len(timeRange), len(altRange), len(simXRange)))
+        Epara = np.zeros(shape=(len(timeRange), len(altRange), len(simXRange)))
 
-            spaceGrid = np.zeros(shape=(len(altRange),len(simXRange)))
+        print('\nNum of iterations:')
+        print(f'{len(timeRange) * len(altRange) * len(simXRange)}\n')
 
-            for x in range(len(simXRange)):
-                for z in range(len(altRange)-1):
-                    Eperp_n = Eperp[tme][z][x]
-                    Eperp_n1 = Eperp[tme][z+1][x]
-                    EperpGradVal = (Eperp_n1 - Eperp_n) / (altRange[z+1] - altRange[z])
-                    spaceGrid[z][x] = kperp[z]*(skinDepth[z]**2) * EperpGradVal / (1 + (kperp[z]*skinDepth[z]**2))  # calculate the gradient in
+        for t, z, x in tqdm(product(*[range(len(timeRange)), range(len(altRange)-1), range(len(simXRange))])):
+            Eperp_n = Eperp[t][z][x]
+            Eperp_n1 = Eperp[t][z + 1][x]
+            EperpGradVal = (Eperp_n1 - Eperp_n) / (altRange[z + 1] - altRange[z])
+            Epara[t][z][x] = kperp[z] * (skinDepth[z] ** 2) * EperpGradVal / (1 + (kperp[z] * skinDepth[z])**2)
 
-            Epara.append(spaceGrid)
-
-        Epara = np.array(Epara)
 
         # plotting
         if plotBool:
@@ -84,10 +86,9 @@ def alfvenEparaGenerator(outputData, **kwargs):
             Done(start_time)
 
         # create the output variable
-        return np.array(Epara), simXRange
+        return Epara, lambdaPerpRange
 
-    # get all the variables
-    Epara, simXRange = EparaProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, plotBool=plotBool)
+
 
     ################
     # --- OUTPUT ---
@@ -96,16 +97,16 @@ def alfvenEparaGenerator(outputData, **kwargs):
         prgMsg('Writing out Epara Data')
 
         # get all the variables
-        Epara, simXRange = EparaProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, **kwargs)
+        Epara, simXRange = EparaProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, showPlot=plot_Epara)
 
         # --- Construct the Data Dict ---
         exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808,
                       'FORMAT': 'I5', 'UNITS': 'm', 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data',
                       'SCALETYP': 'linear', 'LABLAXIS': 'simAlt'}
 
-        data_dict = {'Eperp': [Epara, {'DEPEND_0': 'simTime', 'DEPEND_1': 'simAlt', 'DEPEND_2': 'simXRange', 'UNITS': 'V/m', 'LABLAXIS': 'Epara'}],
-                     'simXRange': [simXRange, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'simXRange'}],
-                     'simTime': [GenToggles.simTime, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simTime'}],
+        data_dict = {'Epara': [Epara, {'DEPEND_0': 'simTime', 'DEPEND_1': 'simAlt', 'DEPEND_2': 'simXRange', 'UNITS': 'V/m', 'LABLAXIS': 'Epara'}],
+                     'simXRange': [simXRange, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': '&lambda;!B&perp;!N'}],
+                     'simTime': [GenToggles.simTime, {'DEPEND_0': 'simAlt', 'UNITS': 'seconds', 'LABLAXIS': 'simTime'}],
                      'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]}
 
         # update the data dict attrs
@@ -127,4 +128,5 @@ def alfvenEparaGenerator(outputData, **kwargs):
 #################
 # --- EXECUTE ---
 #################
-alfvenEparaGenerator(outputData=outputData,showPlot=plot_Epara)
+if outputData:
+    alfvenEparaGenerator(outputData=outputData,showPlot=plot_Epara)

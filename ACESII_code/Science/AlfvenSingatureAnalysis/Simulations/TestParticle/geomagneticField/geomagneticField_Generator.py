@@ -14,13 +14,14 @@ from ACESII_code.class_var_func import CHAOS
 plot_BField = False
 
 # --- OUTPUT DATA ------
-outputData = True
+outputData = False
 
 
 def generateGeomagneticField(outputData, **kwargs):
-    plotBool = kwargs.get('showPlot', False)
+    plotting = kwargs.get('plotting', False)
 
-    def geomagneticFieldProfile(altRange, plotBool):
+    def geomagneticFieldProfile(altRange, **kwargs):
+        plotBool = kwargs.get('showPlot', False)
 
         geomagAlts = [((alt + R_REF) / R_REF) for alt in altRange]
         geomagLats = array([degrees(arccos(radi / BgeoToggles.Lshell)) for radi in geomagAlts])
@@ -63,10 +64,14 @@ def generateGeomagneticField(outputData, **kwargs):
         return Bgeo, Bgrad
 
 
-    # get all the variables and plot them if required
-    Bgeo, Bgrad = geomagneticFieldProfile(altRange=GenToggles.simAlt, plotBool=plotBool)
+    if plotting:
+        # get all the variables and plot them if required
+        geomagneticFieldProfile(altRange=GenToggles.simAlt, plotBool=plotting)
 
     if outputData:
+
+        # get all the variables and plot them if required
+        Bgeo, Bgrad = geomagneticFieldProfile(altRange=GenToggles.simAlt)
 
         from copy import deepcopy
         from ACESII_code.class_var_func import outputCDFdata
@@ -97,4 +102,4 @@ def generateGeomagneticField(outputData, **kwargs):
 #################
 # --- EXECUTE ---
 #################
-generateGeomagneticField(outputData=outputData,showPlot=plot_BField)
+generateGeomagneticField(outputData=outputData,plotting=plot_BField)

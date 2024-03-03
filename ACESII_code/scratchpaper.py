@@ -1,6 +1,17 @@
+
+import matplotlib.pyplot as plt
 import numpy as np
-simLen = 331 # how many delta T steps to simulate
-deltaT = 0.01 # in seconds
-simTime =np.linspace(0,simLen*deltaT,simLen+1)
-print(len(simTime))
-print(simTime)
+
+x = np.linspace(0,2*np.pi,40)
+y = np.sin(x)
+
+negativeIndicies = np.where(y<0)[0]
+positiveIndicies = np.where(y>0)[0]
+
+
+fig, ax = plt.subplots()
+ax.plot(x,y)
+ax.fill_between(x[positiveIndicies], y[positiveIndicies],color='red',alpha=0.4)
+ax.fill_between(x[negativeIndicies], y[negativeIndicies],color='blue',alpha=0.4)
+plt.gca()
+plt.show()

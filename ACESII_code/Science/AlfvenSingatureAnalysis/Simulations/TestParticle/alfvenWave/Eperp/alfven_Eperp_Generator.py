@@ -15,8 +15,11 @@ import time
 import numpy as np
 from itertools import product
 from copy import deepcopy
+from tqdm import tqdm
 from ACESII_code.class_var_func import prgMsg,Done, outputCDFdata, loadDictFromFile
 start_time = time.time()
+
+#TODO: For the PhiPerp - Do an interpolation to get a better estimate
 
 ##################
 # --- PLOTTING ---
@@ -26,43 +29,39 @@ plot_Eperp = False
 ################
 # --- OUTPUT ---
 ################
-outputData = True
+outputData = False
 
 
 # --- Re-run the plasma environment and load the data ---
-regenerateEnvironment = True
+regenerateEnvironment = False
 if regenerateEnvironment:
+    prgMsg('Regenerating Plasma Environment')
     generateGeomagneticField(outputData=True)
     generatePlasmaEnvironment(outputData=True)
+    Done(start_time)
 
-data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simFolderPath}\plasmaEnvironment\plasmaEnvironment.cdf')
+data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
+data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf')
 
 
 def alfvenEperpGenerator(outputData, **kwargs):
 
-
-    # --- Eperp Makder ---
-    def Eperp_generator(x, z, t, Vel, tau, KperpVal):
-
-        # # the backside of the wave
-        # if GenToggles.simAltHigh  > z > GenToggles.simAltHigh - EToggles.Z0_wave - Vel*(t-tau):
-        #     EperpVal = 0
-        #
-        # # the middle of wave
-        # elif EToggles.Z0_wave - Vel*(t-tau) > z > EToggles.Z0_wave -  Vel*t:
-        #     amplitude = EToggles.Eperp0*np.sin(KperpVal*x/2)
-        #     EperpVal = amplitude* (1 - np.cos((z - Vel*t) * (2*np.pi / (Vel*tau)) ) )
-        #
-        # # the front part of the wave
-        # elif EToggles.Z0_wave -  Vel*t > z >  GenToggles.simAltLow:
-        #     EperpVal = 0
-        # else:
-        #     EperpVal = 0
-
+    def Phiperp_generator(x, z, t, Vel, kperp ):
         # the middle of wave
-        if EToggles.Z0_wave - Vel * (t - tau) > z > EToggles.Z0_wave - Vel * t:
-            amplitude = EToggles.Eperp0 * np.sin(KperpVal * x / 2)
-            EperpVal = amplitude * (1 - np.cos(((z - EToggles.Z0_wave) + Vel * t) * (2 * np.pi / (Vel * tau))))
+        if EToggles.Z0_wave - Vel * (t - EToggles.tau0) > z > EToggles.Z0_wave - Vel * t:
+            altTimeTerm = (1 - np.cos(((z - EToggles.Z0_wave) + Vel * t) * (2 * np.pi / (Vel * EToggles.tau0))))
+            Phi_perp_Val = EToggles.waveFraction*(EToggles.Eperp0/EToggles.kperp0) *altTimeTerm * np.cos(2*np.pi*x/EToggles.waveFraction)
+        else:
+            Phi_perp_Val = 0
+
+        return Phi_perp_Val
+
+    # --- Eperp Maker ---
+    def Eperp_generator(x, z, t, Vel, Bgeo_init,Bgeo):
+        # the middle of wave
+        if EToggles.Z0_wave - Vel * (t - EToggles.tau0) > z > EToggles.Z0_wave - Vel * t:
+            amplitude = np.sqrt(Bgeo/Bgeo_init)*EToggles.Eperp0 * np.sin(2*np.pi * x / EToggles.waveFraction)
+            EperpVal = amplitude * (1 - np.cos(((z - EToggles.Z0_wave) + Vel * t) * (2 * np.pi / (Vel * EToggles.tau0))))
         else:
             EperpVal = 0
 
@@ -71,34 +70,55 @@ def alfvenEperpGenerator(outputData, **kwargs):
     def EperpProfile(altRange, timeRange, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
-        Eperp = []
-
         # get the profiles and flip them so we begin with high altitudes
         altRange = altRange
         lambdaPerp, kperp = data_dict_plasEvrn['lambdaPerp'][0],data_dict_plasEvrn['kperp'][0]
         alfSpdMHD = data_dict_plasEvrn['alfSpdMHD'][0]
         alfSpdInertial = data_dict_plasEvrn['alfSpdInertial'][0]
+        Bgeo, Bgrad = data_dict_Bgeo['Bgeo'][0], data_dict_Bgeo['Bgrad'][0]
+        initindex = np.abs(altRange - EToggles.Z0_wave).argmin()  # the index of the startpoint of the Wave
+        initBgeo = Bgeo[initindex]  # <--- This determines where the scaling begins
         # speed = [R_REF for i in range(len(altRange))]
-        speed = alfSpdInertial
+        speed = alfSpdMHD
 
         # create the X dimension
+        if EToggles.lambdaPerp_Rez%2 == 0:
+            raise Exception('lambdaPerp_Rez must be even')
+
         simXRange = np.linspace(0, EToggles.lambdaPerp0, EToggles.lambdaPerp_Rez)
+        lambdaPerpRange = np.linspace(0, 1, EToggles.lambdaPerp_Rez)# 0 to 2 because I've cut the pulse in half
+
+        #####################
+        # --- Phi & Eperp ---
+        #####################
+        PhiPerp = np.zeros(shape=(len(timeRange), len(altRange), len(simXRange)))
+        Eperp = np.zeros(shape=(len(timeRange), len(altRange), len(simXRange)))
+
+        print('\nNum of iterations:')
+        print(f'{len(timeRange) * len(altRange)* len(simXRange)}\n')
 
         # create a meshgrid
-        for tme, timeVal in enumerate(timeRange):
+        for t, z, x in tqdm(product(*[range(len(timeRange)),range(len(altRange)),range(len(simXRange))])):
+            timeVal = timeRange[t]
+            zVal = altRange[z]
+            xVal = lambdaPerpRange[x]
+            BgeoVal = Bgeo[np.abs(altRange - zVal).argmin()]  # the index of the startpoint of the Wave
 
-            spaceGrid = np.zeros(shape=(len(altRange),len(simXRange)))
+            # PhiPerp
+            PhiPerp[t][z][x] = Phiperp_generator(x=xVal,
+                                                 z=zVal,
+                                                 t=timeVal,
+                                                 Vel=speed[z],
+                                                 kperp=kperp[z])
 
-            for z,x in product(*[range(len(altRange)),range(len(simXRange))]):
-                zVal = altRange[z]
-                xVal = simXRange[x]
-                spaceGrid[z][x] = Eperp_generator(x=xVal,
-                                                  z=zVal,
-                                                  t=timeVal,
-                                                  Vel=speed[z],
-                                                  tau=EToggles.tau0,
-                                                  KperpVal=kperp[z])
-            Eperp.append(spaceGrid)
+            # Eperp
+            Eperp[t][z][x] = Eperp_generator(x=xVal,
+                                              z=zVal,
+                                              t=timeVal,
+                                              Vel=speed[z],
+                                              Bgeo_init=initBgeo,
+                                              Bgeo=BgeoVal)
+
 
         # plotting
         if plotBool:
@@ -119,21 +139,21 @@ def alfvenEperpGenerator(outputData, **kwargs):
                 ax.grid(True)
                 cbar = plt.colorbar(cmap)
                 cbar.set_label('$|E_{\perp}$| [mV/m]')
-                plt.savefig(rf'{GenToggles.simFolderPath}\alfvenWave\Eperp\plots\Eperp_t{timeIndexChoice}.png')
+                plt.savefig(rf'{GenToggles.simOutputPath}\Eperp\Eperp_t{timeIndexChoice}.png')
                 plt.close()
             Done(start_time)
 
         # create the output variable
-        return np.array(Eperp), simXRange
+        return Eperp, PhiPerp, lambdaPerpRange
 
     ################
     # --- OUTPUT ---
     ################
     if outputData:
-        prgMsg('Writing out Eperp Data')
+        prgMsg('Writing out Potential/Eperp Data')
 
         # get all the variables
-        Eperp, simXRange = EperpProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, **kwargs)
+        Eperp, PhiPerp, lambdaPerpRange = EperpProfile(altRange=GenToggles.simAlt, timeRange=GenToggles.simTime, showPlot=plot_Eperp)
 
         # --- Construct the Data Dict ---
         exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808,
@@ -142,9 +162,11 @@ def alfvenEperpGenerator(outputData, **kwargs):
 
 
         data_dict = {'Eperp': [Eperp, {'DEPEND_0': 'simTime', 'DEPEND_1': 'simAlt', 'DEPEND_2': 'simXRange', 'UNITS': 'V/m', 'LABLAXIS': 'Eperp'}],
-                     'simXRange': [simXRange, {'DEPEND_0': 'simAlt', 'UNITS': 'T', 'LABLAXIS': 'simXRange'}],
-                     'simTime': [GenToggles.simTime, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simTime'}],
-                     'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]}
+                     'PhiPerp': [PhiPerp, {'DEPEND_0': 'simTime', 'DEPEND_1': 'simAlt', 'DEPEND_2': 'simXRange', 'UNITS': 'V', 'LABLAXIS': 'PhiPerp'}],
+                     'simXRange': [lambdaPerpRange, {'DEPEND_0': 'simAlt', 'UNITS': None, 'LABLAXIS': '&lambda;!B&perp;!N'}],
+                     'simTime': [GenToggles.simTime, {'DEPEND_0': 'simAlt', 'UNITS': 'seconds', 'LABLAXIS': 'simTime'}],
+                     'simAlt': [GenToggles.simAlt, {'DEPEND_0': 'simAlt', 'UNITS': 'm', 'LABLAXIS': 'simAlt'}]
+                     }
 
         # update the data dict attrs
         for key, val in data_dict.items():
@@ -165,4 +187,5 @@ def alfvenEperpGenerator(outputData, **kwargs):
 #################
 # --- EXECUTE ---
 #################
-alfvenEperpGenerator(outputData=outputData,showPlot=plot_Eperp)
+if outputData:
+    alfvenEperpGenerator(outputData=outputData,showPlot=plot_Eperp)

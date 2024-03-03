@@ -5,11 +5,18 @@
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from ACESII_code.myImports import *
+from ACESII_code.class_var_func import loadDictFromFile,prgMsg,Done, outputCDFdata, color
+from ACESII_code.missionAttributes import ACES_mission_dicts
+import numpy as np
+from tqdm import tqdm
+from copy import deepcopy
+from time import time
+from itertools import product
+import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 import matplotlib.patches as mpatches
-start_time = time.time()
+start_time = time()
 
 
 ############################
@@ -17,8 +24,11 @@ start_time = time.time()
 # --- SIMULATION TOGGLES ---
 # --- --- --- --- --- --- --
 ############################
+
+# --- Regenerate Plasma Environment ---
+regenerateSimulation = True
+
 # --- diagnostic plotting ---
-plotInputEnergies = False
 plotEuler_1step = False
 
 # --- Particle Trajectory ANIMATION ---
@@ -42,17 +52,35 @@ outputObservedParticle_cdfData = False
 # --- SIMULATION GENERATORS ---
 ###############################
 
+if regenerateSimulation:
+    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
+    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
+    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alfvenWave.Eperp.alfven_Eperp_Generator import alfvenEperpGenerator
+    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alfvenWave.Epara.alfven_Epara_Generator import alfvenEparaGenerator
+    prgMsg('Regenerating Bgeo')
+    generateGeomagneticField(outputData=True)
+    Done(start_time)
+    prgMsg('Regenerating Plasma Environment')
+    generatePlasmaEnvironment(outputData=True)
+    Done(start_time)
+    alfvenEperpGenerator(outputData=True)
+    print('\n')
+    alfvenEparaGenerator(outputData=True)
+    print('\n')
+
+
 # --- simToggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles, ptclToggles,EToggles
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles, ptclToggles, EToggles, m_to_km,R_REF
 
 # --- particle toggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.particleDistribution_Generator import generateInitial_Data_Dict
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.particleDistributions.particleDistribution_Generator import generateInitial_Data_Dict
 
-# --- geomagnetic B-Field toggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField_Generator import geomagneticFieldProfile
+# --- geomagnetic B-Field ---
+data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
 
-# --- E-Field Toggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alf_EField_Generator import alfvenWaveEFieldProfile
+# --- E-Fields ---
+data_dict_Eperp = loadDictFromFile(rf'{GenToggles.simOutputPath}\Eperp\Eperp.cdf')
+data_dict_Epara = loadDictFromFile(rf'{GenToggles.simOutputPath}\Epara\Epara.cdf')
 
 
 def testParticle_Sim():
@@ -60,24 +88,21 @@ def testParticle_Sim():
     ##########################
     # --- SIMULATION START ---
     ##########################
+    simTime = GenToggles.simTime
+    simAlt = GenToggles.simAlt
+    simLen = GenToggles.simLen
+    obsHeight = GenToggles.obsHeight
 
-    # --- --- --- --- --- --- --- --- --- --
-    # --- GENERATE THE GEOMAGNETIC FIELD ---
-    # --- --- --- --- --- --- --- --- --- --
-    prgMsg('Getting Geomagnetic Field')
-    Bmag, Bgrad = geomagneticFieldProfile(GenToggles.simAlt)
-    Done(start_time)
 
-    # --- --- --- --- --- --- --- --- ---
-    # --- GENERATE THE ELECTRIC FIELD ---
-    # --- --- --- --- --- --- --- --- ---
-    prgMsg('Generating E-Field')
-    E_Field, E_Field_Amplitude, E_Field_WaveSpeed, E_Field_lambda = generateEField(Bmag=Bmag)
-    Done(start_time)
+    # --- GET SLICE IN PARALLEL E-FIELD ---
+    # description: Take the center slice of the Epara E-Field for the simulation
+    centerLine = int(EToggles.lambdaPerp_Rez/2)
+    E_Field = data_dict_Epara['Epara'][0][:,:, centerLine] if EToggles.flipEField else -1*data_dict_Epara['Epara'][0][:,:, centerLine]
 
-    #--- --- --- --- --- --- --- -
+    # --- GET Bgeo ---
+    Bgeo, Bgrad = data_dict_Bgeo['Bgeo'][0], data_dict_Bgeo['Bgrad'][0]
+
     # --- SIMULATION FUNCTIONS ---
-    #--- --- --- --- --- --- --- -
     def forceFunc(simTime_Index, alt_Index, mu, deltaB): # gives meters/s^2
         # return (-1 * ptcl_charge / ptcl_mass) * E_Field(simTime, Alt)
         # return  - (mu / ptcl_mass) * deltaB
@@ -98,10 +123,11 @@ def testParticle_Sim():
     # --- INITIALIZE THE PARTICLES ---
     # --- --- --- --- --- --- --- ----
     prgMsg('Generating Particles')
-    varNames = ['zpos', 'vpar', 'vperp', 'energies', 'Bmag', 'Bgrad', 'moment', 'force', 'observed', 'color', 'Pitch_Angle']
-    data_dict, totalNumberOfParticles = generateInitial_Data_Dict(varNames=varNames, Bmag=Bmag, Bgrad=Bgrad,forceFunc=forceFunc)
-    colorPalette = GenToggles.simColors
+    varNames = ['zpos', 'vpar', 'vperp', 'energies', 'Bgeo', 'Bgrad', 'moment', 'force', 'observed', 'color', 'Pitch_Angle']
+    data_dict = generateInitial_Data_Dict(varNames=varNames, Bmag=Bgeo, Bgrad=Bgrad,forceFunc=forceFunc)
+    totalNumberOfParticles = ptclToggles.totalNumberOfParticles
     Done(start_time)
+    print('\n')
 
 
     # --- --- --- --- --- --- --- --- -
@@ -115,7 +141,7 @@ def testParticle_Sim():
     zPos0 = data_dict["zpos"][0]
     mus0 = data_dict["moment"][0]
     deltaBs0 = data_dict["Bgrad"][0]
-    Bmags0 = data_dict["Bmag"][0]
+    Bmags0 = data_dict["Bgeo"][0]
 
     # add new list to each of the variables
     for vNam in varNames:
@@ -133,8 +159,8 @@ def testParticle_Sim():
         data_dict["zpos"][-1].append(newPos)
 
         # determine new B
-        newB = Bmag[np.abs(simAlt-newPos).argmin()]
-        data_dict["Bmag"][-1].append(newB)
+        newB = Bgeo[np.abs(simAlt-newPos).argmin()]
+        data_dict["Bgeo"][-1].append(newB)
 
         # determine new Vperp
         newVperp = vPerps0[k] * np.sqrt(newB/Bmags0[k])
@@ -155,7 +181,7 @@ def testParticle_Sim():
         data_dict["observed"][-1].append(1) if newPos <= obsHeight else data_dict[f"observed"][-1].append(0)
 
         # determine new particle energies
-        data_dict["energies"][-1].append(calcE(newVperp,newVpar,ptcl_mass,ptcl_charge))
+        data_dict["energies"][-1].append(calcE(newVperp,newVpar,ptclToggles.ptcl_mass,ptclToggles.ptcl_charge))
 
         # determine new particle pitch angles
         perpVal = newVperp
@@ -175,6 +201,7 @@ def testParticle_Sim():
         data_dict["Pitch_Angle"][-1].append(ptchVal * ptchMod)
 
     Done(start_time)
+    print('\n')
 
     # --- --- --- --- --- --- --- --- -
     # --- IMPLEMENT ADAMS BASHFORTH ---
@@ -183,24 +210,24 @@ def testParticle_Sim():
     print('\n')
     for j, tme in tqdm(enumerate(simTime)):
 
-        if tme > deltaT: # only start after 2 timesteps (we have inital T0 and used Euler to get T1)
+        if tme > GenToggles.deltaT: # only start after 2 timesteps (we have inital T0 and used Euler to get T1)
 
             # loop through all the energies
             vPerp_initial = data_dict["vperp"][0]
-            Bmag_initial = data_dict["Bmag"][0]
+            Bmag_initial = data_dict["Bgeo"][0]
 
             vPars_n = data_dict["vpar"][j-2]
             zPos_n = data_dict["zpos"][j-2]
             force_n = data_dict["force"][j-2]
             mu_n = data_dict["moment"][j-2]
-            Bmag_n = data_dict["Bmag"][j-2]
+            Bmag_n = data_dict["Bgeo"][j-2]
             deltaB_n = data_dict["Bgrad"][j - 2]
 
             vPars_n1 = data_dict["vpar"][j - 1]
             zPos_n1 = data_dict["zpos"][j - 1]
             force_n1 = data_dict["force"][j - 1]
             mu_n1 = data_dict["moment"][j - 1]
-            Bmag_n1 = data_dict["Bmag"][j - 1]
+            Bmag_n1 = data_dict["Bgeo"][j - 1]
             deltaB_n1 = data_dict["Bgrad"][j - 1]
 
             # add new list to each of the variables
@@ -229,8 +256,8 @@ def testParticle_Sim():
                 data_dict["moment"][-1].append(mu_n[i])
 
                 # new Bmag
-                newBmag = Bmag[np.abs(newPos-simAlt).argmin()]
-                data_dict["Bmag"][-1].append(newBmag)
+                newBmag = Bgeo[np.abs(newPos-simAlt).argmin()]
+                data_dict["Bgeo"][-1].append(newBmag)
 
                 # new Vperp
                 newVperp = vPerp_initial[i]*np.sqrt(newBmag/Bmag_initial[i])
@@ -240,7 +267,7 @@ def testParticle_Sim():
                 data_dict["observed"][-1].append(1) if newPos <= obsHeight else data_dict["observed"][-1].append(0)
 
                 # determine new partcle energy
-                data_dict["energies"][-1].append(calcE(newVperp,newVpar,ptcl_mass,ptcl_charge))
+                data_dict["energies"][-1].append(calcE(newVperp,newVpar,ptclToggles.ptcl_mass,ptclToggles.ptcl_charge))
 
                 # determine new particle pitch angles
                 perpVal = newVperp
@@ -287,45 +314,12 @@ def testParticle_Sim():
                 for s in range(tme+1, simLen):
                     data_dict['observed'][s][ptclN] = 0
     Done(start_time)
+    print('\n')
 
     # --- --- --- --- ----
     # --- DIAGNOSTICS ---
     # --- --- --- --- ----
 
-    if plotInputEnergies:
-        # Show the Energies
-        vthermal = np.sqrt(8*q0*ptclTemperature/m_e)
-        fig, ax = plt.subplots()
-        ax.scatter(data_dict['vperp'][0]/vthermal,data_dict['vpar'][0]/vthermal,color=data_dict['color'][0])
-        ax.set_ylabel('$V_{\parallel}$')
-        ax.set_xlabel('$V_{\perp}$')
-        patches = [mpatches.Patch(color=simColors[i][0], label=f'<{simEnergyRanges[i][1]} eV') for i in range(len(simEnergyRanges))]
-        patches.append(mpatches.Patch(color='black', label=f'outside range'))
-        ax.legend(handles=patches)
-        plt.show()
-
-    if plotEField:
-        fig, ax = plt.subplots()
-        wTimes = [i for i in range(0, len(simTime), int(len(simTime)/len(colorPalette)))]
-        for i, index in enumerate(wTimes):
-            ax.plot(E_Field[index], simAlt, color= f'{colorPalette[i]}', label='$\Delta t = $' + f'{wTimes[i]}')
-        fig.legend()
-        plt.show()
-
-    if plotMirror_vs_electrostatic:
-
-        chosenPitch = [0, 45, 90]
-        fig, ax = plt.subplots(len(chosenPitch))
-
-        for k in range(len(chosenPitch)):
-            scaling = 1E8
-            ax[k].plot([ptcl_charge*(E_Field_Amplitude)/ (scaling*ptcl_mass) for i in range(len(simAlt))], simAlt/m_to_km,label='E-Force')
-            ax[k].plot([(0.5*((np.sin(np.radians(chosenPitch[k]))*np.sqrt(2*10*ptcl_charge/ptcl_mass) )**2)*Bgrad[i])/(Bmag[i]*scaling) for i in range(len(simAlt))], simAlt/m_to_km,label=r'$\nabla$ B Force')
-            ax[k].legend()
-            ax[k].set_title(f'{chosenPitch[k]}$^\circ$')
-            ax[k].set_xlabel(f'Force [{scaling} N]')
-            ax[k].set_ylabel('Altitude [m]')
-        plt.show()
 
     if plotEuler_1step:
         fig, ax = plt.subplots(2)
@@ -357,7 +351,7 @@ def testParticle_Sim():
 
     for ptch in range(len(instr_ptch_bins)):
         for engy in range(len(instr_engy_bins)):
-            Emag = np.sqrt(2 * q0 * instr_engy_bins[engy] / (m_e))
+            Emag = np.sqrt(2 * ptclToggles.ptcl_charge * instr_engy_bins[engy] / (ptclToggles.ptcl_mass))
             VperpGrid[ptch][engy] = np.sin(np.radians(instr_ptch_bins[ptch])) * Emag
             VparaGrid[ptch][engy] = np.cos(np.radians(instr_ptch_bins[ptch])) * Emag
     VparaGrid, VperpGrid = np.array(VparaGrid) / 1000, np.array(VperpGrid) / 1000
@@ -384,7 +378,7 @@ def testParticle_Sim():
     deadtime = 674E-9
     diffEFlux = np.zeros(shape=(len(simTime), len(instr_ptch_bins), len(instr_engy_bins)))
 
-    for tme, ptch, engy in itertools.product(*[range(len(simTime)), range(len(instr_ptch_bins)), range(len(instr_engy_bins))]):
+    for tme, ptch, engy in product(*[range(len(simTime)), range(len(instr_ptch_bins)), range(len(instr_engy_bins))]):
         measuredT = (countInterval) - (simCounts[tme][ptch][engy] * deadtime)
         diffEFlux[tme][ptch][engy] = int((simCounts[tme][ptch][engy]) / (geo_factor[ptch] * measuredT))
 
@@ -420,11 +414,7 @@ def testParticle_Sim():
 
 
         # output the data
-        outputCDFdata(outputPath='C:\Data\ACESII\science\simulations\TestParticle\TestParticleData.cdf',
-                      data_dict=data_dict_output,
-                      ModelData=L1_ACES_Quick(0),
-                      globalAttrsMod=globalAttrsMod,
-                      instrNam='EEPAA')
+        outputCDFdata(outputPath=rf'{GenToggles.simOutputPath}\results\TestParticleData.cdf', data_dict=data_dict_output, instrNam='EEPAA')
         Done(start_time)
 
     # --- --- --- --- ----
@@ -434,6 +424,7 @@ def testParticle_Sim():
     if outputAnimation:
         prgMsg('Creating Animation')
         print('\n')
+
         #################
         # --- ANIMATE ---
         #################
@@ -455,7 +446,8 @@ def testParticle_Sim():
         # --- INITIALIZE ---
         # --- --- --- --- --
         title = fig.suptitle(f'$\Delta t$= {round(simTime[0],2)}\n' +
-                             r'$E_{\parallel}$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]',fontsize=30)
+                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
+                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$',fontsize=30)
 
         # gridspec
         gs0 = gridspec.GridSpec(nrows=5, ncols=2, figure=fig,hspace=0.5,wspace=0.3)
@@ -465,7 +457,7 @@ def testParticle_Sim():
         axAlt.axhline(y=obsHeight/m_to_km, linestyle='--')
         axAlt.text(x=-180,y=(1.2)*obsHeight/m_to_km, s=f'{obsHeight/m_to_km} km',fontsize=10)
         axAlt.set_xticks([-180 + 60*i for i in range(7)])
-        axAlt.set_ylim(0, simAltHigh)
+        axAlt.set_ylim(0, GenToggles.simAltHigh)
         axAlt.set_xlabel('PA $[^{\circ}$]')
         axAlt.set_ylabel('Alt [km]')
 
@@ -473,19 +465,29 @@ def testParticle_Sim():
         axE = axAlt.twiny()
         E_Field_Wave, = axE.plot(E_Field[0], simAlt/m_to_km, color='black')
 
-        TopArrowX = -1*E_Field_Amplitude / 2 if flipEField else E_Field_Amplitude/2
-        TopArrowY = (Z0_wave - (0.45*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - (0.05*E_Field_lambda))/m_to_km
-        BotArrowX = E_Field_Amplitude / 2 if flipEField else -1*E_Field_Amplitude/2
-        BotArrowY = (Z0_wave - ((1-0.45)*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - ((1-0.05)*E_Field_lambda))/m_to_km
-        dx = 0
-        dyTop = 0.35*E_Field_lambda/m_to_km if flipEField else -0.35*E_Field_lambda/m_to_km
-        dyBot = -0.35*E_Field_lambda/m_to_km if flipEField else 0.35*E_Field_lambda/m_to_km
 
-        topAr = axE.annotate("E$_{\parallel}$", xy=(TopArrowX, TopArrowY), xytext=(TopArrowX + dx, TopArrowY + dyTop),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
-        botAr = axE.annotate("E$_{\parallel}$", xy=(BotArrowX, BotArrowY), xytext=(BotArrowX + dx, BotArrowY + dyBot),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
+        # color the E-Field
+        # negativeIndicies = np.where(E_Field[0] < 0)[0]
+        # positiveIndicies = np.where(E_Field[0] > 0)[0]
+        # axE.fill_between(,alpha=0.1,color='red')
+
+
+        ################
+        # --- ARROWS ---
+        ################
+        # TopArrowX = -1*E_Field_Amplitude / 2 if flipEField else E_Field_Amplitude/2
+        # TopArrowY = (Z0_wave - (0.45*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - (0.05*E_Field_lambda))/m_to_km
+        # BotArrowX = E_Field_Amplitude / 2 if flipEField else -1*E_Field_Amplitude/2
+        # BotArrowY = (Z0_wave - ((1-0.45)*E_Field_lambda))/m_to_km if flipEField else (Z0_wave - ((1-0.05)*E_Field_lambda))/m_to_km
+        # dx = 0
+        # dyTop = 0.35*E_Field_lambda/m_to_km if flipEField else -0.35*E_Field_lambda/m_to_km
+        # dyBot = -0.35*E_Field_lambda/m_to_km if flipEField else 0.35*E_Field_lambda/m_to_km
+        #
+        # topAr = axE.annotate("E$_{\parallel}$", xy=(TopArrowX, TopArrowY), xytext=(TopArrowX + dx, TopArrowY + dyTop),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
+        # botAr = axE.annotate("E$_{\parallel}$", xy=(BotArrowX, BotArrowY), xytext=(BotArrowX + dx, BotArrowY + dyBot),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
 
         axE.set_ylim(100, 8000)
-        axE.set_xlim(-1.5*E_Field_Amplitude, 1.5*E_Field_Amplitude)
+        axE.set_xlim(-1E-4, 1E-4)
         axE.axis('off')
 
         # Vspace Plot
@@ -503,7 +505,7 @@ def testParticle_Sim():
         axTspaceE.set_ylabel('Energy [eV]')
         axTspaceE.set_xlabel('Time [s]')
 
-        patches = [mpatches.Patch(color=simColors[i][0], label=f'<{simEnergyRanges[i][1]} eV') for i in range(len(simEnergyRanges))]
+        patches = [mpatches.Patch(color=GenToggles.simColors[i], label=f'<{ptclToggles.simEnergyRanges[i][1]} eV') for i in range(len(ptclToggles.simEnergyRanges))]
         axTspaceE.legend(handles=patches)
 
         # Time vs Pitch Angle
@@ -532,7 +534,6 @@ def testParticle_Sim():
         # VspaceArtists.append(axVspace.scatter(vperps, vpars, color=data_dict['color'][0]))
         VspaceArtists = axVspace.scatter(vperps, vpars, color=data_dict['color'][0])
 
-
         ############################
         # --- Animation Function ---
         ############################
@@ -541,9 +542,9 @@ def testParticle_Sim():
             print('', end='\r' + color.RED + f'{round(100 * j / simLen, 1)} %' + color.END)
 
             # --- update the title ---
-            title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
-                           f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
+            title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n' +
+                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
+                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$')
             # axAlt.set_xticks([-180 + 60 * i for i in range(7)])
 
             # --- update the electric field ---
@@ -551,10 +552,10 @@ def testParticle_Sim():
             E_Field_Wave.set_ydata(simAlt/m_to_km)
 
             # --- update the electric field ARROWS ---
-            topAr.xy = (TopArrowX, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
-            topAr.set_position((TopArrowX + dx, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyTop))
-            botAr.xy = (BotArrowX, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
-            botAr.set_position((BotArrowX + dx, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyBot))
+            # topAr.xy = (TopArrowX, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
+            # topAr.set_position((TopArrowX + dx, (TopArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyTop))
+            # botAr.xy = (BotArrowX, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km))
+            # botAr.set_position((BotArrowX + dx, (BotArrowY - E_Field_WaveSpeed[j] * simTime[j] / m_to_km) + dyBot))
 
             # --- Update particles on VELOCITY SPACE plot ---
             perpMax, perpMin = 0, 0
@@ -581,7 +582,7 @@ def testParticle_Sim():
             # update the Energy vs Time plot and Pitch vs Time
             for k in range(totalNumberOfParticles):
                 if observed[k] == 1:
-                    energy = 0.5 * (ptcl_mass / ptcl_charge) * ((vperps[k] * m_to_km) ** 2 + (vpars[k] * m_to_km) ** 2)
+                    energy = 0.5 * (ptclToggles.ptcl_mass / ptclToggles.ptcl_charge) * ((vperps[k] * m_to_km) ** 2 + (vpars[k] * m_to_km) ** 2)
                     ptcls_to_plot.append([simTime[j], energy, Ptches[k], data_dict['color'][0][k]])
 
             # update axes limits of Vspace plot
@@ -607,8 +608,8 @@ def testParticle_Sim():
 
         anim = animation.FuncAnimation(fig=fig, func=animate_func, frames=simLen, interval=1000 / fps)
         print('', end='\r' + color.RED + f'{round(100 * simLen / simLen, 1)} %' + color.END)
-        outputTitle = 'TestParticle\TestParticle_above_invTrue.mp4' if EToggles.flipEField else 'TestParticle\TestParticle_above_invFalse.mp4'
-        anim.save(f'C:\Data\ACESII\science\simulations\{outputTitle}', fps=fps)
+        outputTitle = 'TestParticle_above_invTrue.mp4' if EToggles.flipEField else 'TestParticle_above_invFalse.mp4'
+        anim.save(rf'{GenToggles.simOutputPath}\results\{outputTitle}', fps=fps)
         print('\n')
         Done(start_time)
 
@@ -648,7 +649,7 @@ def testParticle_Sim():
             cbar.set_label('Counts')
 
             plt.tight_layout()
-            plt.savefig(f'C:\Data\ACESII\science\simulations\TestParticle\TestParticle_{instr_ptch_bins[plotIndex]}deg')
+            plt.savefig(rf'{GenToggles.simOutputPath}\results\TestParticle_{instr_ptch_bins[plotIndex]}deg.png')
             plt.close()
 
 
@@ -664,7 +665,7 @@ def testParticle_Sim():
         # --- determine the plot's limits ---
         wEngyLim = 25 # corresponds to
         EnergyLimit = instr_engy_bins[wEngyLim]
-        VelLimit = np.sqrt(2 * EnergyLimit * q0 / (m_e)) / 1000
+        VelLimit = np.sqrt(2 * EnergyLimit * ptclToggles.ptcl_charge / (ptclToggles.ptcl_mass)) / 1000
 
         # --- INITIALIZE THE PLOT ---
         fig, ax = plt.subplots()
@@ -672,9 +673,9 @@ def testParticle_Sim():
         figure_width = 10
         fig.set_figwidth(figure_width)
         fig.set_figheight(figure_height)
-        title = ax.set_title(f'$\Delta t$= {round(simTime[0],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
-                           f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
+        title = ax.set_title(f'$\Delta t$= {round(simTime[0],2)}\n' +
+                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
+                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$')
         ax.set_xlabel('V$_{\perp}$ [km/s]', fontsize=14)
         ax.set_ylabel('V$_{\parallel}$ [km/s]', fontsize=14)
         ax.set_xlim(-5000, VelLimit)
@@ -694,9 +695,9 @@ def testParticle_Sim():
             print('', end='\r' + color.RED + f'{round(100 * j / simLen, 1)} %' + color.END)
 
             # update the title
-            title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n'+
-                           r'$|E_{\parallel}|$ = ' + f'{round(E_Field_Amplitude*1000,3)} [mV/m]\n' +
-                           f'$\omega$/k = {WaveSpeed_Static/m_to_km} km/s')
+            title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n' +
+                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
+                             +'$E_{\perp} =$' + f'{EToggles.lambdaPerp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$')
 
 
             # update the data
@@ -705,7 +706,7 @@ def testParticle_Sim():
 
         anim = animation.FuncAnimation(fig=fig, func=animate_func, frames=simLen, interval=1000 / fps_ptichAnglePlot)
         print('', end='\r' + color.RED + f'{round(100 * simLen / simLen, 1)} %' + color.END)
-        anim.save(f'C:\Data\ACESII\science\simulations\TestParticle\EEPAA_Polar_Animation.mp4', fps=fps)
+        anim.save(rf'{GenToggles.simOutputPath}\results\EEPAA_Polar_Animation.mp4', fps=fps)
 
         Done(start_time)
 

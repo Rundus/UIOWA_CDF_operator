@@ -6,7 +6,9 @@ from numpy.random import uniform
 from scipy.special import erfinv
 
 
-def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc):
+def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc, **kwargs):
+    plotting = kwargs.get('showPlot', False)
+
 
     # --- generate initial data dict ---
     data_dict = {}
@@ -70,7 +72,7 @@ def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc):
         initVars[3].append(ptclEnergies) # initEngy
         initVars[4].append([Bmag[abs(GenToggles.simAlt-zpos).argmin()] for zpos in initVars[0][h]]) # initBmag
         initVars[5].append([Bgrad[abs(GenToggles.simAlt-zpos).argmin()] for zpos in initVars[0][h]]) # initGrad
-        initVars[6].append([0.5*ptclToggles.ptcl_mass(initVars[2][h][k]**2)/initVars[4][h][k] for k in range(ptclToggles.N_ptcls)]) # initMoment
+        initVars[6].append([0.5*ptclToggles.ptcl_mass*(initVars[2][h][k]**2)/initVars[4][h][k] for k in range(ptclToggles.N_ptcls)]) # initMoment
         initVars[7].append([forceFunc(simTime_Index=0, alt_Index=abs(GenToggles.simAlt - initVars[0][h][k]).argmin(), mu=initVars[6][h][k], deltaB=initVars[5][h][k]) for k in range(ptclToggles.N_ptcls)]) # initForce
         initVars[8].append([1 if initVars[0][h][k] <= GenToggles.obsHeight else 0 for k in range(ptclToggles.N_ptcls)]) # initObserved
         initVars[9].append(ptclColor)
@@ -81,9 +83,24 @@ def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc):
     for j in range(len(initVars)):
         data_dict[f'{varNames[j]}'].append([item for sublist in initVars[j] for item in sublist])
 
-    totalNumberOfParticles = ptclToggles.N_ptcls * len(ptclToggles.Z0_ptcl_ranges)
 
-    return data_dict,totalNumberOfParticles
+
+    # --- plotting ---
+    # if plotBool:
+    #     # Show the Energies
+    #     vthermal = np.sqrt(8 * q0 * ptclTemperature / m_e)
+    #     fig, ax = plt.subplots()
+    #     ax.scatter(data_dict['vperp'][0] / vthermal, data_dict['vpar'][0] / vthermal, color=data_dict['color'][0])
+    #     ax.set_ylabel('$V_{\parallel}$')
+    #     ax.set_xlabel('$V_{\perp}$')
+    #     patches = [mpatches.Patch(color=simColors[i][0], label=f'<{simEnergyRanges[i][1]} eV') for i in
+    #                range(len(simEnergyRanges))]
+    #     patches.append(mpatches.Patch(color='black', label=f'outside range'))
+    #     ax.legend(handles=patches)
+    #     plt.show()
+
+
+    return data_dict
 
 
 
