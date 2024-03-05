@@ -19,7 +19,7 @@ from tqdm import tqdm
 from ACESII_code.class_var_func import prgMsg,Done, outputCDFdata, loadDictFromFile
 start_time = time.time()
 
-#TODO: For the PhiPerp - Do an interpolation to get a better estimate
+#TODO: CHANGE SPEED = INERTIAL ALF SPEED
 
 ##################
 # --- PLOTTING ---

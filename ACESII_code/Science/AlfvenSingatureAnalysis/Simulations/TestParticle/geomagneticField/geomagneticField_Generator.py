@@ -11,7 +11,7 @@ from ACESII_code.class_var_func import CHAOS
 ########################################
 # --- GENERATE THE B-FIELD & TOGGLES ---
 ########################################
-plot_BField = False
+plot_BField = True
 
 # --- OUTPUT DATA ------
 outputData = False
@@ -40,7 +40,6 @@ def generateGeomagneticField(outputData, **kwargs):
         Bgrad = [(Bgeo[i + 1] - Bgeo[i]) / (altRange[i + 1] - altRange[i]) for i in range(len(Bgeo) - 1)]
         Bgrad = array(Bgrad + [Bgrad[-1]]) # add the high altitude value Bgrad again to model the starting point (MAYBE it SHOULD BE 0?)
 
-
         if plotBool:
 
             import matplotlib.pyplot as plt
@@ -48,6 +47,7 @@ def generateGeomagneticField(outputData, **kwargs):
             ax[0].plot(altRange/R_REF, Bgeo/(1E-9))
             ax[0].set_title('|B| vs Altitude')
             ax[0].set_ylabel('$B_{geo}$ [nT]')
+            ax[0].set_yscale('log')
             ax[0].set_xlabel('Altitude [$R_{E}$]')
             ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red')
             ax[0].legend()
@@ -66,7 +66,7 @@ def generateGeomagneticField(outputData, **kwargs):
 
     if plotting:
         # get all the variables and plot them if required
-        geomagneticFieldProfile(altRange=GenToggles.simAlt, plotBool=plotting)
+        geomagneticFieldProfile(altRange=GenToggles.simAlt, showPlot=plotting)
 
     if outputData:
 
@@ -102,4 +102,5 @@ def generateGeomagneticField(outputData, **kwargs):
 #################
 # --- EXECUTE ---
 #################
-generateGeomagneticField(outputData=outputData,plotting=plot_BField)
+if plot_BField:
+    generateGeomagneticField(outputData=outputData,plotting=plot_BField)

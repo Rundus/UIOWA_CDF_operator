@@ -14,22 +14,23 @@ simulationAlt = GenToggles.simAlt
 ##################
 # --- PLOTTING ---
 ##################
-plotting = False
+plotting = True
+useTanakaDensity = True
 xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
 plottingDict = {'Temperature':False,
-                'lambdaPerp':False,
+                'lambdaPerp': False,
                 'Density': False,
                 'ionMass': False,
                 'Beta': False,
                 'plasmaFreq': False,
                 'skinDepth': False,
                 'ionCyclotron': True,
-                'ionLarmorRadius':True,
-                'alfSpdMHD': True,
+                'ionLarmorRadius':False,
+                'alfSpdMHD': False,
                 'kineticTerms': True,
-                'lambdaPara': True,
-                'alfSpdInertial': True}
+                'lambdaPara': False,
+                'alfSpdInertial': False}
 
 # --- Output Data ---
 outputData = False
@@ -47,12 +48,13 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         # --- Ionosphere Temperature Profile ---
         # ASSUMES Ions and electrons have same temperature profile
-        T0 = 1 # Temperature at the Ionospher (in eV)
+        T0 = 2.5 # Temperature at the Ionospher (in eV)
         T1 = 0.0135 # (in eV)
         h0 = 2000*m_to_km # scale height (in meters)
         T_iono = T1*exp(altRange/h0 ) + T0
         deltaZ = 0.3*R_REF
-        T_ps = 2000 # temperature of plasma sheet (in eV)
+        # T_ps = 2000 # temperature of plasma sheet (in eV)
+        T_ps = 400  # temperature of plasma sheet (in eV)
         z_ps = 3.75*R_REF # height of plasma sheet (in meters)
         w = 0.5*(1 - tanh((altRange - z_ps)/deltaZ)) # models the transition to the plasma sheet
 
@@ -127,14 +129,32 @@ def generatePlasmaEnvironment(outputData, **kwargs):
     # uses the Klezting Model to return an array of plasma density (in m^-3) from [Alt_low, ..., Alt_High]
     def plasmaDensityProfile(altRange, **kwargs):
         plotBool = kwargs.get('showPlot', False)
+        useTanakaDensity = kwargs.get('useTanakaDensity', False)
 
-        # --- determine the density over all altitudes ---
-        # Description: returns density for altitude "z [km]" in m^-3
-        h = 0.06 * (R_REF / m_to_km)  # in km from E's surface
-        n0 = 6E4
-        n1 = 1.34E7
-        z0 = 0.05 * (R_REF / m_to_km)  # in km from E's surface
-        n_density = (cm_to_m**3)*array([(n0 * exp(-1 * ((alt / m_to_km) - z0) / h) + n1 * ((alt / m_to_km) ** (-1.55))) for alt in altRange])  # calculated density (in m^-3)
+        if useTanakaDensity:
+            ##### TANAKA FIT #####
+            # --- determine the density over all altitudes ---
+            # Description: returns density for altitude "z [km]" in m^-3
+            n0 = 24000000
+            n1 = 2000000
+            z0 = 600  # in km from E's surface
+            h = 680  # in km from E's surface
+            H = -0.74
+            a = 0.0003656481654202569
+
+            def fitFunc(x, n0, n1, z0, h, H, a):
+                return a * (n0 * exp(-1 * (x - z0) / h) + n1 * (x ** (H)))
+            n_density = (cm_to_m ** 3) * array([ fitFunc(alt/m_to_km, n0, n1, z0, h, H, a) for alt in altRange])  # calculated density (in m^-3)
+
+        else:
+            #### KLETZING AND TORBERT MODEL ####
+            # --- determine the density over all altitudes ---
+            # Description: returns density for altitude "z [km]" in m^-3
+            h = 0.06 * (R_REF / m_to_km)  # in km from E's surface
+            n0 = 6E4
+            n1 = 1.34E7
+            z0 = 0.05 * (R_REF / m_to_km)  # in km from E's surface
+            n_density = (cm_to_m**3)*array([(n0 * exp(-1 * ((alt / m_to_km) - z0) / h) + n1 * ((alt / m_to_km) ** (-1.55))) for alt in altRange])  # calculated density (in m^-3)
 
         if plotBool:
             import matplotlib.pyplot as plt
@@ -196,7 +216,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             plt.tight_layout()
             plt.show()
 
-        return n_Op, n_Hp, m_eff_i
+        return n_Op/5, n_Hp, m_eff_i
 
     # --- PLASMA BETA ---
     def plasmaBetaProfile(altRange, **kwargs):
@@ -304,7 +324,9 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[0].set_xlabel(f'Altitude [{xLabel}]')
             ax[0].axvline(x=400000/xNorm, label='Observation Height',color='red')
             ax[0].set_yscale('log')
-            ax[0].set_ylim(0.1,1E4)
+            ax[0].set_ylim(0.1, 1E4)
+            ax[0].set_xlim(0,GenToggles.simAltHigh/xNorm)
+            ax[0].grid(True)
             ax[0].margins(0)
             ax[0].legend()
 
@@ -317,6 +339,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[1].set_yscale('log')
             ax[1].set_ylim(0.1, 1000)
+            ax[1].set_xlim(0, GenToggles.simAltHigh/xNorm)
             ax[1].margins(0)
             ax[1].grid(True)
             plt.legend()
@@ -548,7 +571,9 @@ def generatePlasmaEnvironment(outputData, **kwargs):
     if plotting:
         counter = 0
         for key, val in plottingDict.items():
-            if val:
+            if val and key == 'Density':
+                profileFuncs[counter](altRange=GenToggles.simAlt, showPlot=True, useTanakaDensity= useTanakaDensity)
+            elif val:
                 profileFuncs[counter](altRange = GenToggles.simAlt, showPlot = True)
             counter+= 1
 

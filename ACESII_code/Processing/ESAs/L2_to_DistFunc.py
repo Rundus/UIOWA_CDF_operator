@@ -13,7 +13,7 @@ __version__ = "1.0.0"
 import itertools
 # --- --- --- --- ---
 import time
-from ACESII_code.class_var_func import Done, setupPYCDF
+from ACESII_code.class_var_func import Done, setupPYCDF, outputCDFdata,loadDictFromFile
 
 start_time = time.time()
 # --- --- --- --- ---
@@ -40,24 +40,19 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [1]
+wFiles = [[0, 2, 4], [0, 2]]
 
-useMagCalData = False
-IsElectron = False
+IsElectron = True
 wIon = 0
+inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+outputPath_modifier = 'L3\DistFunc' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
-if useMagCalData:
-    inputPath_modifier = 'l2_mag_cal'  # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-else:
-    inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-outputPath_modifier = 'science\DistFunc' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
-
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 import numpy as np
-import os
 from warnings import filterwarnings # USED TO IGNORE WARNING ABOUT "UserWarning: Invalid dataL1 type for dataL1.... Skip warnings.warn('Invalid dataL1 type for dataL1.... Skip')" on Epoch High dataL1.
 filterwarnings("ignore")
 from tqdm import tqdm
@@ -94,6 +89,11 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
     dataFile_name = input_names[wFile].replace(f'{rocketFolderPath}\{fliers[wflyer]}\\', '')
     fileoutName = dataFile_name.replace('l2', 'distFunc')
 
+    # determine which instrument the file corresponds to:
+    for index, instr in enumerate(['eepaa', 'leesa', 'iepaa', 'lp']):
+        if instr in dataFile_name:
+            wInstr = [index, instr]
+
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
             anws = ["yes" if input_names_searchable[i].replace('.cdf', "") in output_names_searchable else "no"]
@@ -105,10 +105,7 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
 
         # --- get the data from the tmCDF file ---
         prgMsg('Loading data from L2Files')
-        data_dict = {}
-        with pycdf.CDF(inputFiles[wFile]) as L2DataFile:
-            for key, val in L2DataFile.items():
-                data_dict = {**data_dict, **{key : [L2DataFile[key][...] , {key:val for key,val in L2DataFile[key].attrs.items()  }  ]  }  }
+        data_dict = loadDictFromFile(inputFilePath=inputFiles[wFile])
 
         Done(start_time)
 
@@ -120,6 +117,7 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
 
         # --- CALCULATE DISTRIBUTION FUNCTION ---
         diffEFlux = data_dict['Differential_Energy_Flux'][0]
+        oneCountLevel = data_dict['oneCountLevel'][0]
         pitchAngle = data_dict['Pitch_Angle'][0]
         Energies = data_dict['Energy'][0]
 
@@ -127,11 +125,14 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
         sizes = [len(diffEFlux),len(diffEFlux[0]), len(diffEFlux[0][0])]
         ranges = [range(sizes[0]), range(sizes[1]), range(sizes[2])]
         distFunc = np.zeros(shape=(sizes[0], sizes[1], sizes[2]))
+        distFunc_oneCount = np.zeros(shape=(sizes[0], sizes[1], sizes[2]))
 
         if IsElectron:
             m = m_e
         else:
             m = IonMasses[wIon]
+
+        print(f'Num. of iterations: {sizes[0]*sizes[1]*sizes[2]}\n')
 
         # --- Calculate DistFunc in SI units ---
         for tme, ptch, engy in tqdm(itertools.product(*ranges)):
@@ -144,64 +145,47 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
                 else:
                     distFunc[tme][ptch][engy] = distVal
 
+            distFunc_oneCount[tme][ptch][engy] = (cm_to_m*cm_to_m/(q0*q0))*(((m**2)*oneCountLevel[tme][ptch][engy]) / (2 * Energies[engy] * Energies[engy]))
+
+
         distFunc = np.array(distFunc)
 
         del data_dict['Differential_Number_Flux'],data_dict['Differential_Energy_Flux']
 
         Done(start_time)
 
-        # --- --- --- --- --- --- ---
-        # --- WRITE OUT THE DATA ---
-        # --- --- --- --- --- --- ---
-        prgMsg('Creating output file')
 
-        outputPath = f'{outputFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+        if outputData:
+            # --- --- --- --- --- --- ---
+            # --- WRITE OUT THE DATA ---
+            # --- --- --- --- --- --- ---
+            prgMsg('Creating output file')
 
-        data_dict = {**data_dict, **{'Distribution_Function':
-                                         [distFunc, {'LABLAXIS': 'Distribution_Function',
-                                                   'DEPEND_0': 'Epoch_esa',
-                                                   'DEPEND_1': 'Pitch_Angle',
-                                                   'DEPEND_2': 'Energy',
-                                                   'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
-                                                   'UNITS': '!m!U-6!N s!U3!',
-                                                   'VALIDMIN': distFunc.min(), 'VALIDMAX': distFunc.max(),
-                                                   'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
+            outputPath = f'{outputFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-        # --- delete output file if it already exists ---
-        if os.path.exists(outputPath):
-            os.remove(outputPath)
+            data_dict = {**data_dict, **{'Distribution_Function':
+                                             [distFunc, {'LABLAXIS': 'Distribution_Function',
+                                                       'DEPEND_0': 'Epoch',
+                                                       'DEPEND_1': 'Pitch_Angle',
+                                                       'DEPEND_2': 'Energy',
+                                                       'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
+                                                       'UNITS': '!m!U-6!N s!U3!',
+                                                       'VALIDMIN': distFunc.min(), 'VALIDMAX': distFunc.max(),
+                                                       'VAR_TYPE': 'data', 'SCALETYP': 'log'}]}}
 
-        # --- open the output file ---
-        with pycdf.CDF(outputPath, '') as sciFile:
-            sciFile .readonly(False)
+            data_dict = {**data_dict, **{'oneCountLevel':
+                                             [oneCountLevel, {'LABLAXIS': 'Distribution_Function',
+                                                         'DEPEND_0': 'Epoch',
+                                                         'DEPEND_1': 'Pitch_Angle',
+                                                         'DEPEND_2': 'Energy',
+                                                         'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2',
+                                                         'UNITS': '!m!U-6!N s!U3!',
+                                                         'VALIDMIN': distFunc.min(), 'VALIDMAX': distFunc.max(),
+                                                         'VAR_TYPE': 'support_data', 'SCALETYP': 'log'}]}}
 
-            # --- write out global attributes ---
-            inputGlobDic = L2ModelData.cdfFile.globalattsget()
-            for key, val in inputGlobDic.items():
-                if key in globalAttrsMod:
-                    sciFile.attrs[key] = globalAttrsMod[key]
-                else:
-                    sciFile.attrs[key] = val
+            outputCDFdata(outputPath=outputPath,data_dict=data_dict,ModelData=L2ModelData,globalAttrsMod=globalAttrsMod,instrNam=wInstr[1])
 
-            # --- WRITE OUT DATA ---
-            for varKey, varVal in data_dict.items():
-                if 'Epoch' in varKey: # epoch data
-                    sciFile.new(varKey, data=varVal[0], type=33)
-                elif 'Function' in varKey:
-                    sciFile.new(varKey, data=varVal[0], type=pycdf.const.CDF_REAL8)
-                else: # other data
-                    sciFile.new(varKey, data=varVal[0])
-
-                # --- Write out the attributes and variable info ---
-                for attrKey, attrVal in data_dict[varKey][1].items():
-                    if attrKey == 'VALIDMIN':
-                        sciFile[varKey].attrs[attrKey] = varVal[0].min()
-                    elif attrKey == 'VALIDMAX':
-                        sciFile[varKey].attrs[attrKey] = varVal[0].max()
-                    elif attrVal != None:
-                        sciFile[varKey].attrs[attrKey] = attrVal
-
-        Done(start_time)
+            Done(start_time)
 
 
 
@@ -239,9 +223,9 @@ if len(glob(f'{rocketFolderPath}L2\{fliers[wflyer]}\*.cdf')) == 0:
 else:
     if justPrintFileNames:
         Distribution_Function(wRocket, 0, rocketFolderPath, justPrintFileNames, wflyer)
-    elif not wFiles:
+    elif not wFiles[wRocket-4]:
         for fileNo in (range(len(glob(f'{rocketFolderPath}L2\{fliers[wflyer]}\*.cdf')))):
             Distribution_Function(wRocket, fileNo, rocketFolderPath, justPrintFileNames, wflyer)
     else:
-        for filesNo in wFiles:
+        for filesNo in wFiles[wRocket-4]:
             Distribution_Function(wRocket, filesNo, rocketFolderPath, justPrintFileNames, wflyer)

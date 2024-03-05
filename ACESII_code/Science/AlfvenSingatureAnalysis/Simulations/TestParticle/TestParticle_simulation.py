@@ -33,7 +33,7 @@ plotEuler_1step = False
 
 # --- Particle Trajectory ANIMATION ---
 outputAnimation = True
-fps = 30
+
 
 # --- EEPAA Energy vs Time Plots ---
 simulated_EEPAA_plots = False
@@ -78,6 +78,9 @@ from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.partic
 # --- geomagnetic B-Field ---
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
 
+# --- plasma environment ---
+data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf')
+
 # --- E-Fields ---
 data_dict_Eperp = loadDictFromFile(rf'{GenToggles.simOutputPath}\Eperp\Eperp.cdf')
 data_dict_Epara = loadDictFromFile(rf'{GenToggles.simOutputPath}\Epara\Epara.cdf')
@@ -92,6 +95,7 @@ def testParticle_Sim():
     simAlt = GenToggles.simAlt
     simLen = GenToggles.simLen
     obsHeight = GenToggles.obsHeight
+    fps = GenToggles.fps
 
 
     # --- GET SLICE IN PARALLEL E-FIELD ---
@@ -487,7 +491,8 @@ def testParticle_Sim():
         # botAr = axE.annotate("E$_{\parallel}$", xy=(BotArrowX, BotArrowY), xytext=(BotArrowX + dx, BotArrowY + dyBot),horizontalalignment="center", arrowprops=dict(arrowstyle="->",lw=5),fontsize=17)
 
         axE.set_ylim(100, 8000)
-        axE.set_xlim(-1E-4, 1E-4)
+        axE.set_xlim(1.1*E_Field.min(), 1.1*E_Field.max())
+
         axE.axis('off')
 
         # Vspace Plot

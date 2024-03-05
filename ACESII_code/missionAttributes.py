@@ -188,7 +188,7 @@ def ACES_mission_dicts():
                             'Langmuir_Probe>Langmuir Probe'],
         'geometric_factor': [
             [0.000174 for i in range(21)],
-            [0.000174 for i in range(21)],
+            [0.000174/100 for i in range(21)], # LEESA geofactor was ~EEPAA/100
             [0.000174 for i in range(7)]],
         'deadtime': [674E-9, 674E-9],
         'Instr_sector_to_pitch': [
