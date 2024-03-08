@@ -33,28 +33,28 @@ outputData = True
 # ---------------------------
 
 # solid angle contributions of each pitch bin (starting at 0deg to -190 deg)
-solidAngle =[
-    0.189604, # -10deg
-    0.0477741, # 0 deg
-    0.189604, # 10 deg
-    0.351294, # 20 deg
-    0.54761568, # 30
-    0.704001, # 40
-    0.838996, # 50
-    0.9485, # 60
-    1.0292, # 70
-    1.07859, # 80
-    1.0952, # 90
-    1.07859, # 100
-    1.0292, # 110
-    0.9485, # 120
-    0.838996, # 130
-    0.704001, # 140
-    0.54761568, # 150 deg
-    0.351294, # 160 deg
-    0.189604, # 170deg
-    0.0477741, # 180deg
-    0.189604 # 190 deg
+solidAngleHfactor =[
+    204.4, # -10deg
+    25.714, # 0 deg
+    204.4, # 10 deg
+    402.9, # 20 deg
+    589, # 30
+    757.1, # 40
+    902.3, # 50
+    1020.1, # 60
+    1106.9, # 70
+    1160, # 80
+    1177.9, # 90
+    1160, # 100
+    1106.9, # 110
+    1020.1, # 120
+    902.3, # 130
+    757.1, # 140
+    589, # 150 deg
+    402.9, # 160 deg
+    204.4, # 170deg
+    25.714, # 180deg
+    204.4 # 190 deg
 ]
 
 
@@ -102,7 +102,7 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
         # --- get the data from the file ---
         prgMsg(f'Loading data from ESA Files')
         # load data here
-        data_dict = loadDictFromFile(input_data_dict={},inputFilePath=inputFiles[wfile],targetTimes=[],reduceData=False,wKeys=[])
+        data_dict, globalAttrs = loadDictFromFile(inputFilePath=inputFiles[wfile], getGlobalAttrs=True)
         Done(start_time)
 
         # --- --- --- --- --- --- --- -
@@ -116,6 +116,7 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
         Energy = data_dict['Energy'][0][::-1]
         diffEflux = data_dict['Differential_Energy_Flux'][0]
 
+        diffEFlux_avg = [ [[] for ptch in Pitch] for tme in Epoch]
         Eflux = [ [[] for ptch in Pitch] for tme in Epoch]
 
         # perform the integration
@@ -125,19 +126,17 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
 
                 if all(np.array(diffFLux_data) >= 0): # see if there's any fillvals or negative values in array. If not, then you can integrate
                     integratedValue = trapz(y=diffFLux_data, x=Energy)
-                    EFluxVal = (q0 * cm_to_m ** 2) * integratedValue * solidAngle[ptch]
+                    EFluxVal = (q0 * cm_to_m ** 2) * integratedValue * solidAngleHfactor[ptch]
                 else:
                     EFluxVal = rocketAttrs.epoch_fillVal
+                    integratedValue = rocketAttrs.epoch_fillVal
 
-
-                # if integratedValue < 0:
-                #     print(tme,ptch,integratedValue)
-                #     print(Energy)
-                #     print(diffFLux_data)
-
+                diffEFlux_avg[tme][ptch].append(integratedValue)
+                diffEFlux_avg[tme][ptch] = diffEFlux_avg[tme][ptch][0] # reduce each element from a list to a single value
                 Eflux[tme][ptch].append(EFluxVal)
                 Eflux[tme][ptch] = Eflux[tme][ptch][0] # reduce each element from a list to a single value
 
+        diffEFlux_avg = np.array(diffEFlux_avg)
         Eflux = np.array(Eflux)
 
 
@@ -152,16 +151,18 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
         if outputData:
             prgMsg('Creating output file')
 
-            data_dict_output = {'Energy_Flux': [np.array(Eflux), data_dict['Differential_Energy_Flux'][1]],
+            data_dict_output = {'Energy_Flux': [Eflux, data_dict['Differential_Energy_Flux'][1]],
+                                'Differential_Energy_Flux_avg': [diffEFlux_avg, data_dict['Differential_Energy_Flux'][1]],
                                 'Pitch_Angle': data_dict['Pitch_Angle'],
                                 'Energy': data_dict['Energy'],
                                 'Epoch': data_dict['Epoch']}
             data_dict_output['Energy_Flux'][1]['LABLAXIS'] = 'Energy_Flux'
             data_dict_output['Energy_Flux'][1]['UNITS'] = 'J m!A-2!B!Ns!A-1!B'
+            data_dict_output['Differential_Energy_Flux_avg'][1]['LABLAXIS'] = 'Differential_Energy_Flux_avg'
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            outputCDFdata(outputPath, data_dict_output, ModelData, globalAttrsMod, wInstr[1])
+            outputCDFdata(outputPath, data_dict_output, globalAttrsMod=globalAttrs, instrNam=wInstr[1])
 
             Done(start_time)
 

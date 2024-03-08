@@ -8,7 +8,6 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import math
 
 import matplotlib.pyplot as plt
 # -------------------
@@ -166,11 +165,12 @@ def butter_filter(data, lowcutoff, highcutoff, fs, order,filtertype):
     y = filtfilt(b, a, data)
     return y
 
-def long_to_meter(long,lat):
+def long_to_meter(long, lat):
     return long*(lat_to_meter * np.cos(np.radians(lat)))
 
-def meter_to_long(lat_km):
-    return np.degrees(np.arccos(lat_km/lat_to_meter))
+def meter_to_long(long_km, lat_km):
+    latDeg = lat_km/lat_to_meter
+    return (long_km/lat_to_meter) * 1/(np.cos(np.radians(latDeg)))
 
 def calculateLong_to_meter(Lat): # determines the meters/long conversion for each input lattitude using earth's radius as a perfect sphere
     return (np.pi/180) * Re * np.cos(np.radians(Lat))
@@ -184,19 +184,20 @@ def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 
 def loadDictFromFile(inputFilePath, **kwargs):
-
-
     input_data_dict = kwargs.get('input_data_dict', {})
+    globalAttrs = {}
     targetTimes = kwargs.get('targetTimes', [])
+    getGlobalAttrs = kwargs.get('getGlobalAttrs', False)
     reduceData = True if targetTimes != [] else kwargs.get('reduceData', False)
     wKeys = kwargs.get('wKeys', [])
 
-
     # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:
+        for key, val in inputDataFile.attrs.items():
+            globalAttrs = {**globalAttrs, **{str(key): str(val)}}
+
         for key, val in inputDataFile.items():
             input_data_dict = {**input_data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
-
 
     # determine which keys to reduce
     if wKeys == []:
@@ -221,7 +222,10 @@ def loadDictFromFile(inputFilePath, **kwargs):
             if key in Keys:
                 output_data_dict[key][0] = output_data_dict[key][0][lowerIndex:higherIndex]
 
-    return output_data_dict
+    if getGlobalAttrs:
+        return output_data_dict,globalAttrs
+    else:
+        return output_data_dict
 
 
 
@@ -232,8 +236,8 @@ def outputCDFdata(outputPath, data_dict, **kwargs):
     globalAttrsMod = kwargs.get('globalAttrsMod', {})
     instrNam = kwargs.get('instrNam', 'None')
 
-    if ModelData == []:
-        ModelData = L2_ACES_Quick(0)
+    # if ModelData == []:
+    #     ModelData = L2_ACES_Quick(0)
     if globalAttrsMod == {}:
         from ACESII_code.missionAttributes import ACES_mission_dicts
         rocketAttrs, b, c = ACES_mission_dicts()
@@ -246,12 +250,15 @@ def outputCDFdata(outputPath, data_dict, **kwargs):
     # --- open the output file ---
     with pycdf.CDF(outputPath, '') as sciFile:
         sciFile.readonly(False)
+        inputGlobDic = globalAttrsMod
 
-        # --- write out global attributes ---
-        try:
-            inputGlobDic = ModelData.cdfFile.globalattsget()
-        except:
-            inputGlobDic = ModelData
+        # # --- write out global attributes ---
+        # try:
+        #     inputGlobDic = ModelData.cdfFile.globalattsget()
+        # except:
+        #     inputGlobDic = ModelData
+
+
 
         for key, val in inputGlobDic.items():
             if key == 'Descriptor':

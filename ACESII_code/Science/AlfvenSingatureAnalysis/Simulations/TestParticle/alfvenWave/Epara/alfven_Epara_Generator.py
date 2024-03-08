@@ -8,7 +8,7 @@
 #   ,...]
 
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import R_REF, GenToggles,EToggles
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import R_REF, GenToggles,EToggles,runFullSimulation
 from time import  time
 import numpy as np
 from itertools import product
@@ -25,7 +25,7 @@ plot_Epara = False
 ################
 # --- OUTPUT ---
 ################
-outputData = True
+outputData = False if not runFullSimulation else False
 
 # get the Eperp and plasma environment Profiles
 data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf')
@@ -54,7 +54,7 @@ def alfvenEparaGenerator(outputData, **kwargs):
         print('\nNum of iterations (Epara):')
         print(f'{len(timeRange) * len(altRange) * len(simXRange)}          {len(timeRange)}   {len(altRange)}   {len(simXRange)}\n')
 
-        for t, z, x in tqdm(product(*[range(len(timeRange)), range(1,len(altRange)), range(len(simXRange))])):
+        for t, z, x in tqdm(product(*[range(len(timeRange)), range(len(altRange)-1), range(len(simXRange))])):
             Eperp_n = Eperp[t][z][x]
             Eperp_n1 = Eperp[t][z + 1][x]
             EperpGradVal = (Eperp_n1 - Eperp_n) / (altRange[z + 1] - altRange[z])
@@ -62,7 +62,7 @@ def alfvenEparaGenerator(outputData, **kwargs):
 
         print('\nNum of iterations (PhiPara):')
         print(f'{len(timeRange) * len(altRange) * len(simXRange)}          {len(timeRange)}   {len(altRange)}   {len(simXRange)}\n')
-        for t, z, x in tqdm(product(*[range(len(timeRange)), range(1,len(altRange)), range(len(simXRange))])):
+        for t, z, x in tqdm(product(*[range(len(timeRange)), range(len(altRange)-1), range(len(simXRange))])):
             Epara_n = Epara[t][z][x]
             Epara_n1 = Epara[t][z + 1][x]
             PhiPara[t][z][x] = 0.5*(Epara_n1 - Epara_n) * (altRange[z + 1] - altRange[z])

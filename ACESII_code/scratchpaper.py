@@ -1,13 +1,10 @@
 
-import matplotlib.pyplot as plt
-import numpy as np
+# import matplotlib.pyplot as plt
+# import numpy as np
 
-a = np.array([ [[1,2,3],[1,2,3]],[[1,2,3],[1,2,3]],[[1,2,3],[1,2,3]], [[1,2,3],[1,2,3]],[[1,2,3],[1,2,3]],[[1,2,3],[1,2,3]]])
-b = np.array([ [[4,5,6],[4,5,6]],[[4,5,6],[4,5,6]],[[4,5,6],[4,5,6]],[[4,5,6],[4,5,6]],[[4,5,6],[4,5,6]],[[4,5,6],[4,5,6]]])
-
-print(np.append(a,b,axis=2))
-
-
+from ACESII_code.Processing.General import L1_to_L2
+from ACESII_code.Processing.ESAs import L2_to_DistFunc
+from ACESII_code.Processing.ESAs import EEPAA_LEESA_superset
 # x = np.linspace(0,2*np.pi,40)
 # y = np.sin(x)
 #

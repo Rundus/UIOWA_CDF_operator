@@ -12,11 +12,18 @@ from numpy import array
 m_to_km = 1E3
 R_REF = 6371.2 * m_to_km  # in meters
 
+
+######################
+# --- POWER SWITCH ---
+######################
+runFullSimulation = True # MUST BE  == TRUE TO RUN THE SIMULATION. Set this == True then run TestPArticle_simulation
+
+
 ######################
 # ---GENERAL SETUP ---
 ######################
 class GenToggles:
-    simLen = 400 # how many delta T steps to simulate
+    simLen = 550 # how many delta T steps to simulate
     deltaT = 0.01 # in seconds
     simAltLow = 200*m_to_km # low altitude (in meters)
     simAltHigh = 20000*m_to_km # high altitude (in meters)
@@ -40,9 +47,9 @@ class GenToggles:
 ################################
 class ptclToggles:
     seedChoice = 10 # some value to define the randomness seed
-    ptclTemperature = 10 # distribution temperature in eV
-    Z0_ptcl_ranges = array([0.6,0.75,0.9]) * m_to_km * 6371 # initial altitude of particles (in meters)
-    N_ptcls = 400  # number of particles. Example: The real data at s3 has 10598 particles
+    ptclTemperature = 5 # distribution temperature in eV
+    Z0_ptcl_ranges = array([0.5,0.6]) * m_to_km * 6371 # initial altitude of particles (in meters)
+    N_ptcls = 200  # number of particles. Example: The real data at s3 has 10598 particles
     ptcl_mass = 9.11 * 10 ** (-31)  # mass of the particle
     ptcl_charge = 1.602176565 * 10 ** (-19)  # charge of the particle
     simEnergyRanges = [[0.01, 1], [1, 5], [5, 10], [10, 15], [15, 30], [30, 60]]  # The range of energies for each color (the rightmost linspace point is ignored)
@@ -61,9 +68,9 @@ class BgeoToggles:
 ########################
 class EToggles:
     Z0_wave = (20000*m_to_km) # initial altitude of the wave (in meters)
-    lambdaPerp0 = 2 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
-    waveFreq_Hz = 10 # in Hz
-    Eperp0 = 0.05  # V/m
+    lambdaPerp0 = 1 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
+    waveFreq_Hz = 2 # in Hz
+    Eperp0 = 0.005  # V/m
     waveFraction = 2 # What fraction of the initial bipolar wave we want to keep. e.g. 2 --> Half the wave, 3 --> 1/3 of wave etc
     lambdaPerp_Rez = 11 # resolution of the x-direction (MUST BE ODD)
 

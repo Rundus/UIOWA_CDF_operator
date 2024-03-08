@@ -1,5 +1,5 @@
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles,BgeoToggles,m_to_km, R_REF
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles,BgeoToggles,m_to_km, R_REF, runFullSimulation
 from numpy import array,degrees,arccos
 from numpy.linalg import norm
 from datetime import datetime
@@ -11,10 +11,10 @@ from ACESII_code.class_var_func import CHAOS
 ########################################
 # --- GENERATE THE B-FIELD & TOGGLES ---
 ########################################
-plot_BField = True
+plot_BField = False
 
 # --- OUTPUT DATA ------
-outputData = False
+outputData = False if not runFullSimulation else False
 
 
 def generateGeomagneticField(outputData, **kwargs):

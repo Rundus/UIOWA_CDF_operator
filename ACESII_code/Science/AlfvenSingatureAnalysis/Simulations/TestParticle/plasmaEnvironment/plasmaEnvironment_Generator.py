@@ -1,5 +1,5 @@
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles, EToggles
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles, EToggles, runFullSimulation
 from ACESII_code.class_var_func import lightSpeed, u0,q0,m_e,ep0,cm_to_m, IonMasses, loadDictFromFile
 from numpy import exp, sqrt, array, pi, abs, tanh
 simulationAlt = GenToggles.simAlt
@@ -14,8 +14,8 @@ simulationAlt = GenToggles.simAlt
 ##################
 # --- PLOTTING ---
 ##################
-plotting = True
-useTanakaDensity = True
+plotting = False
+useTanakaDensity = False
 xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
 plottingDict = {'Temperature':False,
@@ -33,7 +33,7 @@ plottingDict = {'Temperature':False,
                 'alfSpdInertial': False}
 
 # --- Output Data ---
-outputData = False
+outputData = False if not runFullSimulation else False
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')

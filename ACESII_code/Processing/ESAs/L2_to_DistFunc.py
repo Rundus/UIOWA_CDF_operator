@@ -35,7 +35,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -132,7 +132,7 @@ def Distribution_Function(wRocket, wFile, rocketFolderPath, justPrintFileNames, 
         else:
             m = IonMasses[wIon]
 
-        print(f'Num. of iterations: {sizes[0]*sizes[1]*sizes[2]}\n')
+        print(f'\nNum. of iterations: {sizes[0]*sizes[1]*sizes[2]}\n')
 
         # --- Calculate DistFunc in SI units ---
         for tme, ptch, engy in tqdm(itertools.product(*ranges)):
