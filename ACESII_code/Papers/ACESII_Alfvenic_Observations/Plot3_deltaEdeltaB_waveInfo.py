@@ -25,8 +25,6 @@ start_time = time.time()
 from numpy.fft import rfft, fftfreq
 from ACESII_code.class_var_func import u0
 
-
-
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
@@ -39,14 +37,24 @@ PlotTickSize = 20
 freqLimit = 15
 plotLineWidth = 2.5
 EB_ratio_limits = [9E4,1E8]
+plotColors= ['tab:blue','tab:red','tab:orange','tab:green']
+RegionNames = ['Quiet Region', 'Dis. Region - Temporal', 'Dis Region - Geomag. Footprint']
+wKeySet = 1 # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e
 
 
-# keeper
+# --- TARGET REDUCTION VARIABLES ---
 targetTimes = [[dt.datetime(2022,11,20,17,24,31,500), dt.datetime(2022,11,20,17, 24, 38, 00)], # Quiet Time
                [dt.datetime(2022,11,20,17,24,54,250000), dt.datetime(2022,11,20,17, 25, 3, 250000)], # Dispersed Time
                [dt.datetime(2022,11,20,17,25,18,000000), dt.datetime(2022,11,20,17, 25, 27, 000000)]  # Auroral Time ( i.e. the FULL aurora)
                ]
 
+targetILats = [[71.2, 71.3], # Quiet Time
+               [71.58, 71.66], # Dispersed Time
+               # [71.87, 72.055]
+               [71.86, 72.0338]] # ILat Time ( i.e. the FULL aurora)
+
+targetVar = targetILats
+targetVarName = 'ILat'
 
 # --- --- --- --- --- ---
 # --- LOAD IN THE DATA ---
@@ -60,29 +68,26 @@ inputFile_poynting = glob('C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligne
 inputFile_ASpeed = glob('C:\Data\ACESII\science\AlfvenSpeed_rkt\low\ACESII_36364_AlfvenSpeed_flight.cdf')[0] # get the Alfven Speed data
 inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed.cdf'
 inputFile_Bmag = 'C:\Data\ACESII\L1\low\ACESII_36364_l1_RingCore_rktFrm.cdf'
-inputFile_IRI = glob('C:\Data\ACESII\science\Ineternational_Reference_Ionosphere_ACESII_Slice\low\ACESII_36364_IRI_slice.cdf')[0]
 # --- Break up DataDicts into targetTime sections ---
 
 # FORMAT: [[deltaB, deltaE, poynting, AlfvenSpeedRatio], ...]
 dict_sets = []
+sectionTimeRange = []
 
-for i in range(len(targetTimes)):
-    tTimes = targetTimes[i]
-    data_dict_deltaB = deepcopy(loadDictFromFile(inputFile_deltaB,targetTimes=tTimes))
-    data_dict_deltaE = deepcopy(loadDictFromFile(inputFile_deltaE,targetTimes=tTimes))
-    data_dict_poynting = deepcopy(loadDictFromFile(inputFile_poynting,targetTimes=tTimes))
-    data_dict_ASpeed = deepcopy(loadDictFromFile(inputFile_ASpeed,targetTimes=tTimes))
-    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetTimes=tTimes))
-    data_dict_Bmag = deepcopy(loadDictFromFile(inputFile_Bmag, targetTimes=tTimes))
-    data_dict_IRI = deepcopy(loadDictFromFile(inputFile_IRI,targetTimes=tTimes))
+for i in range(len(targetVar)):
+    data_dict_deltaB = deepcopy(loadDictFromFile(inputFile_deltaB,targetVar=[targetVar[i],targetVarName]))
+    data_dict_deltaE = deepcopy(loadDictFromFile(inputFile_deltaE,targetVar=[targetVar[i],targetVarName]))
+    data_dict_poynting = deepcopy(loadDictFromFile(inputFile_poynting,targetVar=[targetVar[i],targetVarName]))
+    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetVar=[targetVar[i],targetVarName]))
+    data_dict_Bmag = deepcopy(loadDictFromFile(inputFile_Bmag,targetVar=[targetVar[i],targetVarName]))
+    sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0],data_dict_deltaB['Epoch'][0][-1]])
 
     dict_sets.append([data_dict_deltaB,
                       data_dict_deltaE,
                       data_dict_poynting,
-                      data_dict_ASpeed,
                       data_dict_langmuir,
-                      data_dict_Bmag,
-                      data_dict_IRI])
+                      data_dict_Bmag
+                      ])
 Done(start_time)
 
 
@@ -97,7 +102,8 @@ Done(start_time)
 # Indicies:[          0,           1,        2,           3,           4,        5,               6,               7]
 FFT_sets = []
 
-for i in range(len(targetTimes)):
+for i in range(len(targetVar)):
+    print(i)
 
     data_dicts = dict_sets[i]
 
@@ -124,10 +130,9 @@ for i in range(len(targetTimes)):
     mEeBr_ratio = ((1E-3*FFT_Ee)/(FFT_Br*1E-9))
 
     # Average MHD Alfven Speed
-    ni_avg = (cm_to_m ** 3) * sum(data_dicts[4]['ni'][0]) / len(data_dicts[4]['ni'][0])
-    ni_avg_IRI = (cm_to_m ** 3) * sum(data_dicts[6]['n_i'][0]) / len(data_dicts[6]['n_i'][0])
-    Bmag_avg = (1E-9) * sum(data_dicts[5]['Bmag'][0]) / len(data_dicts[5]['Bmag'][0])
-    m_i_avg = sum(data_dicts[6]['m_i_avg'][0]/len(data_dicts[6]['m_i_avg'][0]))
+    ni_avg = 10*(cm_to_m ** 3) * sum(data_dicts[3]['ni'][0]) / len(data_dicts[3]['ni'][0])
+    Bmag_avg = (1E-9) * sum(data_dicts[4]['Bmag'][0]) / len(data_dicts[4]['Bmag'][0])
+    m_i_avg = IonMasses[1]
     MHD_Alfven_avg = Bmag_avg / np.sqrt(u0 * ni_avg * m_i_avg)
 
     # store everything
@@ -149,30 +154,23 @@ prgMsg('Plotting Data')
 # (4) ASpeed Ratio
 
 
-fig, ax = plt.subplots(nrows=4, ncols=len(targetTimes))
+fig, ax = plt.subplots(nrows=4, ncols=len(targetVar))
 # fig.suptitle('Low Flyer E and B Data',fontsize=30)
 fig.set_figwidth(figure_width)
 fig.set_figheight(figure_height)
 
+keySet = [
+    [['B_e','E_r'],['$\delta B_{e}$','$\delta E_{r}$']],
+    [['B_r','E_e'],[' $\delta B_{r}$','-$\delta E_{e}$']],
+]
 
-plotColors= ['tab:blue','tab:red','tab:orange','tab:green']
-RegionNames = ['Quiet Region', 'Dispersive Region Footprint', 'Primary Auroral Region Footprint']
-
-#
-varKey_B = 'B_e'
-varKey_E = 'E_r'
-
-# varKey_B = 'B_r'
-# varKey_E = 'E_e'
-labelMod = '-' if varKey_E == 'E_e' else ''
-
-for i in range(len(targetTimes)):
+for i in range(len(targetVar)):
 
     data_dicts = dict_sets[i] # raw data
     FFT_data = FFT_sets[i]
 
     # Set the title
-    ax[0][i].set_title(RegionNames[i] + f'\n {targetTimes[i][0].strftime("%H:%M:%S")} to {targetTimes[i][1].strftime("%H:%M:%S")} (UTC)',
+    ax[0][i].set_title(RegionNames[i] + f'\n {sectionTimeRange[i][0].strftime("%H:%M:%S")} to {sectionTimeRange[i][1].strftime("%H:%M:%S")} (UTC)',
                        weight='bold',
                        fontsize=PlotTitleSize)
 
@@ -180,8 +178,8 @@ for i in range(len(targetTimes)):
     # --- delta Be, delta Er plot ---
     #################################
     # delta Be
-    ln1 = ax[0][i].plot(data_dicts[0]['Lat_geom'][0], data_dicts[0][varKey_B][0], color=plotColors[0],linewidth=plotLineWidth,label='$\delta B_{e}$' +' [nT]')
-    ax[0][i].set_xlabel('Geomagnetic Lattitude [deg]',fontsize=PlotLabelSize)
+    ln1 = ax[0][i].plot(data_dicts[0]['ILat'][0], data_dicts[0][keySet[wKeySet][0][0]][0], color=plotColors[0],linewidth=plotLineWidth,label=f'{keySet[wKeySet][1][0]} [nT]')
+    ax[0][i].set_xlabel('ILat 150km [deg]',fontsize=PlotLabelSize)
     ax[0][i].set_ylim(-13, 13)
     ax[0][i].set_xmargin(0)
     ax[0][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
@@ -190,12 +188,12 @@ for i in range(len(targetTimes)):
     # ax[0][i].set_xticks(ticks=eBxticks,labels=[round(tck,2) for tck in eBxticks])
 
     if i == 0:
-        ax[0][i].set_ylabel('$\delta$' +'$B_{e}$ and' ' $\delta$' +'$B_{r}$' + "\n 0.4 to 20 Hz",fontsize=PlotLabelSize)
+        ax[0][i].set_ylabel(f'{keySet[wKeySet][0][0]} and {keySet[wKeySet][0][1]}' + "\n 0.4 to 20 Hz",fontsize=PlotLabelSize)
 
     # delta Er
-    plotThisEData = data_dicts[1][varKey_E][0] if varKey_E=='E_r' else -1*np.array(data_dicts[1][varKey_E][0])
+    plotThisEData = data_dicts[1][keySet[wKeySet][0][1]][0] if keySet[wKeySet][0][1]=='E_r' else -1*np.array(data_dicts[1][keySet[wKeySet][0][1]][0])
     axEr = ax[0][i].twinx()
-    ln2 = axEr.plot(data_dicts[1]['Lat_geom'][0], plotThisEData, color=plotColors[1],linewidth=plotLineWidth,label=f"{labelMod}"+'$\delta$' +'$E_{r}$ [mV/m]')
+    ln2 = axEr.plot(data_dicts[1]['ILat'][0], plotThisEData, color=plotColors[1],linewidth=plotLineWidth,label=f"{keySet[wKeySet][1][1]} [mV/m]")
     axEr.set_ylim(-13, 13)
     axEr.set_yticks([])
     axEr.set_xmargin(0)
@@ -203,18 +201,20 @@ for i in range(len(targetTimes)):
     #set the legend
     lns = ln1+ln2
     labs = [l.get_label() for l in lns]
-    axEr.legend(lns,labs,loc='upper right',prop={'size': PlotLegendSize})
+    if i == 0:
+        axEr.legend(lns,labs,loc='upper right',prop={'size': PlotLegendSize})
 
     ############################
     # --- Poynting Flux plot ---
     ############################
-    ax[1][i].plot(data_dicts[1]['Lat_geom'][0], 1000*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [mW/$m^{2}$]',linewidth=plotLineWidth)
+    ax[1][i].plot(data_dicts[2]['ILat'][0], 1000*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [mW/$m^{2}$]',linewidth=plotLineWidth)
     if i == 0:
         ax[1][i].set_ylabel('Field-Aligned Poynting Flux',fontsize=PlotLabelSize)
-    ax[1][i].set_xlabel('Geomagnetic Lattitude [deg]',fontsize=PlotLabelSize)
-    ax[1][i].set_ylim(-4E-2, 4E-2)
+    ax[1][i].set_xlabel('ILat 150km [deg]',fontsize=PlotLabelSize)
+    ax[1][i].set_ylim(-1.5E-2, 2.5E-2)
     ax[1][i].set_xmargin(0)
-    ax[1][i].legend(loc='upper right',prop={'size': PlotLegendSize})
+    if i == 0:
+        ax[1][i].legend(loc='upper right',prop={'size': PlotLegendSize})
     ax[1][i].invert_yaxis()
     ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
     ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
@@ -224,9 +224,9 @@ for i in range(len(targetTimes)):
     ######################
     # --- FFT E, FFT B ---
     ######################
-    plotThisFFT_B_data = FFT_data[0] if varKey_B == 'B_e' and varKey_E=='E_r' else FFT_data[1]
-    plotThisFFT_E_data = FFT_data[3] if varKey_B == 'B_r' and varKey_E=='E_e' else FFT_data[4]
-    ln1 = ax[2][i].plot(FFT_data[2],plotThisFFT_B_data , color=plotColors[0], label='$\delta$' +'$B_{e}$ [nT]',linewidth=plotLineWidth)
+    plotThisFFT_B_data = FFT_data[0] if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1]=='E_r' else FFT_data[1]
+    plotThisFFT_E_data = FFT_data[3] if keySet[wKeySet][0][0] == 'B_r' and keySet[wKeySet][0][1]=='E_e' else FFT_data[4]
+    ln1 = ax[2][i].plot(FFT_data[2],plotThisFFT_B_data , color=plotColors[0], label=f'{keySet[wKeySet][1][0]} [nT]',linewidth=plotLineWidth)
     if i == 0:
         ax[2][i].set_ylabel('Amplitude Spectra',fontsize=PlotLabelSize)
     ax[2][i].set_xlabel('Frequency [Hz]',fontsize=PlotLabelSize)
@@ -237,7 +237,7 @@ for i in range(len(targetTimes)):
     ax[2][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
 
     axFFT_E = ax[2][i].twinx()
-    ln2 = ax[2][i].plot(FFT_data[2], plotThisFFT_E_data, color=plotColors[1],label=f"{labelMod}"+'$\delta$' +'$E_{r}$ [mV/m]',linewidth=plotLineWidth)
+    ln2 = ax[2][i].plot(FFT_data[2], plotThisFFT_E_data, color=plotColors[1],label=f"{keySet[wKeySet][1][1]} [mV/m]", linewidth=plotLineWidth)
     axFFT_E.set_yscale('log')
     axFFT_E.set_ylim(1E-3, 1E1)
     axFFT_E.set_yticks([])
@@ -245,18 +245,19 @@ for i in range(len(targetTimes)):
     # set the legend
     lns = ln1 + ln2
     labs = [l.get_label() for l in lns]
-    axFFT_E.legend(lns, labs, loc='upper right',prop={'size': PlotLegendSize})
+    if i == 0:
+        axFFT_E.legend(lns, labs, loc='upper right',prop={'size': PlotLegendSize})
 
     ######################
     # --- ASpeed Ratio ---
     ######################
 
-    if varKey_B == 'B_e' and varKey_E == 'E_r':
+    if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1] == 'E_r':
         FFT_data_plot_this = FFT_data[6]
-    elif varKey_B == 'B_r' and varKey_E == 'E_e':
+    elif keySet[wKeySet][0][0] == 'B_r' and keySet[wKeySet][0][1] == 'E_e':
         FFT_data_plot_this = FFT_data[7]
 
-    ax[3][i].plot(FFT_data[2], FFT_data_plot_this,color='black',label='$\delta E_{r}/ \delta B_{e}$',linewidth=plotLineWidth)
+    ax[3][i].plot(FFT_data[2], FFT_data_plot_this,color='black',label=f'{keySet[wKeySet][1][1]}/{keySet[wKeySet][1][0]}',linewidth=plotLineWidth)
 
     if i == 0:
         ax[3][i].set_ylabel('E/B Ratio [m/s]',fontsize=PlotLabelSize)
@@ -273,7 +274,8 @@ for i in range(len(targetTimes)):
     ax[3][i].set_yscale('log')
     ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
     ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
-    ax[3][i].legend(loc='upper right',prop={'size': PlotLegendSize})
+    if i == 0:
+        ax[3][i].legend(loc='upper right',prop={'size': PlotLegendSize})
 
     ####################
     # --- Everything ---
@@ -284,7 +286,7 @@ for i in range(len(targetTimes)):
         ax[j][i].grid(True)
 
 plt.tight_layout()
-fileOutName = "Plot3_WaveAnalysis_BeEr.png" if varKey_B == 'B_e' and varKey_E=='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
+fileOutName = "Plot3_WaveAnalysis_BeEr.png" if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1]=='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
 
 plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot3\{fileOutName}')
 Done(start_time)

@@ -22,14 +22,15 @@ start_time = time.time()
 # --- --- --- ---
 justPrintFileNames = False
 wRocket = 4
-inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wFiles = [0, 2,3,11]
+inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+wFiles = [0]
 refAlt = 150 # represents 150 km reference altitude that everything is tied to
 # ---------------------------
 generateILatILong = False # Calculates and Stores the ILat and ILong variables as a .cdf File
 plotILatILong = False
-updateCDFfile = True # takes a CDF file, interpolates ILat/ILong and then stores it
-outputData = True
+footPrintDiffernece = True # reads in BOTH attitude files and updates both files with a "ILat/ILong difference" variable
+updateCDFfile = False # takes a CDF file, interpolates ILat/ILong and then stores it
+outputData = False
 # ---------------------------
 
 # --- --- --- ---
@@ -43,10 +44,6 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
     # --- ACES II Flight/Integration Data ---
     wflyer = wRocket-4
     rocketAttrs, b, c = ACES_mission_dicts()
-    rocketID = rocketAttrs.rocketID[wflyer]
-    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
-    ModelData = L2_TRICE_Quick(wflyer)
-
 
     # --- GET THE INPUT FILE ---
     inputFilesAttitude = glob(f'{rocketFolderPath}attitude\{fliers[wflyer]}\*.cdf')[0]
@@ -95,15 +92,16 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
 
             ILat[i] = Nl/lat_to_meter
             ILong[i] = meter_to_long(long_km=El,lat_km=Nl)
-
+        Done(start_time)
         if plotILatILong:
             fig, ax = plt.subplots()
             ax.plot(Long, Lat, color='blue')
             ax.plot(ILong,ILat, color='red')
             plt.show()
             Done(start_time)
-
+        # --- --- --- --- --- --- ----
         # --- UPDATE ATTITUDE FILE ---
+        # --- --- --- --- --- --- ----
         prgMsg('Updating Attitude Files')
         attitudeKeys = [key for key in data_dict_attitude.keys()]
         if 'ILat' and 'ILong' in attitudeKeys:
@@ -131,6 +129,105 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
         outputCDFdata(outputPath=inputFilesAttitude, data_dict=data_dict_attitude, instrNam='attitude')
         Done(start_time)
 
+    if footPrintDiffernece:
+        # load the data
+        inputFilesAttitude_high = glob(f'{rocketFolderPath}attitude\high\*.cdf')[0]
+        inputFilesAttitude_low = glob(f'{rocketFolderPath}attitude\low\*.cdf')[0]
+
+        data_dict_attitude_high,globalAttrsHigh = loadDictFromFile(inputFilePath=inputFilesAttitude_high, getGlobalAttrs=True)
+        data_dict_attitude_low,globalAttrsLow = loadDictFromFile(inputFilePath=inputFilesAttitude_low, getGlobalAttrs=True)
+
+        # determine what index the low flyer data starts w.r.t. the high flyer
+        startIndex = np.abs(data_dict_attitude_high['Epoch'][0] - data_dict_attitude_low['Epoch'][0][0]).argmin()
+
+        footPrint_Latkm_Difference = np.zeros(shape=len(data_dict_attitude_high['Epoch'][0]))
+        footPrint_Longkm_Difference = np.zeros(shape=len(data_dict_attitude_high['Epoch'][0]))
+        footPrint_total_Difference = np.zeros(shape=len(data_dict_attitude_high['Epoch'][0]))
+        footPrint_time_Difference = np.zeros(shape=len(data_dict_attitude_high['Epoch'][0]))
+
+
+        # --- Spatial Difference ---
+        lat_km = [ [lat_to_meter*data_dict_attitude_high['ILat'][0][i] for i in range(len(data_dict_attitude_high['Epoch'][0]))],
+                   [lat_to_meter*data_dict_attitude_low['ILat'][0][i] for i in range(len(data_dict_attitude_low['Epoch'][0]))]]
+
+        long_km = [[long_to_meter(data_dict_attitude_high['ILong'][0][i], data_dict_attitude_high['ILat'][0][i]) for i in range(len(data_dict_attitude_high['Epoch'][0]))],
+                  [long_to_meter(data_dict_attitude_low['ILong'][0][i], data_dict_attitude_low['ILat'][0][i]) for i in range(len(data_dict_attitude_low['Epoch'][0]))]]
+
+        for i in range(len(data_dict_attitude_high['Epoch'][0])):
+
+            if i < startIndex:
+                latDif = lat_km[0][i] - lat_km[1][0]
+                longDif = long_km[0][i] - long_km[1][0]
+                totalDif = np.sqrt(latDif**2 + longDif**2)
+
+            elif startIndex <= i <= startIndex + len(data_dict_attitude_low['Epoch'][0])-1:
+                latDif = lat_km[0][i] - lat_km[1][i-startIndex]
+                longDif = long_km[0][i] - long_km[1][i-startIndex]
+                totalDif = np.sqrt(latDif**2 + longDif**2)
+
+            elif i > startIndex + len(data_dict_attitude_low['Epoch'][0]):
+                latDif = lat_km[0][i] - lat_km[1][-1]
+                longDif = long_km[0][i] - long_km[1][-1]
+                totalDif = np.sqrt(latDif**2 + longDif**2)
+
+            footPrint_Latkm_Difference[i]=latDif
+            footPrint_Longkm_Difference[i]=longDif
+            footPrint_total_Difference[i]=totalDif
+
+        # --- Temporal Difference ---
+        for i in range(len(data_dict_attitude_high['ILat'][0])):
+
+            HF_ILat_time = pycdf.lib.datetime_to_tt2000(data_dict_attitude_high['Epoch'][0][i])
+
+            LF_sawSameILat_index = np.abs(data_dict_attitude_low['ILat'][0]-data_dict_attitude_high['ILat'][0][i]).argmin()
+
+            timeBetweenSeeingSameILat = (HF_ILat_time - pycdf.lib.datetime_to_tt2000(data_dict_attitude_low['Epoch'][0][LF_sawSameILat_index]))/1E9
+            footPrint_time_Difference[i] = timeBetweenSeeingSameILat
+
+
+
+        data_dict_attitude_high = {**data_dict_attitude_high, **{'footPrint_ILat_km_Diff': [footPrint_Latkm_Difference, {'LABLAXIS': f'footPrint_ILat_km_Diff',
+                                                    'DEPEND_0': 'Epoch',
+                                                    'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                    'FORMAT': 'E12.2',
+                                                    'UNITS': 'km',
+                                                    'VALIDMIN': footPrint_Latkm_Difference.min(), 'VALIDMAX': footPrint_Latkm_Difference.max(),
+                                                    'VAR_TYPE': 'support_data',
+                                                    'SCALETYP': 'linear'}]}}
+
+        data_dict_attitude_high = {**data_dict_attitude_high, **{'footPrint_ILong_km_Diff': [footPrint_Longkm_Difference, {'LABLAXIS': f'footPrint_ILong_km_Diff',
+                                                                    'DEPEND_0': 'Epoch',
+                                                                    'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                    'FORMAT': 'E12.2',
+                                                                    'UNITS': 'km',
+                                                                    'VALIDMIN': footPrint_Longkm_Difference.min(),
+                                                                    'VALIDMAX': footPrint_Longkm_Difference.max(),
+                                                                    'VAR_TYPE': 'support_data',
+                                                                    'SCALETYP': 'linear'}]}}
+
+        data_dict_attitude_high = {**data_dict_attitude_high, **{'footPrint_total_km_Diff': [footPrint_total_Difference, {'LABLAXIS': f'footPrint_total_km_Diff',
+                                                                      'DEPEND_0': 'Epoch',
+                                                                      'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                      'FORMAT': 'E12.2',
+                                                                      'UNITS': 'km',
+                                                                      'VALIDMIN': footPrint_total_Difference.min(),
+                                                                      'VALIDMAX': footPrint_total_Difference.max(),
+                                                                      'VAR_TYPE': 'support_data',
+                                                                      'SCALETYP': 'linear'}]}}
+
+        data_dict_attitude_high = {**data_dict_attitude_high, **{
+            'footPrint_lattitude_time_Difference': [footPrint_time_Difference, {'LABLAXIS': f'footPrint_lattitude_time_Difference',
+                                                                     'DEPEND_0': 'ILat',
+                                                                     'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                     'FORMAT': 'E12.2',
+                                                                     'UNITS': 'Seconds',
+                                                                     'VALIDMIN': footPrint_time_Difference.min(),
+                                                                     'VALIDMAX': footPrint_time_Difference.max(),
+                                                                     'VAR_TYPE': 'support_data',
+                                                                     'SCALETYP': 'linear'}]}}
+
+        outputPath = inputFilesAttitude_high
+        outputCDFdata(outputPath= outputPath, data_dict=data_dict_attitude_high, globalAttrsMod=globalAttrsHigh)
 
     # --- --- --- --- --- --- ---
     # --- WRITE OUT THE DATA ---

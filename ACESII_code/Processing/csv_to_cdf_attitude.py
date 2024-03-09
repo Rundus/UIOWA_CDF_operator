@@ -14,7 +14,7 @@ start_time = time.time()
 # --- --- --- ---
 
 
-wRocket = 1
+wRocket = 0
 # 0 --> ACESII High Flyer
 # 1 --> ACESII Low Flyer
 
@@ -145,8 +145,7 @@ def csv_to_cdf_attitude(inputFile,outputFile,missionDicts,specialMods,wRow_names
     if outputData:
         prgMsg('Creating output file')
         globalAttrsMod = rocketAttrs.globalAttributes[wRocket]
-        ModelData = L2_TRICE_Quick(wRocket)
-        outputCDFdata(outputFile, data_dict, ModelData, globalAttrsMod, 'Attitude')
+        outputCDFdata(outputFile, data_dict,globalAttrsMod=globalAttrsMod,instrNam= 'Attitude')
         Done(start_time)
 
 

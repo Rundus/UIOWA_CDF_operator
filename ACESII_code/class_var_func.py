@@ -186,9 +186,9 @@ def setupPYGMT():
 def loadDictFromFile(inputFilePath, **kwargs):
     input_data_dict = kwargs.get('input_data_dict', {})
     globalAttrs = {}
-    targetTimes = kwargs.get('targetTimes', [])
+    targetVar = kwargs.get('targetVar', [])
     getGlobalAttrs = kwargs.get('getGlobalAttrs', False)
-    reduceData = True if targetTimes != [] else kwargs.get('reduceData', False)
+    reduceData = True if targetVar != [] else kwargs.get('reduceData', False)
     wKeys = kwargs.get('wKeys', [])
 
     # load the data dict
@@ -212,11 +212,11 @@ def loadDictFromFile(inputFilePath, **kwargs):
     # reduce the data
     if reduceData:
         try:
-            h = input_data_dict['Epoch']
+            h = input_data_dict[targetVar[1]]
         except:
-            raise Exception('no Epoch found')
+            raise Exception(f'no Target Variable found: {targetVar[1]}')
 
-        lowerIndex,higherIndex = np.abs(output_data_dict['Epoch'][0] - targetTimes[0]).argmin(),np.abs(output_data_dict['Epoch'][0] - targetTimes[1]).argmin()
+        lowerIndex,higherIndex = np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][0]).argmin(),np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][1]).argmin()
 
         for key,val in output_data_dict.items():
             if key in Keys:

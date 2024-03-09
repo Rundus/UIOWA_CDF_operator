@@ -9,7 +9,6 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -52,34 +51,40 @@ def main(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     if justPrintFileNames:
         for i, file in enumerate(inputFiles):
             print('[{:.0f}] {:80s}{:5.1f} MB '.format(i, input_names_searchable[i], round(getsize(file) / (10 ** 6), 1)))
-    else:
-        print('\n')
+        return
 
-        # --- --- --- --- --- -
-        # --- LOAD THE DATA ---
-        # --- --- --- --- --- -
+    print('\n')
 
-        # --- get the data from the file ---
-        prgMsg(f'Loading data from {inputPath_modifier} Files')
-        # load data here
+    # --- --- --- --- --- -
+    # --- LOAD THE DATA ---
+    # --- --- --- --- --- -
+
+    # --- get the data from the file ---
+    prgMsg(f'Loading data from {inputPath_modifier} Files')
+    # load data here
+    Done(start_time)
+
+    exampleAttrs = {'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': rocketAttrs.epoch_fillVal,
+                    'FORMAT': 'E12.2',
+                    'UNITS': None, 'VALIDMIN': None, 'VALIDMAX': None, 'VAR_TYPE': 'data', 'SCALETYP': 'linear',
+                    'LABLAXIS': None}
+
+
+
+
+
+    # --- --- --- --- --- --- ---
+    # --- WRITE OUT THE DATA ---
+    # --- --- --- --- --- --- ---
+
+    if outputData:
+        prgMsg('Creating output file')
+
+        outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+
+        outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, wInstr[1])
+
         Done(start_time)
-
-
-
-
-
-        # --- --- --- --- --- --- ---
-        # --- WRITE OUT THE DATA ---
-        # --- --- --- --- --- --- ---
-
-        if outputData:
-            prgMsg('Creating output file')
-
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
-
-            outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, wInstr[1])
-
-            Done(start_time)
 
 
 
