@@ -37,7 +37,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -58,8 +58,9 @@ unitConv = 1E9  # converts from A to nA
 SECTION_calculateFixedni = True
 fixedTi_assumed = False # IF FALSE use IRI model
 tromsoCal = True # scale the output density based off the tromso ionosonde and
-tromsoScales = [1/58, 1/180] # values used to make LP density match ~ 5.7E4 cm^-4 at the E-Region
-Ti_assumed = 1  # assuming an ion temperature of 1eV
+# tromsoScales = [1/58, 1/180] # values used to make LP density match ~ 5.7E4 cm^-4 at the E-Region
+tromsoScales = [1/50, 1/50] # values used to make LP density match ~ 5.7E4 cm^-4 at the E-Region
+Ti_assumed = 0.07  # assuming an ion temperature of 1eV
 unit_conversion = 1E9  # 1 for Amps 10**9 for nano amps, etc
 
 ###################
@@ -158,7 +159,7 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
 
     # --- get IRI data ---
     prgMsg('Loading IRI data')
-    IRI_path = glob(f'C:\Data\ACESII\science\Ineternational_Reference_Ionosphere_ACESII_Slice\{fliers[wflyer]}\*smoothed*')
+    IRI_path = glob(f'C:\Data\ACESII\science\IRI_ACESII_Slice\{fliers[wflyer]}\*smoothed*')
     data_dict_IRI = loadDictFromFile(IRI_path[0])
     Done(start_time)
 
@@ -546,11 +547,11 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
         if SECTION_calculateFixedni:
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_fixed}'
-            outputCDFdata(outputPath, data_dict_fixed, outputModelData, globalAttrsMod, 'Langmuir Probe')
+            outputCDFdata(outputPath, data_dict_fixed, instrNam= 'Langmuir Probe')
 
         if SECTION_SweptProbeniTe:
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName_swept}'
-            outputCDFdata(outputPath,data_dict_swept,outputModelData,globalAttrsMod,'Langmuir Probe')
+            outputCDFdata(outputPath,data_dict_swept,instrNam='Langmuir Probe')
 
         Done(start_time)
 
