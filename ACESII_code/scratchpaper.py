@@ -1,30 +1,14 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors
 
-# Number of sample points
-N = 1000
+x,y,c = zip(*np.random.rand(30,3)*4-2)
 
-# Sample spacing
-T = 1.0 / 800.0     # f = 800 Hz
+norm=plt.Normalize(0,1)
+colors = ['m',"red",'orange','yellow','green','blue','black']
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", colors[::-1])
 
-# Create a signal
-x = np.linspace(0.0, N*T, N)
-t0 = np.pi/6   # non-zero phase of the second sine
-y = np.sin(50.0 * 2.0*np.pi*x) + 0.5*np.sin(200.0 * 2.0*np.pi*x + t0)
-yf = np.fft.fft(y) # to normalize use norm='ortho' as an additional argument
-
-# Where is a 200 Hz frequency in the results?
-freq = np.fft.fftfreq(x.size, d=T)
-index, = np.where(np.isclose(freq, 200, atol=1/(T*N)))
-
-# Get magnitude and phase
-magnitude = np.abs(yf[index[0]])
-phase = np.angle(yf[index[0]])
-print("Magnitude:", magnitude, ", phase:", phase)
-
-# Plot a spectrum
-plt.plot(freq[0:N//2], 2/N*np.abs(yf[0:N//2]), label='amplitude spectrum')   # in a conventional form
-plt.plot(freq[0:N//2], np.angle(yf[0:N//2]), label='phase spectrum')
-plt.legend()
-plt.grid()
+plt.scatter(x,y,c=c, cmap=cmap, norm=norm)
+plt.colorbar()
 plt.show()
