@@ -199,14 +199,8 @@ def loadDictFromFile(inputFilePath, **kwargs):
         for key, val in inputDataFile.items():
             input_data_dict = {**input_data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
 
-    # determine which keys to reduce
-    if wKeys == []:
-        Keys = [key for key, val in input_data_dict.items()]
-    else:
-        Keys = wKeys
-
     output_data_dict = {}
-    for key in Keys:
+    for key in input_data_dict.keys():
         output_data_dict = {**output_data_dict, **{key:input_data_dict[key]}}
 
     # reduce the data
@@ -218,9 +212,10 @@ def loadDictFromFile(inputFilePath, **kwargs):
 
         lowerIndex,higherIndex = np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][0]).argmin(),np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][1]).argmin()
 
-        for key,val in output_data_dict.items():
-            if key in Keys:
-                output_data_dict[key][0] = output_data_dict[key][0][lowerIndex:higherIndex]
+        # determine which keys to reduce
+        for key in wKeys:
+            output_data_dict[key][0] = output_data_dict[key][0][lowerIndex:higherIndex]
+
 
     if getGlobalAttrs:
         return output_data_dict,globalAttrs

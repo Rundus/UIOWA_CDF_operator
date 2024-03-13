@@ -21,7 +21,7 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 justPrintFileNames = False
-wRocket = 4
+wRocket = 5
 inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 wFiles = [0]
 refAlt = 150 # represents 150 km reference altitude that everything is tied to
@@ -29,8 +29,8 @@ refAlt = 150 # represents 150 km reference altitude that everything is tied to
 generateILatILong = False # Calculates and Stores the ILat and ILong variables as a .cdf File
 plotILatILong = False
 footPrintDiffernece = True # reads in BOTH attitude files and updates both files with a "ILat/ILong difference" variable
-updateCDFfile = False # takes a CDF file, interpolates ILat/ILong and then stores it
-outputData = False
+updateCDFfile = True # takes a CDF file, interpolates ILat/ILong and then stores it
+outputData = True
 # ---------------------------
 
 # --- --- --- ---
@@ -298,8 +298,10 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
                                                                         'SCALETYP': 'linear'}]}}
 
             outputPath = inputFiles[wFile]
-
-            outputCDFdata(outputPath, data_dict, globalAttrsMod=globalAttrs, instrNam=globalAttrs['Descriptor'])
+            try:
+                outputCDFdata(outputPath, data_dict, globalAttrsMod=globalAttrs, instrNam=globalAttrs['Descriptor'])
+            except:
+                outputCDFdata(outputPath, data_dict, globalAttrsMod=globalAttrs)
 
             Done(start_time)
 

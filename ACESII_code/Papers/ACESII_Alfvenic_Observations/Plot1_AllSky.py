@@ -42,13 +42,13 @@ altLatPlot = False
 AltLat_Height = 15
 AltLat_Width = 35
 trajColors = ['tab:red', 'tab:orange']
-altLat_labelFontSize = 70
+altLat_labelFontSize = 65
 altLat_textSize = 55
-altLat_TickLabelSize = 60
+altLat_TickLabelSize = 65
 altLat_TickLength = 30
 altLat_TickWidth = 4
 altLat_scatterSize = 800
-altLat_lineThickness = 8
+altLat_lineThickness = 6.5
 AltLat_LegendSize = 55
 altLat_LabelPadding = 45
 # ---------------BigAllSky-----------------
@@ -61,21 +61,21 @@ latS = 68
 latN = 75
 res = '50m'
 wImage = 10
-cbarVmin,cbarVmax = 0, 16 # in kRayleigh
+cbarVmin,cbarVmax = 0, 14 # in kRayleigh
 BigAllSky_textSize = 35
-BigAllSky_tickSize = 40
+BigAllSky_tickLabelSize = 60
 BigAllSky_scatterSize = 550
 BigAllSky_lineThickness = 8
 BigAllSky_GridSize = 5
-BigAllSky_TitleSize = 50
-BigAllSky_costLineSize = 2
+BigAllSky_TitleSize = 70
+BigAllSky_costLineSize = 3
 # --------------------------------
 ILatDiffPlot = True
 ILatDiff_Height = 15
 ILatDiff_Width = 35
 ILatDiff_PlotLineWidth = 12
-ILatDiff_LabelSize = 45
-ILatDiff_TickLabelSize = 40
+ILatDiff_LabelSize = 75
+ILatDiff_TickLabelSize = 50
 ILatDiff_TickLength = 25
 ILatDiff_TickWidth = 4
 ILatDiff_LabelPadding = 40
@@ -134,7 +134,7 @@ if altLatPlot:
     fig.set_figheight(figure_height)
 
     axAltLat.set_ylabel('Altitude [km]', fontsize=altLat_labelFontSize,weight='bold',labelpad=altLat_LabelPadding)
-    axAltLat.set_xlabel('Geographic Lat [deg]',fontsize=altLat_labelFontSize,weight='bold',labelpad=altLat_LabelPadding)
+    axAltLat.set_xlabel('Geographic Lat [deg]',fontsize=altLat_labelFontSize,weight='bold',labelpad=altLat_LabelPadding-40)
     axAltLat.set_xlim(69, 75)
     axAltLat.set_ylim(0, 500)
 
@@ -235,8 +235,8 @@ if BigAllSkyPlot:
                                    alpha=0.4,
                                    linestyle='--',
                                    color='black')
-        gl.xlabel_style = {'size': BigAllSky_tickSize, 'color': 'black', 'weight': 'bold'}
-        gl.ylabel_style = {'size': BigAllSky_tickSize, 'color': 'black', 'weight': 'bold'}
+        gl.xlabel_style = {'size': BigAllSky_tickLabelSize, 'color': 'black', 'weight': 'bold'}
+        gl.ylabel_style = {'size': BigAllSky_tickLabelSize, 'color': 'black', 'weight': 'bold'}
         gl.top_labels = False
 
         # extent of map
@@ -254,7 +254,7 @@ if BigAllSkyPlot:
                                                    vmax=cbarVmax,
                                                    alpha=1)
             BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\BigAllSky_5570.png'
-            fig.suptitle('Skibton 5577A - 150 km\n' + data_dict_allSky5577['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S") + ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
+            fig.suptitle('Skibton 5577$\AA$ - 150 km\n' + data_dict_allSky5577['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S") + ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
         elif i == 1:
             cmapBigAllSky = axBigAllSky.pcolormesh(data_dict_allSky6300['GLongs'][0], data_dict_allSky6300['GLats'][0],
                                                    data_dict_allSky6300['AllSkyImages'][0][wImage],
@@ -264,7 +264,7 @@ if BigAllSkyPlot:
                                                    vmax=cbarVmax,
                                                    alpha=1)
             BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\BigAllSky_6300.png'
-            fig.suptitle('Skibton 6300A - 250 km\n' + data_dict_allSky6300['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S")+ ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
+            fig.suptitle('Skibton 6300$\AA$ - 250 km\n' + data_dict_allSky6300['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S")+ ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
         axBigAllSky.set_facecolor(faceColorChoice)
 
         # --- plot the rocket trajectory data on the large AllSky plot ---
@@ -306,7 +306,7 @@ if ILatDiffPlot:
     # --- --- --- --- --- --- -
     # --- ILatDiffPlot plot ---
     # --- --- --- --- --- --- -
-    fig, (axILatDiff_space,axILatDiff_time) = plt.subplots(2 ,sharex=True)
+    fig, (axILatDiff_space,axILatDiff_time) = plt.subplots(2, sharex=True)
     figure_height = ILatDiff_Height
     figure_width = ILatDiff_Width
     fig.set_figwidth(figure_width)
@@ -320,29 +320,30 @@ if ILatDiffPlot:
 
     # --- SPATIAL ---
     axILatDiff_space.plot(Epoch, spatialDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
-    axILatDiff_space.set_ylabel(r'$\Delta$ILat  [km]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
+    axILatDiff_space.set_ylabel(r'ILat  $\Delta \varphi$ [km]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding, weight='bold')
     axILatDiff_space.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
     axILatDiff_space.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
     axILatDiff_space.margins(0)
-    axILatDiff_space.grid(True)
+    axILatDiff_space.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
+    axILatDiff_space.set_ylim(-110, 110)
     axILatDiff_space.minorticks_on()
 
     # --- TEMPORAL ---
     axILatDiff_time.plot(Epoch,timeDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
-    axILatDiff_time.grid(True)
-    axILatDiff_time.set_ylabel('ILat $\Delta t$  [s]',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
-    axILatDiff_time.set_xlabel('Epoch',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
+    axILatDiff_time.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
+    axILatDiff_time.set_ylabel('ILat  $\Delta t$  [s]',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30, weight='bold')
+    axILatDiff_time.set_xlabel('time (UTC)',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
+    axILatDiff_time.set_ylim(-65,65)
     axILatDiff_time.margins(0)
 
     # TICKS
     axILatDiff_time.set_xticks(timeTargetsUTC)
-    axILatDiff_time.set_xticklabels([label.strftime("%H:%M:%S") for label in timeTargetsUTC])
+    tlabels = [label.strftime("%H:%M:%S") for label in timeTargetsUTC]
+    axILatDiff_time.set_xticklabels(tlabels)
     axILatDiff_time.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
     axILatDiff_time.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
     axILatDiff_time.minorticks_on()
-    axILatDiff_time.margins(0)
-
-
+    # axILatDiff_time.margins(0)
 
     plt.tight_layout()
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\ILatDiff.png')
@@ -370,8 +371,8 @@ if makeColorbarPlot:
                                alpha=0.0,
                                linestyle='--',
                                color='black')
-    gl.xlabel_style = {'size': BigAllSky_tickSize, 'color': 'black', 'weight': 'bold'}
-    gl.ylabel_style = {'size': BigAllSky_tickSize, 'color': 'black', 'weight': 'bold'}
+    gl.xlabel_style = {'size': BigAllSky_tickLabelSize, 'color': 'black', 'weight': 'bold'}
+    gl.ylabel_style = {'size': BigAllSky_tickLabelSize, 'color': 'black', 'weight': 'bold'}
     gl.top_labels = False
     gl.bottom_labels = False
 

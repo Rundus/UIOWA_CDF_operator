@@ -13,6 +13,7 @@ __version__ = "1.0.0"
 import matplotlib.pyplot as plt
 
 from ACESII_code.myImports import *
+plt.rcParams["font.family"] = "Arial"
 start_time = time.time()
 # --- --- --- --- ---
 
@@ -20,135 +21,76 @@ start_time = time.time()
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-import matplotlib.gridspec as gridspec
-import matplotlib.ticker as ticker
-
 print(color.UNDERLINE + f'Plot2_Conjugacy' + color.END)
 
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
+dpi = 500
+cbarMin, cbarMax = 5E6,1E9
+cbarTickLabelSize = 14
+import matplotlib
+my_cmap = matplotlib.colormaps.get_cmap('turbo')
+# my_cmap.set_bad((0, 0, 0))
+spectrogramCmap = 'RdYlBu_r'
 
-# targetInvariantlats = [70.15, 70.5]
-targetInvariantlats = [69.8, 70.8]
-# cbarLimits = [1E7,1E9]
-cbarLimits = [4E5,5E8]
-wPitch_engy_val = 38 # the chosen energy (0 - 41) for thePitch Angle Plot
+# --- HF/LF General ---
+plot_General = False
+General_figure_width = 8.5 # in inches
+General_figure_height = 11/2 # in inches
+General_targetILat = [71.20, 73.55]
+General_LabelFontSize = 14
+General_TickFontSize = 10
+General_PlotLineWidth = 0.5
+GeneralCmap = my_cmap
+
+# --- HF/LF Dispersive Region ---
+plot_Dispersive = True
+wRocket = 4
+Dispersive_figure_width = 8.5
+Dispersive_figure_height = 11/2
+Disp_targetILat= [71.90, 72.045]
+Dispersive_wPitch = 2 # 10deg pitch
+Dispersive_LabelFontSize = 14
+Dispersive_TickFontSize = 13
+Dispersive_TickLength = 5
+Dispersive_TickWidth = 2
+Dispersive_LabelPadding = 7
+DispersiveCmap = my_cmap
+specCbarMin, specCbarMax = 1E-2, 1E1
+DispersiveFreqlimits = [0, 12]
+Disp_PlotLineWidth = 1
 
 # --- --- --- --- --- ---
 # --- LOAD IN THE DATA ---
 # --- --- --- --- --- ---
+
+if plot_General:
+    targetILat = General_targetILat
+    plot_Dispersive = False
+elif plot_Dispersive:
+    targetILat = Disp_targetILat
+
+
 prgMsg('Loading Data')
+rocketAttrs, b, c = ACES_mission_dicts()
 
 # delta B
-inputMagFiles_high = glob('C:\Data\ACESII\L3\deltaB\high\*Field_Aligned*')
-data_dict_mag_high = loadDictFromFile(inputFilePath=inputMagFiles_high[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-inputMagFiles_low = glob('C:\Data\ACESII\L3\deltaB\low\*Field_Aligned*')
-data_dict_mag_low = loadDictFromFile(inputFilePath=inputMagFiles_low[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
+inputMagFiles_high = glob('C:\Data\ACESII\L3\deltaB\high\*Field_Aligned*')[0]
+data_dict_mag_high = loadDictFromFile(inputFilePath=inputMagFiles_high, targetVar=[targetILat,'ILat'], wKeys=['B_e', 'B_r', 'B_p', 'ILat', 'Epoch', 'Alt'])
+inputMagFiles_low = glob('C:\Data\ACESII\L3\deltaB\low\*Field_Aligned*')[0]
+data_dict_mag_low = loadDictFromFile(inputFilePath=inputMagFiles_low, targetVar=[targetILat,'ILat'], wKeys=['B_e', 'B_r', 'B_p', 'ILat', 'Epoch', 'Alt'])
 
 # delta E
-inputEFIFiles_low = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')
-data_dict_elec_low = loadDictFromFile(inputFilePath=inputEFIFiles_low[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
+inputEFIFiles_low = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')[0]
+data_dict_Efield_low = loadDictFromFile(inputFilePath=inputEFIFiles_low, targetVar=[targetILat,'ILat'], wKeys=['E_e', 'E_r', 'E_p', 'ILat', 'Epoch', 'Alt'])
 
 # EEPAA Particle Data
-inputEEPAA_low = glob('C:\Data\ACESII\L2\low\*eepaa_fullCal*')
-data_dict_eepaa_low = loadDictFromFile(inputFilePath=inputEEPAA_low[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-inputEEPAA_high = glob('C:\Data\ACESII\L2\high\*eepaa_fullCal*')
-data_dict_eepaa_high = loadDictFromFile(inputFilePath=inputEEPAA_high[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-
-
-# Trajectory data (for geomagnetic lat/long info)
-inputTracj_low = glob(r'C:\Data\ACESII\trajectories\low\*ILat_ILong*')
-data_dict_traj_low = loadDictFromFile(inputFilePath=inputTracj_low[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-inputTracj_high = glob(r'C:\Data\ACESII\trajectories\high\*ILat_ILong*')
-data_dict_traj_high = loadDictFromFile(inputFilePath=inputTracj_high[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-
-# Poynting Data
-inputPoynting_low = glob(r'C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligned*')
-data_dict_poynting_low = loadDictFromFile(inputFilePath=inputPoynting_low[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
-inputPoynting_high = glob(r'C:\Data\ACESII\science\PoyntingFlux\high\*Field_Aligned*')
-data_dict_poynting_high = loadDictFromFile(inputFilePath=inputPoynting_high[0],input_data_dict={},reduceData=False,targetTimes=[],wKeys=[])
+inputEEPAA_low = glob('C:\Data\ACESII\L2\low\*eepaa_fullCal*')[0]
+data_dict_eepaa_low = loadDictFromFile(inputFilePath=inputEEPAA_low, targetVar=[targetILat,'ILat'], wKeys=['Differential_Energy_Flux', 'ILat', 'Epoch', 'Alt'])
+inputEEPAA_high = glob('C:\Data\ACESII\L2\high\*eepaa_fullCal*')[0]
+data_dict_eepaa_high = loadDictFromFile(inputFilePath=inputEEPAA_high, targetVar=[targetILat,'ILat'], wKeys=['Differential_Energy_Flux', 'ILat', 'Epoch', 'Alt'])
 Done(start_time)
-
-# --- --- --- --- --- --- --- --- --- -
-# --- Calculate Invariant Lattitude ---
-# --- --- --- --- --- --- --- --- --- -
-
-# determine invariant lattitude for the particle
-invariantLat_ptcle_low = np.array([np.degrees(np.arccos( np.cos(np.radians(data_dict_traj_low['geomagLat'][0][i]))/np.sqrt(data_dict_traj_low['geomagAlt'][0][i]) )) for i in range(len(data_dict_traj_low['Epoch_esa'][0]))])
-invariantLat_ptcle_high = np.array([np.degrees(np.arccos( np.cos(np.radians(data_dict_traj_high['geomagLat'][0][i]))/np.sqrt(data_dict_traj_high['geomagAlt'][0][i]) )) for i in range(len(data_dict_traj_high['Epoch_esa'][0]))])
-
-# determine invariant lattitude for the Wave Data
-invariantLat_wave_low = np.array([np.degrees(np.arccos( np.cos(np.radians(data_dict_poynting_low['Lat_geom'][0][i]))/np.sqrt(data_dict_poynting_low['Alt_geom'][0][i]) )) for i in range(len(data_dict_poynting_low['Epoch'][0]))])
-invariantLat_wave_high = np.array([np.degrees(np.arccos( np.cos(np.radians(data_dict_poynting_high['Lat_geom'][0][i]))/np.sqrt(data_dict_poynting_high['Alt_geom'][0][i]) ))for i in range(len(data_dict_poynting_high['Epoch'][0]))])
-Done(start_time)
-
-
-# --- --- --- --- --- --- --- --- --- --- ---
-# --- REDUCE DATA BASED ON Invariant LAT ---
-# --- --- --- --- --- --- --- --- --- --- ---
-prgMsg('Reducing Data')
-
-def reduceDictonary(inputDict, InvariantLat):
-    lowCut,highCut = np.abs(InvariantLat - targetInvariantlats[0]).argmin(),np.abs(InvariantLat - targetInvariantlats[1]).argmin()
-    for key,val in inputDict.items():
-        inputDict[key][0] = inputDict[key][0][lowCut:highCut]
-    return inputDict
-
-data_dict_mag_low = reduceDictonary(data_dict_mag_low, invariantLat_wave_low)
-data_dict_mag_high = reduceDictonary(data_dict_mag_high, invariantLat_wave_high)
-data_dict_elec_low = reduceDictonary(data_dict_elec_low, invariantLat_wave_low)
-data_dict_poynting_low = reduceDictonary(data_dict_poynting_low, invariantLat_wave_low)
-data_dict_poynting_high = reduceDictonary(data_dict_poynting_high, invariantLat_wave_high)
-data_dict_traj_low = reduceDictonary(data_dict_traj_low, invariantLat_ptcle_low)
-data_dict_traj_high = reduceDictonary(data_dict_traj_high, invariantLat_ptcle_high)
-
-# special case for EEPAA data
-lowCut, highCut = np.abs(invariantLat_ptcle_high - targetInvariantlats[0]).argmin(), np.abs(invariantLat_ptcle_high - targetInvariantlats[1]).argmin()
-for key in ['Differential_Energy_Flux', 'Epoch']:
-    data_dict_eepaa_high[key][0] = data_dict_eepaa_high[key][0][lowCut:highCut]
-
-lowCut, highCut = np.abs(invariantLat_ptcle_low - targetInvariantlats[0]).argmin(), np.abs(invariantLat_ptcle_low - targetInvariantlats[1]).argmin()
-for key in ['Differential_Energy_Flux', 'Epoch']:
-    data_dict_eepaa_low[key][0] = data_dict_eepaa_low[key][0][lowCut:highCut]
-
-# define some variables
-Energy = data_dict_eepaa_high['Energy'][0]
-Pitch = data_dict_eepaa_high['Pitch_Angle'][0]
-
-# reduce the invariant lattitudes themselves
-lowCut, highCut = np.abs(invariantLat_ptcle_low - targetInvariantlats[0]).argmin(), np.abs(invariantLat_ptcle_low - targetInvariantlats[1]).argmin()
-invariantLat_ptcle_low =invariantLat_ptcle_low[lowCut:highCut]
-lowCut, highCut = np.abs(invariantLat_ptcle_high - targetInvariantlats[0]).argmin(), np.abs(invariantLat_ptcle_high - targetInvariantlats[1]).argmin()
-invariantLat_ptcle_high =invariantLat_ptcle_high[lowCut:highCut]
-lowCut, highCut = np.abs(invariantLat_wave_low - targetInvariantlats[0]).argmin(), np.abs(invariantLat_wave_low - targetInvariantlats[1]).argmin()
-invariantLat_wave_low =invariantLat_wave_low[lowCut:highCut]
-lowCut, highCut = np.abs(invariantLat_wave_high - targetInvariantlats[0]).argmin(), np.abs(invariantLat_wave_high - targetInvariantlats[1]).argmin()
-invariantLat_wave_high =invariantLat_wave_high[lowCut:highCut]
-
-
-# --- --- --- --- --- --- --
-# --- GET THE XTICK INFO ---
-# --- --- --- --- --- --- --
-
-# description: the poynting flux data is the last databox. Its' ticks
-# define the x-axis labels for all the data. We need to collect its ticks for display
-
-N = 6 # number of ticks
-datLength = len(data_dict_poynting_low['S_p'][0])
-wIndices_low = [i for i in range(0, datLength, int(len(data_dict_poynting_low['S_p'][0])/N))]
-UTTicks_low = [data_dict_poynting_low['Epoch'][0][i].strftime('%H:%M:%S') for i in wIndices_low]
-
-datLength = len(data_dict_poynting_high['S_p'][0])
-wIndices_high = [i for i in range(0, datLength, int(len(data_dict_poynting_high['S_p'][0])/N))]
-UTTicks_high = [data_dict_poynting_high['Epoch'][0][i].strftime('%H:%M:%S') for i in wIndices_high]
-
-
-
-
-# E_perp_low = np.array([ np. for i in range(len(data_dict_elec_low['Epoch'][0]))])
-
-
 
 ############################
 # --- --- --- --- --- --- --
@@ -156,241 +98,188 @@ UTTicks_high = [data_dict_poynting_high['Epoch'][0][i].strftime('%H:%M:%S') for 
 # --- --- --- --- --- --- --
 ############################
 
-fig = plt.figure()
-figure_height = 10
-figure_width = 24
-fig.set_figwidth(figure_width)
-fig.set_figheight(figure_height)
+if plot_General:
 
-# title
-# fig.suptitle('ACESII')
+    # --- Calculate Omni-Directional Flux ---
+    prgMsg('Calculating OmniFlux')
 
-##### Define the primary Gridspec #####
-gs0 = gridspec.GridSpec(nrows=4, ncols=4, figure=fig, width_ratios=[0.49, 0.01, 0.49, 0.01], hspace=0.1,wspace=0.2) # splits figure between the plots and the colorbar at the very bottom
+    omniDirFlux_low = np.zeros(shape=(len(data_dict_eepaa_low['Differential_Energy_Flux'][0]), len(data_dict_eepaa_low['Energy'][0])))
+    for tme in range(len(data_dict_eepaa_low['Epoch'][0])):
+        for engy in range(len(data_dict_eepaa_low['Energy'][0])):
+            sumValues = data_dict_eepaa_low['Differential_Energy_Flux'][0][tme, :, engy]
+            sumValues = sum(sumValues[sumValues>0])
+            omniDirFlux_low[tme][engy] = sumValues
 
+    omniDirFlux_high = np.zeros(shape=(len(data_dict_eepaa_high['Differential_Energy_Flux'][0]), len(data_dict_eepaa_high['Energy'][0])))
+    for tme in range(len(data_dict_eepaa_high['Epoch'][0])):
+        for engy in range(len(data_dict_eepaa_high['Energy'][0])):
+            sumValues = data_dict_eepaa_high['Differential_Energy_Flux'][0][tme, :, engy]
+            sumValues = sum(sumValues[sumValues > 0])
+            omniDirFlux_high[tme][engy] = sumValues
 
-#%%%%%%%%%% HF %%%%%%%%%%%
-# --- First Data Column ---
+    Done(start_time)
 
-# HF eepaa data
-axEEPAA_HF = fig.add_subplot(gs0[0, 0])
-axEEPAA_HF.get_xaxis().set_visible(False)
-xData, yData = invariantLat_ptcle_high, Energy
-zData = np.transpose(data_dict_eepaa_high['Differential_Energy_Flux'][0][:, 2, :])
-cmap_EEPAA_HF = axEEPAA_HF.pcolormesh(xData, yData, zData, vmin=cbarLimits[0], vmax=cbarLimits[1], shading='nearest',cmap='turbo',norm='log')
-axEEPAA_HF.set_title('ACESII 36359\n'+r'$\alpha=10^{\circ}$')
-axEEPAA_HF.set_ylabel('Energy [eV]')
-axEEPAA_HF.set_yscale('log')
-axEEPAA_HF.set_ylim(30, 1500)
+    fig, ax = plt.subplots(4,sharex=True,height_ratios=[2,1,2,1])
+    fig.set_figwidth(General_figure_width)
+    fig.set_figheight(General_figure_height)
+    fig.subplots_adjust(hspace=0) # remove the space between plots
 
+    # ---HF EEPAA---
+    cmap = ax[0].pcolormesh(data_dict_eepaa_high['ILat'][0],data_dict_eepaa_high['Energy'][0],omniDirFlux_high.T, cmap=GeneralCmap,vmin=cbarMin,vmax=cbarMax, norm='log')
+    # [xmin, ymin, dx, dy]
+    cax = fig.add_axes([0.91, 0.11, 0.02, 0.77])
+    cbar = plt.colorbar(cmap,cax=cax)
+    # cbar.set_label('Omni-Dir. diff E. Flux \n' + '[cm$^{-2}$str$^{-1}$eV/eV]', rotation=-90, labelpad=20, fontsize=General_LabelFontSize)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(labelsize=cbarTickLabelSize)
+    ax[0].set_ylabel('Energy [eV]', fontsize=General_LabelFontSize-3)
+    ax[0].set_yscale('log')
 
-# HF eepaa PITCH data
-axEEPAA_pitch_HF = fig.add_subplot(gs0[1,0])
-axEEPAA_pitch_HF.get_xaxis().set_visible(False)
-xData, yData = invariantLat_ptcle_high, Pitch
-zData = np.transpose(data_dict_eepaa_high['Differential_Energy_Flux'][0][:, :, wPitch_engy_val])
-cmap_EEPAA_pitch_HF = axEEPAA_pitch_HF.pcolormesh(xData, yData, zData, vmin=cbarLimits[0], vmax=cbarLimits[1], shading='nearest',cmap='turbo',norm='log')
-axEEPAA_pitch_HF.set_ylabel('Pitch Angle [$^{\circ}$]\n'+f' Energy ={Energy[32]}eV')
-axEEPAA_pitch_HF.set_ylim(0, 180)
+    # --- delta B HF---
+    ax[1].plot(data_dict_mag_high['ILat'][0],data_dict_mag_high['B_e'][0],color='blue',linewidth=General_PlotLineWidth)
+    ax[1].set_ylabel('$\delta B_{e}$', fontsize=General_LabelFontSize, color='blue')
+    ax[1].tick_params(axis='y', colors='blue')
+    ax[1].set_ylim(-8,8)
 
+    # --- LF EEPAA---
+    cmap = ax[2].pcolormesh(data_dict_eepaa_low['ILat'][0], data_dict_eepaa_low['Energy'][0], omniDirFlux_low.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+    ax[2].set_ylabel('Energy [eV]', fontsize=General_LabelFontSize-3)
+    ax[2].set_yscale('log')
 
-# HF E data
-axEB_HF_E = fig.add_subplot(gs0[2,0])
-axEB_HF_E.get_xaxis().set_visible(False)
-axEB_HF_E.annotate('Not Available',xy=(0.5,0.5),xytext=(0.0,0.0),ha='center',va='center',xycoords='axes fraction',textcoords='offset points',fontsize=20,color='tab:red')
-axEB_HF_E.set_ylabel('$\delta E$r [mV/m]',color='tab:red')
-axEB_HF_E.set_ylim(-12,12)
-axEB_HF_E.spines['left'].set_color('tab:red')
-axEB_HF_E.xaxis.label.set_color('tab:red')
-axEB_HF_E.tick_params(axis='y',colors='tab:red')
-axEB_HF_E.margins(x=0)
+    # --- delta B LF---
+    ax[3].plot(data_dict_mag_low['ILat'][0], data_dict_mag_low['B_e'][0], color='blue',linewidth=General_PlotLineWidth)
+    ax[3].set_ylabel('$\delta B_{e}$', fontsize=General_LabelFontSize, color='blue')
+    ax[3].set_xlabel('ILat [deg]', fontsize=General_LabelFontSize)
+    ax[3].tick_params(axis='y', colors='blue')
+    ax[3].set_ylim(-8, 8)
 
-# HF B data
-axEB_HF_B = fig.add_subplot(gs0[3,0])
-axEB_HF_B.get_xaxis().set_visible(False)
-axEB_HF_B.plot(invariantLat_wave_high, data_dict_mag_high['B_e'][0],color='tab:blue')
-axEB_HF_B.set_ylabel('$\delta$Be [nT]',color='tab:blue')
-axEB_HF_B.spines['left'].set_color('tab:blue')
-axEB_HF_B.xaxis.label.set_color('tab:blue')
-axEB_HF_B.tick_params(axis='y',colors='tab:blue')
-axEB_HF_B.margins(x=0)
+    for i in range(4):
+        ax[i].margins(0)
+        ax[i].set_xlim(targetILat[0],targetILat[1])
 
-# # HF Poynting Flux data
-# axS_HF = fig.add_subplot(gs0[4,0])
-# axS_HF.plot(invariantLat_wave_high,(1E3)*data_dict_poynting_high['S_p'][0],label='Sp',color='black')
-# axS_HF.set_ylabel('$\delta B_{\perp}^{2} V_{A}/2\mu_{0}$ \n [ergs/cm$^{2}$s]')
-# axS_HF.set_ylim(-0.25,0.25)
-# axS_HF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-# axS_HF.xaxis.set_major_locator(ticker.LinearLocator(N))
-# axS_HF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
-# axS_HF.margins(x=0)
-
-#add additional x axes(ALT)
-axS_HF.annotate('Alt [km]',xy=(-0.15,-0.16),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-axS_HF_Alt = axS_HF.twiny() # create second axis
-axS_HF_Alt.spines['bottom'].set_position(('axes',-0.14)) # move the axes to the bottom
-axS_HF_Alt.xaxis.set_ticks_position("bottom") # move the ticks to the bottom
-axS_HF_Alt.set_frame_on(True)
-axS_HF_Alt.patch.set_visible(False)
-axS_HF_Alt.spines['bottom'].set_visible(False)
-axS_HF_Alt.tick_params(axis='x', length=0)
-axS_HF_Alt.plot(data_dict_traj_high['geoAlt'][0], data_dict_traj_high['geomagAlt'][0], alpha=0)
-axS_HF_Alt.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_HF_Alt.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
+    # --- SHOW PLOT ---
+    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot2\Plot2_ConjugacyStack.png', dpi=dpi)
 
 
-#add additional x axes(UT Time)
-axS_HF.annotate('UT ', xy=(-0.15,-0.28), xytext=(0,0), ha='left', va='top', xycoords='axes fraction',textcoords='offset points')
-axS_HF_UT = axS_HF.twiny() # create second axis
-axS_HF_UT.spines['bottom'].set_position(('axes',-0.26)) # move the axes to the bottom
-axS_HF_UT.xaxis.set_ticks_position("bottom") # move the ticks to the bottom
-axS_HF_UT.set_frame_on(True)
-axS_HF_UT.patch.set_visible(False)
-axS_HF_UT.spines['bottom'].set_visible(False)
-axS_HF_UT.tick_params(axis='x',length=0)
-axS_HF_UT.plot(data_dict_traj_high['Epoch_esa'][0], data_dict_traj_high['geomagAlt'][0], alpha=0)
-axS_HF_UT.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_HF_UT.set_xticklabels(UTTicks_high)
-
-
-# --- 1st Colorbar Column - HF ---
-axCbar_HF = fig.add_subplot(gs0[0,1])
-cbar_HF = fig.colorbar(mappable=cmap_EEPAA_HF,
-                       cax=axCbar_HF,
-                       norm='log')
-cbar_HF.set_label('eV/cm$^{2}$-s-sr-eV',labelpad=-52)
-l, b, w, h = axCbar_HF.get_position().bounds
-axCbar_HF.set_position([(0.955)*l, b, w, h])
-
-# --- 2nd Colorbar Column - HF ---
-axCbar_pitch_HF = fig.add_subplot(gs0[1,1])
-cbar_pitch_HF = fig.colorbar(mappable=cmap_EEPAA_pitch_HF,
-                       cax=axCbar_pitch_HF,
-                       norm='log')
-cbar_pitch_HF.set_label('eV/cm$^{2}$-s-sr-eV',labelpad=-52)
-l, b, w, h = axCbar_pitch_HF.get_position().bounds
-axCbar_pitch_HF.set_position([(0.955)*l, b, w, h])
-
-
-#%%%%%%%%%% LF %%%%%%%%%%%
-# --- 2nd Data Column ---
-
-# LF EEPAA Data
-axEEPAA_LF = fig.add_subplot(gs0[0, 2])
-axEEPAA_LF.get_xaxis().set_visible(False)
-xData, yData = invariantLat_ptcle_low, Energy
-zData = np.transpose(data_dict_eepaa_low['Differential_Energy_Flux'][0][:, 2, :])
-cmap_EEPAA_LF = axEEPAA_LF.pcolormesh(xData, yData, zData, vmin=cbarLimits[0], vmax=cbarLimits[1], shading='nearest',cmap='turbo',norm='log')
-axEEPAA_LF.set_title('ACESII 36364\n'+ r'$\alpha=10^{\circ}$')
-axEEPAA_LF.set_ylabel('Energy [eV]')
-axEEPAA_LF.set_yscale('log')
-axEEPAA_LF.set_ylim(30, 1500)
+if plot_Dispersive:
+    magDicts = [data_dict_mag_high,data_dict_mag_low]
+    magDict = magDicts[wRocket-4]
+    eepaaDicts = [data_dict_eepaa_high,data_dict_eepaa_low]
+    eepaaDict = eepaaDicts[wRocket-4]
 
 
 
-# LF EEPAA pitch data
-axEEPAA_pitch_LF = fig.add_subplot(gs0[1, 2])
-axEEPAA_pitch_LF.get_xaxis().set_visible(False)
-xData, yData = invariantLat_ptcle_low, Pitch
-zData = np.transpose(data_dict_eepaa_low['Differential_Energy_Flux'][0][:, :, wPitch_engy_val])
-cmap_EEPAA_pitch_LF = axEEPAA_pitch_LF.pcolormesh(xData, yData, zData, vmin=cbarLimits[0], vmax=cbarLimits[1], shading='nearest',cmap='turbo',norm='log')
-axEEPAA_pitch_LF.set_ylabel('Pitch Angle [$^{\circ}$]\n'+f' Energy ={Energy[32]}eV')
-axEEPAA_pitch_LF.set_ylim(0,180)
+    from scipy.signal import spectrogram
+
+    # --- Calculate Spectrogram ---
+    spectrogramData = magDict['B_e'][0]
+    windowType, npersegN, scalingType = 'hann', 64, 'spectrum'  # spectrogram toggles
+    overlap = int(npersegN * (7 / 8))  # hanning filter overlap
+    f, t, Sxx = spectrogram(spectrogramData,
+                            fs=128,
+                            window=windowType,
+                            nperseg=npersegN,  # note: if ==None default size is 256
+                            noverlap=overlap,
+                            scaling=scalingType)  # scaling = density or scaling = spectrum
+
+    # - determine a new ILat variable for the spectrogram -
+    # first determine the times of the spectrogram
+    startTime = pycdf.lib.datetime_to_tt2000(magDict['Epoch'][0][0])
+    specTempTimes = [pycdf.lib.tt2000_to_datetime(int(startTime + 1E9*tme)) for tme in t]
+    specIndicies = [np.abs(magDict['Epoch'][0] - specTempTimes[k]).argmin() for k in range(len(specTempTimes))]
+    specILats = magDict['ILat'][0][specIndicies]
+    specAlts = magDict['Alt'][0][specIndicies]
+    specTimes = magDict['Epoch'][0][specIndicies]
+
+    # --- get the total Differential Energy FLux over all energies ---
+    totalDirFlux = np.zeros(shape=(len(eepaaDict['Differential_Energy_Flux'][0]), len(eepaaDict['Pitch_Angle'][0])))
+    for tme in range(len(eepaaDict['Epoch'][0])):
+        for ptch in range(len(eepaaDict['Pitch_Angle'][0])):
+            sumValues = eepaaDict['Differential_Energy_Flux'][0][tme, ptch, :]
+            sumValues = sum(sumValues[sumValues > 0])
+            totalDirFlux[tme][ptch] = sumValues
+
+    # --- PLOT EVERYTHING ---
+    fig, ax = plt.subplots(4, sharex=True,height_ratios=[2,2,1,1])
+    fig.set_figwidth(Dispersive_figure_width)
+    fig.set_figheight(Dispersive_figure_height)
+    fig.subplots_adjust(top=0.97,hspace=0.1)  # remove the space between plots
+
+    # --- EEPAA Data 10deg ---
+    cmap = ax[0].pcolormesh(eepaaDict['ILat'][0], eepaaDict['Energy'][0], eepaaDict['Differential_Energy_Flux'][0][:,Dispersive_wPitch,:].T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+    ax[0].set_ylabel(rf'P.A. = {eepaaDict["Pitch_Angle"][0][Dispersive_wPitch]}$^\circ$' + '\n Energy [eV]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
+    ax[0].set_yscale('log')
+    ax[0].set_ylim(33,1150)
+    ax[0].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+
+    # --- EEPAA Data All Pitch ---
+    ax[1].pcolormesh(eepaaDict['ILat'][0], eepaaDict['Pitch_Angle'][0], totalDirFlux.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+    ax[1].set_ylabel('P. A.\n[deg]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
+    ax[1].set_ylim(0,181)
+    ax[1].margins(0)
+    ax[1].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    yticks = [0, 60, 120, 180]
+    ax[1].set_yticks(yticks)
+    ax[1].set_yticklabels([str(tick) for tick in yticks])
+
+    cax = fig.add_axes([0.91, 0.415, 0.02, 0.556])
+    cbar = plt.colorbar(cmap, cax=cax)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(labelsize=cbarTickLabelSize)
+
+    # --- Be/Er ---
+    ax[2].plot(magDict['ILat'][0], magDict['B_e'][0], color='blue', linewidth=Disp_PlotLineWidth)
+    ax[2].set_ylabel('$\delta B_{e}$\n[nT]', fontsize=Dispersive_LabelFontSize, color='blue',labelpad=Dispersive_LabelPadding+10)
+    ax[2].tick_params(axis='y', colors='blue')
+    ax[2].set_ylim(-8,8)
+    ax[2].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+
+
+    # Er
+    if wRocket == 4:
+        axEr = ax[2].twinx()
+        axEr.set_ylabel('E-Field\nN/A', fontsize=Dispersive_LabelFontSize, color='red', rotation=-90,labelpad=35)
+        axEr.tick_params(axis='y', colors='red',labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        axEr.set_ylim(-8, 8)
+    elif wRocket == 5:
+        axEr = ax[2].twinx()
+        axEr.plot(data_dict_Efield_low['ILat'][0],data_dict_Efield_low['E_r'][0], color='red', linewidth=Disp_PlotLineWidth)
+        axEr.set_ylabel('$\delta E_{r}$\n[mV/m]', fontsize=Dispersive_LabelFontSize, color='red', rotation=-90,labelpad=35)
+        axEr.tick_params(axis='y', colors='red',labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        axEr.set_ylim(-8, 8)
+
+
+    # --- Be Spectrogram ---
+    cmap = ax[3].pcolormesh(specILats, f, Sxx, shading='nearest', vmin=specCbarMin, vmax=specCbarMax, cmap=spectrogramCmap, norm='log')
+    ax[3].set_ylabel('Freq.\n[Hz]', fontsize=Dispersive_LabelFontSize)
+    ax[3].set_xlabel('ILat [deg]\nAlt [km]\ntime (UTC)', fontsize=Dispersive_TickFontSize-3, weight='bold')
+    ax[3].xaxis.set_label_coords(-0.105, -0.14)
+    ax[3].set_ylim(DispersiveFreqlimits[0],DispersiveFreqlimits[1])
+
+    # spectrogram Ticks
+    yticks = [0, 4, 8, 12]
+    ax[3].set_yticks(yticks)
+    ax[3].set_yticklabels([str(tick) for tick in yticks])
+
+    xticks_iLat = ax[3].get_xticks()
+    xtick_indicies = np.array([np.abs(magDict['ILat'][0] - tick ).argmin() for tick in xticks_iLat])
+    ILat_ticks = [str(round(tick,2)) for tick in xticks_iLat]
+    Alt_ticks = [str(round(tick,1)) for tick in  magDict['Alt'][0][xtick_indicies]]
+    time_ticks =  [tick.strftime("%H:%M:%S") for tick in  magDict['Epoch'][0][xtick_indicies]]
+    tickLabels = [ f'{ILat_ticks[k]}\n{Alt_ticks[k]}\n{time_ticks[k]}' for k in range(len(xtick_indicies)) ]
+    ax[3].set_xticklabels(tickLabels)
+    ax[3].tick_params(axis='y', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[3].tick_params(axis='x', labelsize=Dispersive_TickFontSize-3, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+
+    # spectrogram colorbar
+    cax = fig.add_axes([0.91, 0.11, 0.02, 0.135])
+    cbar = plt.colorbar(cmap, cax=cax)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(labelsize=cbarTickLabelSize)
+
+    # output the figure
+    outputMod = 'HF' if wRocket==4 else 'LF'
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot2\Plot2_{outputMod}dispersive.png', dpi=dpi)
 
 
 
-# LF E data
-axEB_LF_E = fig.add_subplot(gs0[2, 2])
-axEB_LF_E.get_xaxis().set_visible(False)
-axEB_LF_E.plot(invariantLat_wave_low, data_dict_elec_low['E_r'][0], color='tab:red')
-axEB_LF_E.set_ylabel('$\delta$Er [mV/m]',color='tab:red')
-axEB_LF_E.set_ylim(-12, 12)
-axEB_LF_E.spines['left'].set_color('tab:red')
-axEB_LF_E.xaxis.label.set_color('tab:red')
-axEB_LF_E.tick_params(axis='y',colors='tab:red')
-axEB_LF_E.margins(x=0)
-
-
-# LF B data
-axEB_LF_B = fig.add_subplot(gs0[3, 2])
-axEB_LF_B.plot(invariantLat_wave_low, data_dict_mag_low['B_e'][0], color='tab:blue')
-axEB_LF_B.get_xaxis().set_visible(False)
-axEB_LF_B.set_ylabel('$\delta$Be [nT]',color='tab:blue')
-axEB_LF_B.set_ylim(-10, 10)
-axEB_LF_B.spines['left'].set_color('tab:blue')
-axEB_LF_B.xaxis.label.set_color('tab:blue')
-axEB_LF_B.tick_params(axis='y',colors='tab:blue')
-axEB_LF_B.margins(x=0)
-
-axEB_LF_B.legend()
-
-
-
-
-#%%%LF Poynting Flux data%%%
-# axS_LF = fig.add_subplot(gs0[4, 2])
-# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_p'][0], label='Sp', color='black')
-# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_e'][0],label='Se', color='tab:red',alpha=0.7)
-# axS_LF.plot(invariantLat_wave_low, (1E3)*data_dict_poynting_low['S_r'][0], label='Sr', color='tab:blue',alpha=0.7)
-# axS_LF.set_ylabel('Energy Flux \n [ergs/cm$^2$s]')
-# axS_LF.set_ylim(-0.025,0.025)
-# axS_LF.annotate('ILat [$^{\circ}$]',xy=(-0.15,-0.04),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-# axS_LF.xaxis.set_major_locator(ticker.LinearLocator(N))
-# axS_LF.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
-# axS_LF.margins(x=0)
-# axS_LF.legend(loc='upper right')
-
-#add additional x axes(ALT)
-axS_LF.annotate('Alt [km]',xy=(-0.15,-0.16),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-axS_LF_Alt = axS_LF.twiny() # create second axis
-axS_LF_Alt.spines['bottom'].set_position(('axes',-0.14)) # move the axes to the bottom
-axS_LF_Alt.xaxis.set_ticks_position("bottom") # move the ticks to the bottom
-axS_LF_Alt.set_frame_on(True)
-axS_LF_Alt.patch.set_visible(False)
-axS_LF_Alt.spines['bottom'].set_visible(False)
-axS_LF_Alt.tick_params(axis='x',length=0)
-axS_LF_Alt.plot(data_dict_traj_low['geoAlt'][0],data_dict_traj_low['geomagAlt'][0], alpha=0)
-axS_LF_Alt.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_LF_Alt.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) # rounds the ILat axis to 2 decimal places
-
-
-#add additional x axes(UT Time)
-axS_LF.annotate('UT ',xy=(-0.15, -0.28),xytext=(0,0),ha='left',va='top',xycoords='axes fraction',textcoords='offset points')
-axS_LF_UT = axS_LF.twiny() # create second axis
-axS_LF_UT.spines['bottom'].set_position(('axes',-0.26)) # move the axes to the bottom
-axS_LF_UT.xaxis.set_ticks_position("bottom") # move the ticks to the bottom
-axS_LF_UT.set_frame_on(True)
-axS_LF_UT.patch.set_visible(False)
-axS_LF_UT.spines['bottom'].set_visible(False)
-axS_LF_UT.tick_params(axis='x',length=0)
-axS_LF_UT.plot(data_dict_traj_low['Epoch_esa'][0], data_dict_traj_low['geomagAlt'][0], alpha=0)
-axS_LF_UT.xaxis.set_major_locator(ticker.LinearLocator(N))
-axS_LF_UT.set_xticklabels(UTTicks_low)
-
-#add additional x axes(ALT)
-
-# --- 1st Colorbar Column- LF ---
-axCbar_LF = fig.add_subplot(gs0[0, 3])
-cbar_LF = fig.colorbar(mappable=cmap_EEPAA_LF,
-                       cax=axCbar_LF,
-                       norm='log')
-cbar_LF.set_label('eV/cm$^{2}$-s-sr-eV', labelpad=-52)
-l, b, w, h = axCbar_LF.get_position().bounds
-axCbar_LF.set_position([(0.975)*l, b, w, h])
-
-# --- 2nd Colorbar Column - LF ---
-axCbar_pitch_LF = fig.add_subplot(gs0[1, 3])
-cbar_pitch_LF = fig.colorbar(mappable=cmap_EEPAA_pitch_LF,
-                       cax=axCbar_pitch_LF,
-                       norm='log')
-cbar_pitch_LF.set_label('eV/cm$^{2}$-s-sr-eV', labelpad=-52)
-l, b, w, h = axCbar_pitch_LF.get_position().bounds
-axCbar_pitch_LF.set_position([(0.975)*l, b, w, h])
-
-
-
-
-# --- SHOW PLOT ---
-# plt.tight_layout()
-plt.savefig(r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Papers\ACESII_Alfvenic_Observations\Plots\\Plot2_Conjugacy.png')
-# plt.show()
