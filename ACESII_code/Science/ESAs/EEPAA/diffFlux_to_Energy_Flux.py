@@ -138,9 +138,6 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
 
         diffEFlux_avg = np.array(diffEFlux_avg)
         Eflux = np.array(Eflux)
-
-
-
         Done(start_time)
 
 
@@ -151,13 +148,13 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
         if outputData:
             prgMsg('Creating output file')
 
-            data_dict_output = {'Energy_Flux': [Eflux, data_dict['Differential_Energy_Flux'][1]],
-                                'Differential_Energy_Flux_avg': [diffEFlux_avg, data_dict['Differential_Energy_Flux'][1]],
+            data_dict_output = {'Energy_Flux': [Eflux, deepcopy(data_dict['Differential_Energy_Flux'][1])],
+                                'Differential_Energy_Flux_avg': [diffEFlux_avg, deepcopy(data_dict['Differential_Energy_Flux'][1])],
                                 'Pitch_Angle': data_dict['Pitch_Angle'],
                                 'Energy': data_dict['Energy'],
                                 'Epoch': data_dict['Epoch']}
             data_dict_output['Energy_Flux'][1]['LABLAXIS'] = 'Energy_Flux'
-            data_dict_output['Energy_Flux'][1]['UNITS'] = 'J m!A-2!B!Ns!A-1!B'
+            data_dict_output['Energy_Flux'][1]['UNITS'] = 'J m!A-2!B!Ns!A-1!B!N'
             data_dict_output['Differential_Energy_Flux_avg'][1]['LABLAXIS'] = 'Differential_Energy_Flux_avg'
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'

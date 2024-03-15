@@ -189,7 +189,8 @@ def loadDictFromFile(inputFilePath, **kwargs):
     targetVar = kwargs.get('targetVar', [])
     getGlobalAttrs = kwargs.get('getGlobalAttrs', False)
     reduceData = True if targetVar != [] else kwargs.get('reduceData', False)
-    wKeys = kwargs.get('wKeys', [])
+    wKeys_Load = kwargs.get('wKeys_Load', [])
+    wKeys_Reduce = kwargs.get('wKeys_Reduce', [])
 
     # load the data dict
     with pycdf.CDF(inputFilePath) as inputDataFile:
@@ -199,8 +200,10 @@ def loadDictFromFile(inputFilePath, **kwargs):
         for key, val in inputDataFile.items():
             input_data_dict = {**input_data_dict, **{key: [inputDataFile[key][...], {key: val for key, val in inputDataFile[key].attrs.items()}]}}
 
+    # load only the data in wKeys_Load
     output_data_dict = {}
-    for key in input_data_dict.keys():
+    wKeys_Load = [key for key in input_data_dict.keys()] if wKeys_Load == [] else wKeys_Load
+    for key in wKeys_Load:
         output_data_dict = {**output_data_dict, **{key:input_data_dict[key]}}
 
     # reduce the data
@@ -213,7 +216,8 @@ def loadDictFromFile(inputFilePath, **kwargs):
         lowerIndex,higherIndex = np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][0]).argmin(),np.abs(output_data_dict[targetVar[1]][0] - targetVar[0][1]).argmin()
 
         # determine which keys to reduce
-        for key in wKeys:
+        wKeys_Reduce = [key for key in output_data_dict.keys()] if wKeys_Reduce == [] else wKeys_Reduce
+        for key in wKeys_Reduce:
             output_data_dict[key][0] = output_data_dict[key][0][lowerIndex:higherIndex]
 
 

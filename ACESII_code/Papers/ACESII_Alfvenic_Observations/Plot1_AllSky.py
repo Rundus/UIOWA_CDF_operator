@@ -78,7 +78,7 @@ ILatDiff_LabelSize = 75
 ILatDiff_TickLabelSize = 50
 ILatDiff_TickLength = 25
 ILatDiff_TickWidth = 4
-ILatDiff_LabelPadding = 40
+ILatDiff_LabelPadding = 0
 # --------------------------------
 makeColorbarPlot = False
 
@@ -197,7 +197,7 @@ if altLatPlot:
     axAltLat.plot(geoLat[1], geoAlt[1]/1000, color=trajColors[1], label='Low Flyer',linewidth=altLat_lineThickness)  # Low
 
     plt.tight_layout()
-    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\AltLat.png')
+    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\AltLat.png')
     Done(start_time)
     # plt.show()
 
@@ -253,7 +253,7 @@ if BigAllSkyPlot:
                                                    vmin=cbarVmin,
                                                    vmax=cbarVmax,
                                                    alpha=1)
-            BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\BigAllSky_5570.png'
+            BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\BigAllSky_5570.png'
             fig.suptitle('Skibton 5577$\AA$ - 150 km\n' + data_dict_allSky5577['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S") + ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
         elif i == 1:
             cmapBigAllSky = axBigAllSky.pcolormesh(data_dict_allSky6300['GLongs'][0], data_dict_allSky6300['GLats'][0],
@@ -263,7 +263,7 @@ if BigAllSkyPlot:
                                                    vmin=cbarVmin,
                                                    vmax=cbarVmax,
                                                    alpha=1)
-            BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\BigAllSky_6300.png'
+            BigAllSky_outputPath = r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\BigAllSky_6300.png'
             fig.suptitle('Skibton 6300$\AA$ - 250 km\n' + data_dict_allSky6300['Epoch'][0][wImage].strftime("%Y-%B-%d %H:%M:%S")+ ' UTC',fontsize=BigAllSky_TitleSize,weight='bold')
         axBigAllSky.set_facecolor(faceColorChoice)
 
@@ -320,18 +320,19 @@ if ILatDiffPlot:
 
     # --- SPATIAL ---
     axILatDiff_space.plot(Epoch, spatialDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
-    axILatDiff_space.set_ylabel(r'ILat  $\Delta \varphi$ [km]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding, weight='bold')
+    axILatDiff_space.set_ylabel(r'ILat $\Delta \varphi$'+'\n[km]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding, weight='bold')
     axILatDiff_space.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
     axILatDiff_space.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
     axILatDiff_space.margins(0)
     axILatDiff_space.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
     axILatDiff_space.set_ylim(-110, 110)
+    axILatDiff_space.axhline(y=0,color='red',linestyle='--',linewidth=ILatDiff_PlotLineWidth-5,alpha=0.4)
     axILatDiff_space.minorticks_on()
 
     # --- TEMPORAL ---
     axILatDiff_time.plot(Epoch,timeDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
     axILatDiff_time.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
-    axILatDiff_time.set_ylabel('ILat  $\Delta t$  [s]',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30, weight='bold')
+    axILatDiff_time.set_ylabel('ILat $\Delta t$ \n  [s]',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30, weight='bold')
     axILatDiff_time.set_xlabel('time (UTC)',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
     axILatDiff_time.set_ylim(-65,65)
     axILatDiff_time.margins(0)
@@ -342,11 +343,12 @@ if ILatDiffPlot:
     axILatDiff_time.set_xticklabels(tlabels)
     axILatDiff_time.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
     axILatDiff_time.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
+    axILatDiff_time.axhline(y=0, color='red', linestyle='--', linewidth=ILatDiff_PlotLineWidth - 5,alpha=0.4)
     axILatDiff_time.minorticks_on()
     # axILatDiff_time.margins(0)
 
     plt.tight_layout()
-    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\\ILatDiff.png')
+    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\ILatDiff.png')
 
 
 

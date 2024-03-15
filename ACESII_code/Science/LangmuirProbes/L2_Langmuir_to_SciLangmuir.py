@@ -37,7 +37,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -223,9 +223,9 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
         if tromsoCal:
             data_dict_fixed['ni'][0] = np.array(data_dict_fixed['ni'][0]) * tromsoScales[wRocket-4]
 
-
-
-
+        # --- ---- ERROR ANALYSIS --- ----
+        deltaNi = data_dict['ni_percent_error'][0][0]*np.array(data_dict_fixed['ni'][0])
+        data_dict_fixed = {**data_dict_fixed, **{'ni_error':[deltaNi,deepcopy(data_dict_fixed['ni'][1])]}}
         Done(start_time)
 
     if SECTION_SweptProbeniTe:

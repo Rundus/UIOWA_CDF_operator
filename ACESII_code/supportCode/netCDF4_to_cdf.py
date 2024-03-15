@@ -92,8 +92,8 @@ def newCDF4_to_cdf(rocketFolderPath, justPrintFileNames,wFile):
 
     if fixEpoch:
         # for EISCAT data, the timestamps are from Jan 1st, 1970. We convert them to tt2000 here
-        secondsSince1970 =  24*3600*pycdf.lib.epoch_to_num(pycdf.lib.datetime_to_epoch(pycdf.lib.tt2000_to_datetime(0)))
-        Epoch = np.array([  pycdf.lib.tt2000_to_datetime(int((data_dict['timestamps'][0][i] - secondsSince1970)*1E9)) for i in range(len(data_dict['timestamps'][0]))])
+        secondsSince2000 =  24*3600*pycdf.lib.epoch_to_num(pycdf.lib.datetime_to_epoch(pycdf.lib.tt2000_to_datetime(0)))
+        Epoch = np.array([  pycdf.lib.tt2000_to_datetime(int((data_dict['timestamps'][0][i] - secondsSince2000)*1E9)) for i in range(len(data_dict['timestamps'][0]))])
 
         # replace old data
         data_dict["Epoch"] = data_dict.pop("timestamps")

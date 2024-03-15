@@ -44,7 +44,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 useNanoAmps = True
 
@@ -54,7 +54,7 @@ useNanoAmps = True
 unit_conversion = 1e9 # 1 for Amps 10**9 for nano amps, etc
 SECTION_fixedProbeCal = True
 applyFixedCalCurve = True
-plotFixedCalCurve = True
+plotFixedCalCurve = False
 
 ##################################
 # --- SWEPT TO VOLTAGE TOGGLES ---
@@ -86,7 +86,7 @@ indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff nee
 #####################
 # --- DATA OUTPUT ---
 #####################
-outputData = False
+outputData = True
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -197,11 +197,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 plt.show()
 
             # Apply the calibration function curve
-            print(parameters)
             index = np.abs(data_dict['Epoch_ni'][0] - dt.datetime(2022,11,20,17,25,44,500000)).argmin()
-            print(data_dict['ni'][0][index])
-            print(len(data_dict['ni'][0]))
-            print(np.exp(calFunction_fixed(data_dict['ni'][0][index], parameters[0],parameters[1])))
 
             if applyFixedCalCurve:
                 caldCurrent = np.array([
@@ -223,6 +219,42 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                         if np.abs(caldCurrent[i]) > 2000:
                             caldCurrent[i] = rocketAttrs.epoch_fillVal
 
+            # --- --- --- --- --- --- ----
+            # --- FIXED ERROR ANALYSIS ---
+            # --- --- --- --- --- --- ----
+
+            # (1) The error in the plasma density comes from the error in the fit coefficents for the conversion between I_probe and ADC
+            # % error n_i = sqrt(a^2 * delta a^2 + delta b^2)
+
+            # (2) to get delta a, delta b we can do a reduced chi-square analysis on the fit:
+            # chi^2 = 1/nu SUM (f(x_i) - y_i)^2 / (sigmaX_i^2 + sigmaY_i^2)
+            # here:
+            # (i) f: a*ADC+ b
+            # (ii) y_i: ith value of ln(I_probe)
+            # (iii): sigmaX_i: error in ADC value
+            # (iv): SigmaY_i: error in ln(I_probe)
+            #
+            # we can work out what delta a, delta b are from optimization calculus to get:
+            # (i): delta a = Sxx/DELTA
+            # (ii): delta b = S/DELTA
+            # for S = SUM(1/sqrt(sigmaX_i^2 +sigmaY_i^2)), Sxx = SUM(x_i^2/sqrt(sigmaX_i^2 +sigmaY_i^2))
+
+            # (3) we need delta ADC and delta Ln(I_probe).
+            # (a) The best we can do is delta ADC = +/- 0.5 ADC
+            # (b) for Ln(I_probe), we assume voltage error of +/- 0.01V and known resistance error or 1% we have"
+            IprobePercentError = np.sqrt((0.01/5.05)**2 + 0.01**2) # = about 0.01
+            # (c) we convert ^^^ to delta Ln(I_probe) by delta ln(I_probe)= \delta I_probe /Iprobe BUT delta I_probe ~ 0.01 * Iprobe / Iprobe ===> 0.01
+            deltaLnProbe = IprobePercentError
+
+
+            Sxx = sum([ analog_vals[i]**2 / np.sqrt((0.5**2) + deltaLnProbe**2) for i in range(len(analog_vals))])
+            Sx = sum([analog_vals[i] / np.sqrt((0.5 ** 2) + deltaLnProbe**2) for i in range(len(analog_vals))])
+            S = sum([1 / np.sqrt((0.5 ** 2) + deltaLnProbe**2) for i in range(len(analog_vals))])
+            DELTA = S*Sxx - (Sx)**2
+            delta_a = Sxx/DELTA
+            delta_b = S/DELTA
+            delta_n = np.array([np.sqrt(  (parameters[0]*delta_a)**2 + (delta_b)**2  )])
+
             data_dict = {**data_dict, **{'fixed_current': [caldCurrent, {'LABLAXIS': 'current',
                                                             'DEPEND_0': 'fixed_Epoch',
                                                             'DEPEND_1': None,
@@ -233,6 +265,16 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                                                             'VALIDMIN': caldCurrent.min(),
                                                             'VALIDMAX': caldCurrent.max(),
                                                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}]}}
+            data_dict = {**data_dict, **{'ni_percent_error': [delta_n, {'LABLAXIS': 'ni_percent_error',
+                                                                         'DEPEND_0': None,
+                                                                         'DEPEND_1': None,
+                                                                         'DEPEND_2': None,
+                                                                         'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                                         'FORMAT': 'E12.2',
+                                                                         'UNITS': 'cm^-3',
+                                                                         'VALIDMIN': 0,
+                                                                         'VALIDMAX': 1,
+                                                                         'VAR_TYPE': 'support_data', 'SCALETYP': 'linear'}]}}
             data_dict['fixed_Epoch'] = data_dict.pop('Epoch_ni') # rename to fixed
             Done(start_time)
 
@@ -562,7 +604,7 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             outputPath = f'{outputFolderPath}\\' + f'{fliers[wRocket - 4]}\{fileoutName}'
 
             globalAttrsMod['Descriptor'] = wInstr[1]
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
+            outputCDFdata(outputPath, data_dict,instrNam='Langmuir')
 
             Done(start_time)
 
