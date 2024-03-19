@@ -24,54 +24,46 @@ start_time = time.time()
 # --- --- --- ---
 from numpy.fft import rfft, fftfreq
 from ACESII_code.class_var_func import u0
+from scipy.integrate import simpson
 
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
 # figure_width = 7.5 # in inches
-figure_width = 8.5 # in inches
+figure_width = 9.5 # in inches
 figure_height = 11 # in inches
 dpi = 300
-PlotLabelSize = 13
-PlotTitleSize = 11.5
+PlotLabelSize = 10
+PlotTitleSize = 10
 PlotLegendSize = 10
-PlotTickSize = 10
+PlotTickLabelSize = 10
 freqLimit = 15
 plotLineWidth = 1
-TitlePadding = 15
-EB_ratio_limits = [9E4,1E8]
-plotColors= ['tab:blue','tab:red', 'tab:orange','tab:green']
+TitlePadding = 10
+EB_ratio_limits = [9E4, 1E8]
+plotColors= ['tab:blue', 'tab:red', 'tab:orange', 'tab:green']
 RegionNames = ['Quiet Region', 'Temporal Align', 'ILat Align']
-kSets = [0,1] # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e or [0,1] for both
-highFlyerShennanigans = False
-E_Field_scale_Factor = 0.6
+kSets = [0, 1] # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e or [0,1] for both
+NORMALIZE = False
 
+CalcPoyntingFluxEnergies = False
 
 
 # --- TARGET REDUCTION VARIABLES ---
-targetTimes = [[dt.datetime(2022,11,20,17,24,31,500), dt.datetime(2022,11,20,17, 24, 38, 00)], # Quiet Time
-               [dt.datetime(2022,11,20,17,24,54,250000), dt.datetime(2022,11,20,17, 25, 3, 250000)], # Dispersed Time
-               [dt.datetime(2022,11,20,17,25,18,000000), dt.datetime(2022,11,20,17, 25, 27, 000000)]  # Auroral Time ( i.e. the FULL aurora)
+targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11, 20, 17, 24, 38, 00)], # Quiet Time
+               [dt.datetime(2022, 11, 20, 17, 24, 54, 250000), dt.datetime(2022, 11, 20, 17, 25, 3, 250000)], # Dispersed Time
+               [dt.datetime(2022, 11, 20, 17, 25, 18, 000000), dt.datetime(2022, 11, 20, 17, 25, 27, 000000)]  # Auroral Time ( i.e. the FULL aurora)
                ]
-# keeper
-# targetILats = [[71.25, 71.34], # Quiet Time
-#                [71.581, 71.68], # Dispersed Time
-#                [71.831, 71.922]]
+# keeper - nonNormalized
+# targetILats = [[71.255, 71.35], # Quiet Time
+#                [71.54, 71.679], # temporally Time
+#                [71.87, 71.945]] # spatially aligned
 
 # trying to make it fit
-# targetILats = [[71.25, 71.34], # Quiet Time
-#                [71.581, 71.68], # Dispersed Time
-#                [71.85, 71.922]]
+targetILats = [[71.25, 71.35], # Quiet Time
+               [71.54, 71.679], # temporally Time
+               [71.859, 71.945]] # spatially aligned
 
-targetILats = [[71.2, 71.34], # Quiet Time
-               [71.49, 71.68], # Dispersed Time
-               [71.8, 71.94]]
-
-
-# HF sshennanigans
-# targetILats = [[71.25, 71.33],  # Quiet Time
-#                    [71.4, 71.693],  # Dispersed Time
-#                    [71.9, 72.06]]
 
 targetVar = targetILats
 targetVarName = 'ILat'
@@ -83,19 +75,14 @@ targetVarName = 'ILat'
 print(color.UNDERLINE + f'Plot3_WaveAnalysis' + color.END)
 prgMsg('Loading Data')
 
-if highFlyerShennanigans:
-    inputFile_deltaB = glob('C:\Data\ACESII\L3\deltaB\high\*Field_Aligned*')[0]  # get the deltaB data
-    inputFile_deltaE = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')[0]  # get the deltaE data
-    inputFile_poynting = glob('C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligned*')[0]  # get the Poynting Flux data
-    inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\high\ACESII_36359_langmuir_fixed.cdf'
-    inputFile_Bmag = 'C:\Data\ACESII\L1\high\ACESII_36359_l1_RingCore_rktFrm.cdf'
-else:
-    inputFile_deltaB = glob('C:\Data\ACESII\L3\deltaB\low\*Field_Aligned*')[0] # get the deltaB data
-    inputFile_deltaE = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')[0] # get the deltaE data
-    inputFile_poynting = glob('C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligned*')[0] # get the Poynting Flux data
-    inputFile_ASpeed = glob('C:\Data\ACESII\science\AlfvenSpeed_rkt\low\ACESII_36364_AlfvenSpeed_flight.cdf')[0] # get the Alfven Speed data
-    inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed.cdf'
-    inputFile_Bmag = 'C:\Data\ACESII\L1\low\ACESII_36364_l1_RingCore_rktFrm.cdf'
+inputFile_deltaB = glob('C:\Data\ACESII\L3\deltaB\low\*Field_Aligned*')[0] # get the deltaB data
+inputFile_deltaE = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')[0] # get the deltaE data
+inputFile_B = 'C:\Data\ACESII\L2\low\ACESII_36364_l2_RingCore_Field_Aligned.cdf'  # get the B data
+inputFile_E = 'C:\Data\ACESII\L2\low\ACESII_36364_l2_E_Field_Field_Aligned_downsampled.cdf'  # get the E data
+inputFile_poynting = glob('C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligned*')[0] # get the Poynting Flux data
+inputFile_ASpeed = glob('C:\Data\ACESII\science\AlfvenSpeed_rkt\low\ACESII_36364_AlfvenSpeed_flight.cdf')[0] # get the Alfven Speed data
+inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed.cdf'
+inputFile_Bmag = 'C:\Data\ACESII\L1\low\ACESII_36364_l1_RingCore_rktFrm.cdf'
 # --- Break up DataDicts into targetTime sections ---
 
 # FORMAT: [[deltaB, deltaE, poynting, AlfvenSpeedRatio], ...]
@@ -103,301 +90,350 @@ dict_sets = []
 sectionTimeRange = []
 
 for i in range(len(targetVar)):
-    data_dict_deltaB = deepcopy(loadDictFromFile(inputFile_deltaB,targetVar=[targetVar[i],targetVarName]))
-    data_dict_deltaE = deepcopy(loadDictFromFile(inputFile_deltaE,targetVar=[targetVar[i],targetVarName]))
-    data_dict_poynting = deepcopy(loadDictFromFile(inputFile_poynting,targetVar=[targetVar[i],targetVarName]))
-    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetVar=[targetVar[i],targetVarName],wKeys_Load=['ni','ni_error','Epoch','ILat']))
-    data_dict_Bmag = deepcopy(loadDictFromFile(inputFile_Bmag,targetVar=[targetVar[i],targetVarName]))
-    sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0],data_dict_deltaB['Epoch'][0][-1]])
+    data_dict_E = loadDictFromFile(inputFile_E,targetVar=[targetVar[i], targetVarName])
+    data_dict_B = loadDictFromFile(inputFile_B,targetVar=[targetVar[i], targetVarName])
+    data_dict_deltaB = deepcopy(loadDictFromFile(inputFile_deltaB,targetVar=[targetVar[i], targetVarName]))
+    data_dict_deltaE = deepcopy(loadDictFromFile(inputFile_deltaE,targetVar=[targetVar[i], targetVarName]))
+    data_dict_poynting = deepcopy(loadDictFromFile(inputFile_poynting,targetVar=[targetVar[i], targetVarName]))
+    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetVar=[targetVar[i], targetVarName],wKeys_Load=['ni','Epoch','ILat']))
 
     # downsample the langmuir data
-
-
-
-    if highFlyerShennanigans:
-        data_dict_deltaE['E_r'][0] = deepcopy(E_Field_scale_Factor * data_dict_deltaB['B_e'][0])
-        data_dict_deltaE['E_e'][0] = -1*deepcopy(E_Field_scale_Factor * data_dict_deltaB['B_r'][0])
-        data_dict_deltaE['E_p'][0] = deepcopy(E_Field_scale_Factor * data_dict_deltaB['B_p'][0])
-        data_dict_deltaE['Epoch'][0] = deepcopy(data_dict_deltaB['Epoch'][0])
-        data_dict_deltaE['ILat'][0] = deepcopy(data_dict_deltaB['ILat'][0])
-
-        Evec = np.array([  [data_dict_deltaE['E_r'][0][i],data_dict_deltaE['E_e'][0][i],data_dict_deltaE['E_p'][0][i]]   for i in range(len(data_dict_deltaE['Epoch'][0]))])
-        Bvec = np.array([  [data_dict_deltaB['B_r'][0][i],data_dict_deltaB['B_e'][0][i],data_dict_deltaB['B_p'][0][i]]   for i in range(len(data_dict_deltaB['Epoch'][0]))])
-        S = (1E-9 * 1E-3)*np.array([np.cross(Evec[i],Bvec[i])/u0 for i in range(len(Evec))])
-        data_dict_poynting['S_r'][0] = S[:, 0]
-        data_dict_poynting['S_e'][0] = S[:, 1]
-        data_dict_poynting['S_p'][0] = S[:, 2]
-        data_dict_poynting['ILat'][0] = deepcopy(data_dict_deltaB['ILat'][0])
-        data_dict_poynting['Epoch'][0] = deepcopy(data_dict_deltaB['Epoch'][0])
+    indexVals = [np.abs(data_dict_langmuir['ILat'][0] - ILat).argmin() for ilt, ILat in enumerate(data_dict_B['ILat'][0])]
+    data_dict_langmuir['ni'][0] = deepcopy(data_dict_langmuir['ni'][0][indexVals])
+    data_dict_langmuir['Epoch'][0] = deepcopy(data_dict_langmuir['Epoch'][0][indexVals])
+    data_dict_langmuir['ILat'][0] = deepcopy(data_dict_langmuir['ILat'][0][indexVals])
+    sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0], data_dict_deltaB['Epoch'][0][-1]])
 
     dict_sets.append([data_dict_deltaB,
                       data_dict_deltaE,
                       data_dict_poynting,
                       data_dict_langmuir,
-                      data_dict_Bmag
+                      data_dict_B,
+                      data_dict_E
                       ])
-Done(start_time)
 
+
+    if CalcPoyntingFluxEnergies:
+        print(f'\nCalculating Poynting Flux for {RegionNames[i]}')
+        Sp = deepcopy(data_dict_poynting['S_p'][0])
+        SILats = deepcopy(data_dict_poynting['ILat'][0])
+        Sp_p = deepcopy(Sp)
+        Sp_p[Sp_p <  0] = 0
+        DownwardEnergy = simpson(Sp_p,x=SILats,dx=0.1)
+        print(f'DownwardEnergy: {DownwardEnergy}')
+        Sp_n = deepcopy(Sp)
+        Sp_n[Sp_n > 0] = 0
+        UpwardEnergy = simpson(Sp_n,x=SILats, dx=0.1)
+        print(f'UpwardEnergy Area: {UpwardEnergy}')
+
+Done(start_time)
 
 #######################################
 # --- PREPARE THE DATA FOR PLOTTING ---
 #######################################
-def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets,highFlyerShennanigans):
+def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
 
     # --- Calculate the FFT of deltaB, deltaE and their ratio ---
     # FORMAT: [[FFT_deltaBe, FFT_deltaBr,xf_deltaB, FFT_deltaEe, FFT_deltaEr,xf_DeltaE, FFT_ASpeed_ErBe, FFT_ASpeed_EeBr], ...]
     # Indicies:[          0,           1,        2,           3,           4,        5,               6,               7]
-    FFT_sets = []
+    data_dict_FFT = {
+                'B0' : [],
+                'Be_fft':[],
+                'Br_fft':[],
+                'Ee_fft':[],
+                'Er_fft': [],
+                'xf_deltaB':[],
+                'xf_deltaE': [],
+                'Be_norm_fft' : [],
+                'Br_norm_fft' : [],
+                'Ee_norm_fft' : [],
+                'Er_norm_fft' : [],
+                'ni' : [],
+                'm_i_avg' : [],
+                'VA_t' : [],
+                'xf_B':[],
+                'xf_E':[]}
 
     for i in range(len(targetVar)):
         print(i)
 
         data_dicts = dict_sets[i]
-        scale = 1 # 1.363636
+
+        # Calculate the normalized Quantities
+        B_e = 1E-9 * data_dicts[4]['B_e'][0] # in tesla
+        B_p = 1E-9 * data_dicts[4]['B_p'][0]
+        B_r = 1E-9 * data_dicts[4]['B_r'][0]
+        dB_e = data_dicts[0]['B_e'][0]  # in nanotesla
+        dB_p = data_dicts[0]['B_p'][0]
+        dB_r = data_dicts[0]['B_r'][0]
+        B0 = 1E-9 * data_dicts[4]['Bmag'][0]
+
+        E_e = data_dicts[5]['E_e'][0] # in V/m
+        E_p = data_dicts[5]['E_p'][0]
+        E_r = data_dicts[5]['E_r'][0]
+        dE_e = data_dicts[1]['E_e'][0]  # in mV/m
+        dE_p = data_dicts[1]['E_p'][0]
+        dE_r = data_dicts[1]['E_r'][0]
+
+        ni = (cm_to_m ** 3) * data_dicts[3]['ni'][0]
+        m_i_avg = 2.45E-26
+        VA_t = B0 / np.sqrt(u0 * ni * m_i_avg)
+
+        # calculate the normalization
+        Er_norm = E_r / (np.abs(VA_t) * np.abs(B0))
+        Be_norm = B_e / (np.abs(B0))
+        Ee_norm = E_e / (np.abs(VA_t) * np.abs(B0))
+        Br_norm = B_r / (np.abs(B0))
+
+        # calculate the FFTs
+
+        # B_norm
+        N, T = len(data_dicts[4]['Epoch'][0]), 1 / 128
+        xf_B = fftfreq(N, T)[:N // 2]
+        yf_Be = rfft(Be_norm)
+        FFT_Be = 2.0 / N * np.abs(yf_Be[0:N // 2])
+        yf_Br = rfft(Br_norm)
+        FFT_Br = 2.0 / N * np.abs(yf_Br[0:N // 2])
 
         # deltaB
-        wDict = 0
-        N, T = len(data_dicts[wDict]['Epoch'][0]), 1 / 128
+        N, T = len(data_dicts[0]['Epoch'][0]), 1 / 128
         xf_deltaB = fftfreq(N, T)[:N // 2]
-        yf_Be = rfft(data_dicts[wDict]['B_e'][0])
-        FFT_Be = 2.0 / N * np.abs(yf_Be[0:N // 2]) if i in [0,1] else scale*2.0 / N * np.abs(yf_Be[0:N // 2])
-        yf_Br = rfft(data_dicts[wDict]['B_r'][0])
-        FFT_Br = 2.0 / N * np.abs(yf_Br[0:N // 2]) if i in [0,1] else scale*2.0 / N * np.abs(yf_Br[0:N // 2])
+        yf_dBe = rfft(dB_e)
+        FFT_dBe = 2.0 / N * np.abs(yf_dBe[0:N // 2])
+        yf_dBr = rfft(dB_r)
+        FFT_dBr = 2.0 / N * np.abs(yf_dBr[0:N // 2])
 
-        # deltaE
-        wDict = 1
-        N, T = len(data_dicts[wDict]['Epoch'][0]), 1 / 128
-        xf_deltaE = fftfreq(N, T)[:N // 2]
-        yf_Ee = rfft(data_dicts[wDict]['E_e'][0])
+        # E_norm
+        N, T = len(data_dicts[1]['Epoch'][0]), 1 / 128
+        xf_E = fftfreq(N, T)[:N // 2]
+        yf_Ee = rfft(Ee_norm)
         FFT_Ee = 2.0 / N * np.abs(yf_Ee[0:N // 2])
-        yf_Er = rfft(data_dicts[wDict]['E_r'][0])
+        yf_Er = rfft(Er_norm)
         FFT_Er = 2.0 / N * np.abs(yf_Er[0:N // 2])
 
-        # ASpeed
-        ErBe_ratio = ((1E-3*FFT_Er)/(FFT_Be*1E-9))
-        mEeBr_ratio = ((1E-3*FFT_Ee)/(FFT_Br*1E-9))
-
-        # Average MHD Alfven Speed
-        ni_avg = (cm_to_m ** 3) * sum(data_dicts[3]['ni'][0]) / len(data_dicts[3]['ni'][0])
-        ni_error_avg =  (cm_to_m ** 3) *sum(data_dicts[3]['ni_error'][0]) / len(data_dicts[3]['ni_error'][0])
-        Bmag_avg = (1E-9) * sum(data_dicts[4]['Bmag'][0]) / len(data_dicts[4]['Bmag'][0])
-        # m_i_avg = IonMasses[1]
-        m_i_avg = 2.45E-26
-        MHD_Alfven_avg = Bmag_avg / np.sqrt(u0 * ni_avg * m_i_avg)
-
-
-        # normalization temp plotting
-        Be = data_dicts[0]['B_e'][0]
-        Br = data_dicts[0]['B_r'][0]
-        Bp = data_dicts[0]['B_p'][0]
-
-        Ee = data_dicts[1]['E_e'][0]
-        Er = data_dicts[1]['E_r'][0]
-        Ep = data_dicts[1]['E_p'][0]
-
-        ni = data_dicts[3]['ni'][0]
-        Bmag = 1E-9 * data_dicts[4]['Bmag'][0]
-
-        print(len(Be),len(Ee),len(ni),len(Bmag))
-
-        fig, ax = plt.subplots(3)
-
-
-
-
-        # --- error analysis ---
-        # deltaB_error = 0.5E-9
-        # deltaN_error = ni_error_avg
-        # print(f'ni_avg: {ni_avg}')
-        # print(f'ni_error_avg: {ni_error_avg}')
-        # print(f'ni_error/n_i: {ni_error_avg/ni_avg}')
-        # print(f'Alfv_Speed_avg: {MHD_Alfven_avg}')
-        # dVdB = (u0*ni_avg*m_i_avg)**(-0.5)
-        # dVdni= 0.5*(ni_avg**(-1.5)) * (Bmag_avg/np.sqrt(u0*m_i_avg))
-        # MHD_Alfven_error = np.sqrt((deltaB_error*dVdB)**2 + (deltaN_error*dVdni)**2)
-        # print(f'Alfv_Speed_error: {MHD_Alfven_error}')
-        # print(f'Speed_error/Speed: {MHD_Alfven_error/MHD_Alfven_avg}')
+        # deltaE
+        N, T = len(data_dicts[5]['Epoch'][0]), 1 / 128
+        xf_deltaE = fftfreq(N, T)[:N // 2]
+        yf_dEe = rfft(dE_e)
+        FFT_dEe = 2.0 / N * np.abs(yf_dEe[0:N // 2])
+        yf_dEr = rfft(dE_r)
+        FFT_dEr = 2.0 / N * np.abs(yf_dEr[0:N // 2])
 
         # store everything
-        FFT_sets.append([FFT_Be, FFT_Br, xf_deltaB, FFT_Ee, FFT_Er, xf_deltaE, ErBe_ratio, mEeBr_ratio, MHD_Alfven_avg])
+        data_dict_FFT['B0'].append(B0)
+        data_dict_FFT['Be_fft'].append(FFT_dBe)
+        data_dict_FFT['Br_fft'].append(FFT_dBr)
+        data_dict_FFT['Ee_fft'].append(FFT_dEe)
+        data_dict_FFT['Er_fft'].append(FFT_dEr)
+        data_dict_FFT['xf_deltaB'].append(xf_deltaB)
+        data_dict_FFT['xf_deltaE'].append(xf_deltaE)
+        data_dict_FFT['Be_norm_fft'].append(FFT_Be)
+        data_dict_FFT['Br_norm_fft'].append(FFT_Br)
+        data_dict_FFT['Ee_norm_fft'].append(FFT_Ee)
+        data_dict_FFT['Er_norm_fft'].append(FFT_Er)
+        data_dict_FFT['xf_B'].append(xf_B)
+        data_dict_FFT['xf_E'].append(xf_E)
+        data_dict_FFT['ni'].append(ni)
+        data_dict_FFT['m_i_avg'].append(m_i_avg)
+        data_dict_FFT['VA_t'].append(VA_t)
 
     # ---------------------
     #######################
     # --- PLOT THE DATA ---
     #######################
     # ---------------------
+    # prepare the data for plotting
+    waveSetKeys = [
+        ['B_e', 'E_r'],
+        ['B_r', 'E_e']]
+
+    waveSetLabels = [['$\delta B_{e}$', '$\delta E_{r}$'],
+                     [' $\delta B_{r}$', '-$\delta E_{e}$']]
+
+    if NORMALIZE:
+        spectraFreqs = [data_dict_FFT['xf_B'], data_dict_FFT['xf_E']]
+
+        spectraData = [
+                       [data_dict_FFT['Be_norm_fft'], data_dict_FFT['Er_norm_fft']],
+                       [data_dict_FFT['Br_norm_fft'], data_dict_FFT['Ee_norm_fft']]
+                       ]
+        spectraLabels = [['$B_{e}(t)/|B_{0}(t)|$', '$E_{r}(t)/|B_{0}(t)||V_{A}(t)|$'],
+                         ['$B_{r}(t)/|B_{0}(t)|$', '$E_{e}(t)/|B_{0}(t)||V_{A}(t)|$']]
+
+        alfvenData = [ [ np.array(spectraData[0][1][i])/np.array(spectraData[0][0][i])  for i in range(len(targetVar))],
+                       [ np.array(spectraData[1][1][i])/np.array(spectraData[1][0][i]) for i in range(len(targetVar))],
+                       ]
+
+    else:
+        spectraFreqs = [data_dict_FFT['xf_deltaB'], data_dict_FFT['xf_deltaE']]
+        spectraData = [  [data_dict_FFT['Be_fft'], data_dict_FFT['Er_fft']],
+                         [data_dict_FFT['Br_fft'], data_dict_FFT['Ee_fft']]
+                         ]
+        spectraLabels = [['$\delta B_{e}$ [nT]', '$\delta E_{r}$ [mV/m]'],
+                         [' $\delta B_{r}$ [nT]', '-$\delta E_{e}$ [mV/m]']]
+        alfvenData = [[(1E6)*np.array(spectraData[0][1][i]) / np.array(spectraData[0][0][i]) for i in range(len(targetVar))],
+                      [(1E6)*np.array(spectraData[1][1][i]) / np.array(spectraData[1][0][i]) for i in range(len(targetVar))],
+                      ]
+
+
+
+    #############################
+    ### DO THE PLOTTING LOOPS ###
+    #############################
 
     for wKeySet in kSets:
 
         prgMsg('Plotting Data')
-
-        # for each of the three regions, plot the following:
-        # (1) deltaBe, deltaEr (Different yaxis)
-        # (2) Poynting FLux
-        # (3) FFT E, FFT B
-        # (4) ASpeed Ratio
-
-
         fig, ax = plt.subplots(nrows=4, ncols=len(targetVar))
-        # plt.subplots_adjust(hspace=0.35, wspace=0.32)
-        # fig.suptitle('Low Flyer E and B Data',fontsize=30)
-        fig.set_size_inches(figure_width,figure_height)
+        fig.set_size_inches(figure_width, figure_height)
 
-        keySet = [
-            [['B_e','E_r'],['$\delta B_{e}$','$\delta E_{r}$']],
-            [['B_r','E_e'],[' $\delta B_{r}$','-$\delta E_{e}$']],
-        ]
+        wWaveSetKeys = waveSetKeys[wKeySet]
+        wSpectraLabel = spectraLabels[wKeySet]
+        wSpectraData = spectraData[wKeySet]
+        wAlfvenData = alfvenData[wKeySet]
+        wWaveSetLabels = waveSetLabels[wKeySet]
 
+
+        ######## LOOP THROUGH ALL INVARIANT LATTITUDE REGIONS ########
         for i in range(len(targetVar)):
 
             data_dicts = dict_sets[i] # raw data
-            FFT_data = FFT_sets[i]
 
             # Set the title
-            ax[0][i].set_title(RegionNames[i] + f'\n {sectionTimeRange[i][0].strftime("%H:%M:%S")} to {sectionTimeRange[i][1].strftime("%H:%M:%S")} (UTC)',
+            ax[0][i].set_title(RegionNames[i] + f'\n {sectionTimeRange[i][0].strftime("%H:%M:%S")} to {sectionTimeRange[i][1].strftime("%H:%M:%S")} UTC',
                                weight='bold',
                                fontsize=PlotTitleSize,
                                pad=TitlePadding)
 
             ####################
             # --- Everything ---
-            ######################
+            #####################
 
             # set the grid
             for j in range(4):
-                ax[j][i].grid(which='both', alpha=0.25)
+                ax[j][i].grid(which='both', alpha=0.5)
 
             #################################
             # --- delta Be, delta Er plot ---
             #################################
-            zorder = [[0,1],[0,1],[0,1]]
 
             # delta Be
             ax[0][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize)
-            ax[0][i].set_ylim(-13, 13)
+            ax[0][i].set_ylim(-8,8)
             ax[0][i].set_xmargin(0)
-            ax[0][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
-            ax[0][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
-            if i == 0:
-                ax[0][i].set_ylabel(f'{keySet[wKeySet][0][0]} and {keySet[wKeySet][0][1]}' + "\n 0.4 to 20 Hz",fontsize=PlotLabelSize)
-            ln1 = ax[0][i].plot(data_dicts[0]['ILat'][0], data_dicts[0][keySet[wKeySet][0][0]][0], color=plotColors[0], linewidth=plotLineWidth, label=f'{keySet[wKeySet][1][0]} [nT]', zorder=zorder[i][0])
+            ax[0][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            ax[0][i].tick_params(axis='y', which='minor', labelsize=PlotTickLabelSize,length=0,grid_alpha=0)
+            ax[0][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
+            ax[0][i].plot(data_dicts[0]['ILat'][0], data_dicts[0][wWaveSetKeys[0]][0], color=plotColors[0], linewidth=plotLineWidth, label=f'{wWaveSetLabels[0]} [nT]')
 
             # delta Er
-            plotThisEData = data_dicts[1][keySet[wKeySet][0][1]][0] if keySet[wKeySet][0][1] == 'E_r' else -1 * np.array( data_dicts[1][keySet[wKeySet][0][1]][0])
-            ax[0][i].plot(data_dicts[1]['ILat'][0], plotThisEData, color=plotColors[1], linewidth=plotLineWidth,label=f"{keySet[wKeySet][1][1]} [mV/m]", zorder=zorder[i][1])
+            mod = -1 if wKeySet == 1 else 1
+            ax[0][i].plot(data_dicts[1]['ILat'][0], mod*data_dicts[1][wWaveSetKeys[1]][0], color=plotColors[1], linewidth=plotLineWidth,label=f"{wWaveSetLabels[1]} [mV/m]")
             ax[0][i].set_xmargin(0)
-
-            #set the legend
-            if i == 0:
-                ax[0][i].legend(loc='upper right', prop={'size':PlotLegendSize})
+            ax[0][i].minorticks_on()
 
             # fix the xticks
             newTicks = data_dicts[1]['ILat'][0][::int(len(data_dicts[1]['ILat'][0])/2)]
             newTicks = [round(tick,2) for tick in newTicks]
+            newTicks.append(round(data_dicts[1]['ILat'][0][-1],2))
             newTickStr = [str(tick) for tick in newTicks]
-            ax[0][i].set_xticks(newTicks,newTickStr)
-
-
+            ax[0][i].set_xticks(newTicks, newTickStr)
 
             ############################
             # --- Poynting Flux plot ---
             ############################
             ax[1][i].plot(data_dicts[2]['ILat'][0], 1000*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [mW/$m^{2}$]',linewidth=plotLineWidth)
-            if i == 0:
-                ax[1][i].set_ylabel('Field-Aligned Poynting Flux',fontsize=PlotLabelSize)
             ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize)
-
-            ax[1][i].set_ylim(-2E-2, 3E-2)
-
+            ax[1][i].set_ylim(-2.2E-2, 2.8E-2)
             ax[1][i].set_xmargin(0)
-            if i == 0:
-                ax[1][i].legend(loc='upper right',prop={'size': PlotLegendSize})
             ax[1][i].invert_yaxis()
-            ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
-            ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
-            newTicks = data_dicts[2]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
+            ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
+            newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
             newTicks = [round(tick, 2) for tick in newTicks]
+            newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
             newTickStr = [str(tick) for tick in newTicks]
             ax[1][i].set_xticks(newTicks, newTickStr)
+            ax[1][i].minorticks_on()
 
             ######################
             # --- FFT E, FFT B ---
             ######################
-            plotThisFFT_B_data = FFT_data[0] if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1]=='E_r' else FFT_data[1]
-            plotThisFFT_E_data = FFT_data[3] if keySet[wKeySet][0][0] == 'B_r' and keySet[wKeySet][0][1]=='E_e' else FFT_data[4]
-            ln1 = ax[2][i].plot(FFT_data[2],plotThisFFT_B_data , color=plotColors[0], label=f'{keySet[wKeySet][1][0]} [nT]',linewidth=plotLineWidth)
-            if i == 0:
-                ax[2][i].set_ylabel('Amplitude Spectra',fontsize=PlotLabelSize)
+
+            ln1 = ax[2][i].plot(spectraFreqs[0][i],wSpectraData[0][i], color=plotColors[0], label=f'{wSpectraLabel[0]}',linewidth=plotLineWidth)
             ax[2][i].set_xlabel('Frequency [Hz]',fontsize=PlotLabelSize)
             ax[2][i].set_xlim(0, freqLimit)
             ax[2][i].set_yscale('log')
-            if not highFlyerShennanigans:
-                ax[2][i].set_ylim(1E-3, 1E1)
-            ax[2][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
-            ax[2][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
-            ax[2][i].minorticks_on()
+            ax[2][i].set_ylim(1E-3,1E1)
+            if NORMALIZE:
+                ax[2][i].set_ylim(1E-7, 1E-2)
+                freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
+                ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}'
+                                                                                               '$')
+            else:
+                freqS = [val ** (-1.67) for val in spectraFreqs[0][i] if val != 0]
+                ax[2][i].plot(spectraFreqs[0][i][:-1], freqS, color='black', linestyle='--')
+                for k in range(3):
+                    ax[2][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
+
+            ax[2][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            ax[2][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
 
             axFFT_E = ax[2][i].twinx()
-            ln2 = ax[2][i].plot(FFT_data[2], plotThisFFT_E_data, color=plotColors[1],label=f"{keySet[wKeySet][1][1]} [mV/m]", linewidth=plotLineWidth)
+            ln2 = ax[2][i].plot(spectraFreqs[1][i], wSpectraData[1][i], color=plotColors[1], label=f'{wSpectraLabel[1]}',linewidth=plotLineWidth)
             axFFT_E.set_yscale('log')
-            if not highFlyerShennanigans:
-                axFFT_E.set_ylim(1E-3, 1E1)
+            axFFT_E.set_ylim(1E-3, 1E1)
             axFFT_E.set_yticks([])
-
-            # set the legend
-            lns = ln1 + ln2
-            labs = [l.get_label() for l in lns]
-            if i == 0:
-                axFFT_E.legend(lns, labs, loc='upper right',prop={'size': PlotLegendSize})
 
             ######################
             # --- ASpeed Ratio ---
             ######################
+            # ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=0.5, linestyle='-', marker='o', markersize=1)
+            ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=1.2, linestyle='-')
 
-            if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1] == 'E_r':
-                FFT_data_plot_this = FFT_data[6]
-            elif keySet[wKeySet][0][0] == 'B_r' and keySet[wKeySet][0][1] == 'E_e':
-                FFT_data_plot_this = FFT_data[7]
 
-            ax[3][i].plot(FFT_data[2], FFT_data_plot_this,color='black',label=f'{keySet[wKeySet][1][1]}/{keySet[wKeySet][1][0]}',linewidth=0.5,linestyle='-',marker='o',markersize=1)
+            if NORMALIZE:
+                ax[3][i].axhline(1, linestyle='--', color='red', label='V$_{A}$ (Avg)')
+                ax[3][i].set_ylim(0, 3)
+            else:
+                ax[3][i].axhline(sum(wAlfvenData[i])/len(wAlfvenData[i]),linestyle='--', color='red', label='V$_{A}$ (Avg) [m/s]')
+                ax[3][i].set_ylim(EB_ratio_limits[0], EB_ratio_limits[1])
+                ax[3][i].set_yscale('log')
 
-            if i == 0:
-                ax[3][i].set_ylabel('E/B Ratio [m/s]',fontsize=PlotLabelSize)
+                for k in range(3):
+                    ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
-            # plot the Alfven Speed Calculated from Langmuir Data
-            for k in range(3):
-                ax[3][i].axvline(0.55*(k+1),linestyle='--', color='green')
 
-            ax[3][i].axhline(FFT_data[8],linestyle='--', color='red', label='V$_{A}$ (MHD)')
             ax[3][i].minorticks_on()
             ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
             ax[3][i].set_xlim(0, freqLimit)
-            if not highFlyerShennanigans:
-                ax[3][i].set_ylim(EB_ratio_limits[0], EB_ratio_limits[1])
-            ax[3][i].set_yscale('log')
-            ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickSize)
-            ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickSize-2)
+            ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
+
+
+            # set the legend(s)
+            lns = ln1 + ln2
+            labs = [l.get_label() for l in lns]
             if i == 0:
-                ax[3][i].legend(loc='upper right',prop={'size': PlotLegendSize})
+                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.4 to 20 Hz", fontsize=PlotLabelSize)
+                ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+                ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize)
+                ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+                ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize)
+                axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
+                ax[3][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+
+                if NORMALIZE:
+                    ax[3][i].set_ylabel('$E_{\perp}(t)/B_{\perp}(t)$', fontsize=PlotLabelSize)
+                else:
+                    ax[3][i].set_ylabel(f'{wWaveSetLabels[1]}/{wWaveSetLabels[0]}', fontsize=PlotLabelSize)
 
 
-            # # Plot reflection function
-            # freq = np.linspace(min(FFT_data[2]),max(FFT_data[2]),100)
-            # print(FFT_data[8])
-            # def IAR(SimgaP,freq, Alt):
-            #     VA = FFT_data[8]
-            #     SigmaA = 1 /(u0*VA)
-            #     R = (SigmaA - SimgaP)/(SigmaA + SimgaP)
-            #     return VA * (1 - R*np.cos(-2*freq*Alt/VA)) / (1+R*np.cos(-2*freq*Alt/VA))
-            #
-            # IAR_Ratio = [IAR(10,val,380E3) for val in freq]
-            # ax[3][i].plot(freq,IAR_Ratio, color='orange')
-
-
+        ### OUTPUT THE DATA ###
         plt.tight_layout()
-        fileOutName = "Plot3_WaveAnalysis_BeEr.png" if keySet[wKeySet][0][0] == 'B_e' and keySet[wKeySet][0][1]=='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
-        outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\HF_shennanigans\{fileOutName}' if highFlyerShennanigans else rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
-        plt.savefig(outputPath,dpi=dpi)
+        fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
+        outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
+        plt.savefig(outputPath, dpi=dpi)
         Done(start_time)
 
 
@@ -405,4 +441,4 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets,highFlyerShennanigans):
 #################
 # --- EXECUTE ---
 #################
-Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets,highFlyerShennanigans)
+Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets)

@@ -32,56 +32,40 @@ printElecFiles = True
 wRocket = 5
 
 modifier = ''
-inputPath_modifier_elec = 'science/deltaB'
-wMagFile = 1
-inputPath_modifier_mag = 'science/deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wEFIFile = 1
+inputPath_modifier_elec = 'L3\deltaE'
+wMagFile = 0
+inputPath_modifier_mag = 'L3\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+wEFIFile = 0
 outputPath_modifier = 'science/PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
-
 
 # --- --- --- Which Data --- -- ---
 useDelta_E_B = True # use the deltaB, deltaE data
-# --- --- --- reduce data --- --- ---
-from ACESII_code.Processing.Filtering.SSAgrouping_and_target_times_B import timeWindow
-reduceData = True
-targetTimes = timeWindow(wTargetTimes=0, wRocket=wRocket)
-
+targetVar = [[dt.datetime(2022,11,20,17,20,00,00),dt.datetime(2022,11,20,17,28,00,00)],'Epoch']
 # --- --- --- PLOT --- --- ---
-plotSPoynting = False
-
+plotSPoynting = True
 # --- --- --- OUTPUT --- --- ---
-outputData = True
+outputData = False
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
 
-from ACESII_code.class_var_func import u0, IonMasses, InterpolateDataDict,dateTimetoTT2000
+from ACESII_code.class_var_func import u0, IonMasses, InterpolateDataDict, dateTimetoTT2000
 
 def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
     rocketID = rocketAttrs.rocketID[wflyer]
-    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
-    globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-    outputModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*.cdf*')
-    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore*')
+    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*Field_Aligned*')
+    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*Field_Aligned*')
 
     # determine which coordinates system its in based on magnetic field data
-    FileName = inputFiles_mag[wMagFile].replace('.cdf','')
-
-    if 'ENU' in FileName:
-        wCoordinate = 'ENU'
-        perpCoordinates = [0,1]
-        parCoordinates = [2]
-    elif 'Field_Aligned' in FileName:
-        wCoordinate = 'Field_Aligned'
-        perpCoordinates = [0, 2]
-        parCoordinates = [1]
-
+    FileName = inputFiles_mag[wMagFile].replace('.cdf', '')
+    wCoordinate = 'Field_Aligned'
+    perpCoordinates = [0, 2]
+    parCoordinates = [1]
 
     fileoutName = f'ACESII_{rocketID}_PoyntingFlux_deltaS_{wCoordinate}.cdf' if useDelta_E_B else f'ACESII_{rocketID}_PoyntingFlux_flight_{wCoordinate}.cdf'
 
@@ -98,19 +82,21 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             for i, file in enumerate(inputFiles_elec):
                 print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, inputFiles_elec[i], round(getsize(file) / (10 ** 6), 1)))
             print('\n')
+
+        return
     else:
         print('\n')
         print(color.UNDERLINE + f'Calculating Poynting flux for ACESII {rocketID}' + color.END)
 
         # --- get the data from the mag file ---
         prgMsg(f'Loading data from mag Files')
-        data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile], {},reduceData,targetTimes=targetTimes)
+        data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile],targetVar=targetVar)
 
         # component names for the magnetic field
-        compNames_mag = [ key for key, val in data_dict_mag.items() if key.lower() not in ['epoch','db_mag','alt', 'lat', 'long', 'alt_geom', 'lat_geom', 'long_geom']]
+        compNames_mag = [key for key, val in data_dict_mag.items() if key.lower() not in ['epoch','db_mag','alt', 'lat', 'long', 'alt_geom', 'lat_geom', 'long_geom']]
 
         # component names for the poynting flux
-        compNamesS = [name.replace('B','S') for name in compNames_mag]
+        compNamesS = [name.replace('B', 'S') for name in compNames_mag]
 
         # create vector variable and convert to tesla
         Done(start_time)
@@ -197,7 +183,7 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             # --- get the data from the electric file ---
             prgMsg(f'Loading data from Electric Field Files')
-            data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile], {},reduceData,targetTimes=targetTimes)
+            data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile],targetVar=targetVar)
             data_dict_elec['Epoch'][0] = np.array([int(pycdf.lib.datetime_to_tt2000(tme)+ (0.1157*1E9)) for tme in data_dict_elec['Epoch'][0]])
             compNames_elec = [key for key, val in data_dict_elec.items() if key.lower() not in ['epoch', 'de_mag']]
 
@@ -228,7 +214,7 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
             Done(start_time)
             if plotSPoynting:
-                Epoch = data_dict_elec['Epoch'][0]
+                Epoch = data_dict_mag['Epoch'][0]
                 fig, ax = plt.subplots(3)
                 fig.suptitle('B_filtered')
                 ax[0].plot(Epoch, S[:, 0])
@@ -237,8 +223,9 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
                 ax[1].set_ylabel(compNamesS[1])
                 ax[2].plot(Epoch, S[:, 2])
                 ax[2].set_ylabel(compNamesS[2])
+                for i in range(3):
+                    ax[i].set_ylim(-3E-5,3E-5)
                 plt.show()
-
 
 
         # --- prepare data for output ---
@@ -258,30 +245,28 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             data_dict_output = {}
 
             for i in range(len(newComps)):
-                data = data_for_output[:,i]
+                data = data_for_output[:, i]
                 varAttrs = {'LABLAXIS': newComps[i], 'DEPEND_0': 'Epoch', 'DEPEND_1': None, 'DEPEND_2': None,
                             'FILLVAL': rocketAttrs.epoch_fillVal, 'FORMAT': 'E12.2', 'UNITS': 'W/m!A2!N',
                             'VALIDMIN': data.min(), 'VALIDMAX': data.max(),
                             'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
-                data_dict_output = {**data_dict_output, **{newComps[i]:[data,varAttrs]}}
+                data_dict_output = {**data_dict_output, **{newComps[i]:[data, varAttrs]}}
 
             Epoch_output = deepcopy(data_dict_mag['Epoch'])
-
 
             Epoch_output[1]['VAR_TYPE'] = 'support_data'
 
             data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
 
-
             # add in the attitude data
-            keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom']
+            keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom','ILat','ILong']
             for key in keys:
                 data_dict_output = {**data_dict_output, **{key:data_dict_mag[key]}}
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
-            outputCDFdata(outputPath, data_dict_output, outputModelData, globalAttrsMod, 'Attitude')
+            outputCDFdata(outputPath, data_dict_output,instrNam='PoyntingFlux')
 
             Done(start_time)
 

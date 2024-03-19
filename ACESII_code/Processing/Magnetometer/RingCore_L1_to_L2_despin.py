@@ -30,7 +30,7 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 # select which files to convert
 # [] --> all files
@@ -110,12 +110,12 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
         # --- get the data from the Magnetometer file ---
         prgMsg(f'Loading data from {inputPath_modifier} RingCore Files')
-        data_dict_mag = loadDictFromFile(inputFiles[wFile],{},reduceData=True,targetTimes=reduceTimes[wRocket-4])
+        data_dict_mag = loadDictFromFile(inputFiles[wFile],targetVar=[reduceTimes[wRocket-4],'Epoch'])
         Done(start_time)
 
         # --- get the data from the attitude file ---
         prgMsg(f'Loading data from {inputPath_modifier_attitude} Files')
-        data_dict_attitude = loadDictFromFile(inputFiles_attitude[0], {},reduceData=True,targetTimes=reduceTimes[wRocket-4])
+        data_dict_attitude = loadDictFromFile(inputFiles_attitude[0],targetVar=[reduceTimes[wRocket-4],'Epoch'])
         data_dict_attitude['Alt'][0] = data_dict_attitude['Alt'][0]/1000
         Done(start_time)
 
@@ -141,7 +141,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         #################################################
         prgMsg('Calculating CHAOS model on Attitude Epoch')
         B_CHAOS_ENU_attitude = CHAOS(
-                        lat=data_dict_attitude['Latgd'][0],
+                        lat=data_dict_attitude['Lat'][0],
                         long=data_dict_attitude['Long'][0],
                         alt=data_dict_attitude['Alt'][0],
                         times=data_dict_attitude['Epoch'][0])
@@ -406,8 +406,8 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         # --- Add DeltaB to Modified CHAOS data ---
         ###########################################
 
-        # data_for_output = B_CHAOS_ENU_magTime + DeltaB_ENU
-        data_for_output = DeltaB_ENU
+        data_for_output = B_CHAOS_ENU_magTime + DeltaB_ENU
+        # data_for_output = DeltaB_ENU
 
         if outputData:
 
@@ -415,9 +415,9 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
             # create the output data_dict
             data_dict = deepcopy(data_dict_mag)
-            comps = ['Bx', 'By', 'Bz', 'Bmag']
-            newComps = ['B_East', 'B_North', 'B_Up', 'B_Mag']
-            data_for_output_despin = np.array([[data_for_output[i][0], data_for_output[i][1], data_for_output[i][2], np.linalg.norm(data_for_output[i])] for i in range(len(data_for_output))])
+            comps = ['Bx', 'By', 'Bz']
+            newComps = ['B_East', 'B_North', 'B_Up', 'Bmag']
+            data_for_output_despin = np.array([[data_for_output[i][0], data_for_output[i][1], data_for_output[i][2]] for i in range(len(data_for_output))])
 
             # --- Magnetic Components ---
             # get the attributes of the old components and replace them
@@ -433,7 +433,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier_despin}\{fliers[wflyer]}\\{fileoutName_despin}.cdf'
 
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, 'RingCore')
+            outputCDFdata(outputPath, data_dict, instrNam='RingCore')
 
             Done(start_time)
 
