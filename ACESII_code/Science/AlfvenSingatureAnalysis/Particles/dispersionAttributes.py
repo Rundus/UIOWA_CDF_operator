@@ -157,12 +157,11 @@ class dispersionAttributes(object):
         [dt.datetime(2022, 11, 20, 17, 25, 6, 858000), dt.datetime(2022, 11, 20, 17, 25, 7, 362000)], # s10 Very Strong Wave-like feature on north end of Inverted V
         [dt.datetime(2022, 11, 20, 17, 25, 7, 714000), dt.datetime(2022, 11, 20, 17, 25, 8, 310000)], # s11 Smaller feature, similar to s1
         [dt.datetime(2022, 11, 20, 17, 24, 18, 37000), dt.datetime(2022, 11, 20, 17, 24, 18, 666000)], # s12 first STEB observed. Dispersion underneath inverted V
-        [dt.datetime(2022, 11, 20, 17, 24, 21, 152000), dt.datetime(2022, 11, 20, 17, 24, 21, 000)], # s13 STEB northward of first aurora observed. Faint
+        [dt.datetime(2022, 11, 20, 17, 24, 21, 152000), dt.datetime(2022, 11, 20, 17, 24, 22, 000)], # s13 STEB northward of first aurora observed. Faint
         [dt.datetime(2022, 11, 20, 17, 24, 31, 164000), dt.datetime(2022, 11, 20, 17, 24, 32, 00000)], # s14 edge-type STEB on 2nd auroral form observed
         [dt.datetime(2022, 11, 20, 17, 24, 32, 616000), dt.datetime(2022, 11, 20, 17, 24, 33, 356000)], # s15 Undearath aurora
         [dt.datetime(2022, 11, 20, 17, 24, 45, 558000), dt.datetime(2022, 11, 20, 17, 24, 45, 800000)], # s16 near the south edge of inverted V, almost undernearth it.
         [dt.datetime(2022, 11, 20, 17, 25, 23, 758000), dt.datetime(2022, 11, 20, 17, 25, 24, 166000)], # s17 Strong edge-type STEB near big aurora
-
         [dt.datetime(2022, 11, 20, 17, 26, 10, 262000), dt.datetime(2022, 11, 20, 17, 26, 10, 860000)], # s18 small STEB above aurora
     ]
     )

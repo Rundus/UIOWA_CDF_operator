@@ -14,7 +14,7 @@ simulationAlt = GenToggles.simAlt
 ##################
 # --- PLOTTING ---
 ##################
-plotting = False
+plotting = True
 useTanakaDensity = False
 xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
@@ -24,13 +24,13 @@ plottingDict = {'Temperature':False,
                 'ionMass': False,
                 'Beta': False,
                 'plasmaFreq': False,
-                'skinDepth': False,
-                'ionCyclotron': True,
+                'skinDepth': True,
+                'ionCyclotron': False,
                 'ionLarmorRadius':False,
                 'alfSpdMHD': False,
                 'kineticTerms': True,
                 'lambdaPara': False,
-                'alfSpdInertial': False}
+                'alfSpdInertial': True}
 
 # --- Output Data ---
 outputData = False if not runFullSimulation else False
@@ -98,7 +98,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
     def lambdaPerpProfile(altRange, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
-        Bgeo,Bgrad = data_dict_Bgeo['Bgeo'][0],data_dict_Bgeo['Bgrad'][0]
+        Bgeo,Bgrad = data_dict_Bgeo['Bgeo'][0], data_dict_Bgeo['Bgrad'][0]
         initindex = abs(altRange - GenToggles.obsHeight).argmin() # the index of the startpoint of the Wave
         initBgeo = Bgeo[initindex] # <--- This determines where the scaling begins
         LambdaPerp = EToggles.lambdaPerp0*sqrt(initBgeo/Bgeo) if not EToggles.static_Kperp else array([EToggles.lambdaPerp0 for i in range(len(altRange))])
@@ -216,7 +216,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             plt.tight_layout()
             plt.show()
 
-        return n_Op/5, n_Hp, m_eff_i
+        return n_Op, n_Hp, m_eff_i
 
     # --- PLASMA BETA ---
     def plasmaBetaProfile(altRange, **kwargs):
@@ -258,7 +258,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         plotBool = kwargs.get('showPlot', False)
 
         plasmaDensity = plasmaDensityProfile(altRange)
-        plasmaFreq = array([ sqrt( plasmaDensity[i]* (q0*q0) / (ep0*m_e)) for i in range(len(plasmaDensity))])
+        plasmaFreq = array([sqrt(plasmaDensity[i]* (q0*q0) / (ep0*m_e)) for i in range(len(plasmaDensity))])
 
         if plotBool:
             import matplotlib.pyplot as plt
@@ -450,7 +450,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             # inerital term
             ax[0, 1].plot(altRange / xNorm, inertialTerm)
             ax[0, 1].set_title('Inertial Effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
-            ax[0, 1].set_ylabel('Length [m]')
+            ax[0, 1].set_ylabel('Length')
             ax[0, 1].set_xlabel(f'Altitude [{xLabel}]')
             ax[0, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[0, 1].set_ylim(0, 7)
@@ -460,7 +460,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             # larmor radius term
             ax[1, 0].plot(altRange / xNorm, LarmorTerm)
             ax[1, 0].set_title('Larmor radius effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
-            ax[1, 0].set_ylabel('Ion Larmor radius [m]')
+            ax[1, 0].set_ylabel('Ion Larmor radius')
             ax[1, 0].set_xlabel(f'Altitude [{xLabel}]')
             ax[1, 0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[1, 0].set_ylim(0, 4)
@@ -470,7 +470,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             # finite frequency term
             ax[1, 1].plot(altRange / xNorm, finiteFreqTerm)
             ax[1, 1].set_title('Finite Freq. effect\n' + '$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
-            ax[1, 1].set_ylabel('Ion Larmor Frequency [m]')
+            ax[1, 1].set_ylabel('Ion Larmor Frequency')
             ax[1, 1].set_xlabel(f'Altitude [{xLabel}]')
             ax[1, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[1, 1].set_ylim(0, 2)
@@ -519,7 +519,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         # collect profiles
         inertialTerm, finiteFreqTerm, LarmorTerm = kineticTermsProfiles(altRange)
         alfSpdMHD = MHD_alfvenSpeedProfile(altRange)
-        kineticAlfSpeed = alfSpdMHD * sqrt(finiteFreqTerm) *sqrt(LarmorTerm)/(inertialTerm)
+        kineticAlfSpeed = alfSpdMHD * sqrt(finiteFreqTerm) *sqrt(LarmorTerm)/sqrt(inertialTerm)
 
         if plotBool:
             import matplotlib.pyplot as plt

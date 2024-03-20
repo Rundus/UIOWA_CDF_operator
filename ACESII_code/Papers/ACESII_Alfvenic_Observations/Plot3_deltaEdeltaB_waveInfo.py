@@ -365,6 +365,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ax[2][i].set_xlim(0, freqLimit)
             ax[2][i].set_yscale('log')
             ax[2][i].set_ylim(1E-3,1E1)
+            # ax[2][i].set_xscale('log')
             if NORMALIZE:
                 ax[2][i].set_ylim(1E-7, 1E-2)
                 freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
@@ -384,6 +385,9 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             axFFT_E.set_yscale('log')
             axFFT_E.set_ylim(1E-3, 1E1)
             axFFT_E.set_yticks([])
+
+
+
 
             ######################
             # --- ASpeed Ratio ---

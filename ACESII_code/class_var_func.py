@@ -108,6 +108,7 @@ m_e = 9.11 * 10**(-31)
 q0 = 1.602176565 * 10**(-19)
 kB = 1.380649 * 10**(-23)
 cm_to_m = 100
+erg_to_eV = 6.2415E11 # how many eVs are in 1 erg
 IonMasses = [1.67E-27, 2.6567E-26, 1.6738E-27, 6.646477E-27, 5.3134E-26, 4.9826E-26, 2.3259E-26] # proton
 ionNames =  ['proton',       'O+',       'H+',        'He+',      'O2+',      'NO+',       'N+']
 ep0 = 8.8541878128E-12 # permittivity of free space

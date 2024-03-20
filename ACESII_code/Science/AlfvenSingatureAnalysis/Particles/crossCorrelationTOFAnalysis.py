@@ -1,4 +1,4 @@
-# --- AnalyzeDispersions.py ---
+# --- crossCorrelationTOFAnalysis.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Isolate Alfvenic Dispersions and perform cross-correlation analysis
 # to determine values that are fitted linearly to get the height of the source region
@@ -9,15 +9,10 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-import ACESII_code.class_var_func
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
 justPrintFileNames = False
-
 wRocket = 4
 modifier = ''
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -28,15 +23,15 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- TOGGLES ---
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
-wDispersions = [10] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [12] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
-justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
+justPlotKeyDispersions = True #IF ==TRUE no cross-correlation will occur
 # ---------------------------
 applyMaskVal = True
 maskVal = 2 # apply a single mask to the dispersion feature
 # ---------------------------
-isolateAlfvenSignature = False # removes unwanted data from the alfven signature
+isolateAlfvenSignature = True # removes unwanted data from the alfven signature
 # ---------------------------
 plotCorrelationProcess = False
 DetectorTimeResolution = 0.05 # in seconds
@@ -47,7 +42,9 @@ showErrorBars = False
 weightLinearFitByCounts = True
 outputCorrelationPlot = True
 # ---------------------------
-plotZsourceVsTime = True
+outputData = False
+
+
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -59,13 +56,6 @@ from ACESII_code.class_var_func import Re
 
 def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames,wDis):
 
-    # --- ACES II Flight/Integration Data ---
-    rocketAttrs, b, c = ACES_mission_dicts()
-    rocketID = rocketAttrs.rocketID[wRocket-4]
-    globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
-    globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-    outputModelData = L1_ACES_Quick(wRocket-4)
-
     inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wRocket-4]}{modifier}\*eepaa_fullcal*')
     input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wRocket-4]}{modifier}\\', '') for ifile in inputFiles]
     input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
@@ -76,15 +66,11 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         return
 
     # --- get the data from the ESA file ---
-    prgMsg(f'Loading data from {inputPath_modifier} Files')
     data_dict = loadDictFromFile(inputFiles[0])
-    Done(start_time)
 
     # --- --- --- --- --- --- ----
     # --- Isolate a Dispersion ---
     # --- --- --- --- --- --- ----
-    prgMsg('Isolating Dispersion')
-
     wDispersion_key = f's{wDis}'
     Energy = data_dict['Energy'][0]
     Pitch = data_dict['Pitch_Angle'][0]
@@ -112,7 +98,6 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
     # gets one slice in pitch of the data and flips
     # data from dimensions 0 == Time to --> dimension 0 == Energy so that the first index gets energy for all time
     eepaa_dis_onePitch = np.array(eepaa_dis[:,wPitch,:]).T
-    Done(start_time)
 
     #################################################
     # --- PLOT THE DISPERSION IN ORDER TO ISOLATE ---
@@ -139,21 +124,16 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ############################################
         # --- PERFORM CROSS CORRELATION ANALYSIS ---
         ############################################
-
-        prgMsg('Performing Cross-correlation Analysis')
-
         # determine the energy pairs to be used in the correlation analysis via combination statistics
         engyIndexLow, engyIndexHigh = np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][0]).argmin(),np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][1]).argmin()
         engysToAnalyze = Energy[engyIndexHigh:engyIndexLow+1]
         engysIndicesToAnalyze = np.arange(engyIndexHigh,engyIndexLow+1,1)
         energyPairs = [comb for comb in combinations(engysIndicesToAnalyze,2)]
 
-
         # for each pair of Energies, perform the cross-correlation analysis:
         # Note: the peak value in the lag-time determines the deltaT value between the velocities
         deltaTs = []
         deltaVs = []
-
         errorT = []
         errorV = []
         errorZ = []
@@ -237,12 +217,9 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         # convert error in velocity to kilometers
         errorV = np.array(errorV)*1000
 
-        Done(start_time)
-
         ##########################################
         # --- FIT THE DATA TO DERIVE TOF Z_ACC ---
         ##########################################
-        prgMsg('Fitting Linear Data')
 
         # Fitted Model
         def fitFunc(x, a, b):
@@ -252,13 +229,11 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         x_s = np.linspace(deltaVs.min(), deltaVs.max(), 20)
         fitData = [params[0] * x + params[1] for x in x_s]
         r_corr = round(np.corrcoef(deltaVs, deltaTs)[0, 1], 3)
-        Done(start_time)
 
         #####################################
         # --- PLOT THE RESULTS OF THE FIT ---
         #####################################
         if outputCorrelationPlot:
-            prgMsg('Outputting results of correlation analysis')
 
             fig, ax = plt.subplots()
             fig.suptitle(f'STEB {wDis}\n' + r'$\alpha$ =' + f'{Pitch[wPitch]} deg, maslVal = {maskVal}, N = {len(deltaVs)}')
@@ -277,16 +252,14 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             xtick_labels[0] = '0'
             ax.set_xticks(xticks,xtick_labels)
             plt.legend()
-            plt.savefig(rf'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Science\AlfvenSingatureAnalysis\Particles\CrossCorrelationResults\STEB_{wDis}.png')
-            Done(start_time)
-
+            plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot5\STEB_{wDis}.png')
 
         ########################################
         # --- Return results of the Analysis ---
         ########################################
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
         errorZ_avg = sum(errorZ) / len(errorZ)
-        return [wDis,whenSTEBoccured_time,whenSTEBoccured_Alt,params[0]/Re, errorZ_avg, r_corr ]
+        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, params[0] / Re, errorZ_avg, r_corr]
 
 
 # --- --- --- ---
@@ -303,171 +276,50 @@ else:
         results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDispersions[0])
         STEBfitResults.append(results)
     elif wDispersions == []:
-        for i in range(len(dispersionAttributes.keyDispersionTimes)):
+        for i in tqdm(range(len(dispersionAttributes.keyDispersionTimes))):
             results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, i+1)
             STEBfitResults.append(results)
     else:
-        for i in range(len(wDispersions)):
+        for i in tqdm(range(len(wDispersions))):
             results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDispersions[i])
             STEBfitResults.append(results)
 
-
-    if plotZsourceVsTime:
-
-        # Load the data ESA... again
-        data_dict = loadDictFromFile(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wRocket-4]}{modifier}\*eepaa_fullcal*')[0])
-        Energy = np.array(data_dict['Energy'][0])
-        Pitch = data_dict['Pitch_Angle'][0]
-
-        # Load the attitude data
-        data_dict_attitude = loadDictFromFile(r'C:\Data\ACESII\attitude\high\ACESII_36359_Attitude_Solution.cdf')
-
-        ###########################
-        # --- Organize the data ---
-        ###########################
-        STEBfitResults = np.array(STEBfitResults)
-
+    STEBfitResults = np.array(STEBfitResults)
+    if outputData:
+        ########################################
+        # --- Return results of the Analysis ---
+        ########################################
         # FORMAT of STEB fit results:
         # [[STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error_avg, correlationR],
         #  [...],
         #  ]
-        STEBtimes = STEBfitResults[:,1]
-        STEB_geoLats = [data_dict_attitude['Lat_geom'][0][np.abs(data_dict_attitude['Epoch'][0] - tme).argmin()] for tme in STEBtimes]
-        STEB_Zacc = (STEBfitResults[:,2]/1000)/Re + STEBfitResults[:,3]
-        STEB_Zacc_avg = sum(STEB_Zacc)/len(STEB_Zacc)
-        STEB_errorZacc_avg = STEBfitResults[:,4]
 
-        # Find deltaE
-        STEB_deltaE = np.array([Energy[np.abs(Energy - engyPair[1]).argmin()] - Energy[np.abs(Energy - engyPair[0]).argmin()] for engyPair in dispersionAttributes.keyDispersionDeltaE])
+        ExampleVarAttrs = {'FIELDNAM': None,
+                           'LABLAXIS': None,
+                           'DEPEND_0': None,
+                           'DEPEND_1': None,
+                           'DEPEND_2': None,
+                           'FILLVAL': None,
+                           'FORMAT': None,
+                           'UNITS': None,
+                           'VALIDMIN': None,
+                           'VALIDMAX': None,
+                           'VAR_TYPE': 'data',
+                           'SCALETYP': 'linear'}
 
-        # Find deltaT
-        STEB_deltaT = np.array([pycdf.lib.datetime_to_tt2000(tmePair[1]) - pycdf.lib.datetime_to_tt2000(tmePair[0]) for tmePair in dispersionAttributes.keyDispersionDeltaT])/1E9
+        # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
+        data_dict_output = {'wDis': [STEBfitResults[:,0], deepcopy(ExampleVarAttrs)],
+                            'whenSTEBoccured_time': [STEBfitResults[:,1], deepcopy(ExampleVarAttrs)],
+                            'whenSTEBoccured_Alt': [STEBfitResults[:,2], deepcopy(ExampleVarAttrs)],
+                            'Z_acc': [STEBfitResults[:,3], deepcopy(ExampleVarAttrs)],
+                            'Z_acc_error': [STEBfitResults[:,4], deepcopy(ExampleVarAttrs)],
+                            'r_corr': [STEBfitResults[:,5], deepcopy(ExampleVarAttrs)],
+                            }
 
-        # Find the labels to use for each STEB
-        STEB_text_labels = []
-        colorChoice = ['tab:orange', 'tab:purple', 'tab:cyan']
-        # colorChoice = ['black', 'black', 'black']
-        for type in dispersionAttributes.keyDispersionType:
-            if 'isolat' in type.lower():
-                STEB_text_labels.append(['I', colorChoice[0]])
-            elif 'aurora' in type.lower():
-                STEB_text_labels.append(['A', colorChoice[1]])
-            elif 'edge' in type.lower():
-                STEB_text_labels.append(['E', colorChoice[2]])
-
-        STEB_text_labels = np.array(STEB_text_labels)
-
-        # if not doing every steb, then reduce these
-        if wDispersions != []:
-            STEB_deltaT = STEB_deltaT[np.array(wDispersions) - 1]
-            STEB_deltaE = STEB_deltaE[np.array(wDispersions) - 1]
-            STEB_text_labels = STEB_text_labels[np.array(wDispersions) - 1]
-
-        ##########################
-        # --- PLOT THE RESULTS ---
-        ##########################
-        prgMsg('Outputting results of correlation analysis Zacc')
-        fig, ax = plt.subplots(nrows=2)
-        figure_width = 20
-        figure_height = 10
-        fig.set_figwidth(figure_width)
-        fig.set_figheight(figure_height)
-
-        # ---  toggles ---
-        scatterSize = 250
-        axisLabelFont = 25
-        plotTextSize = 15
-
-        # Raw Data
-        if showErrorBars:
-            ax[0].errorbar(STEBtimes, STEB_Zacc, yerr=STEB_errorZacc_avg, fmt='o', linewidth=2, capsize=6, color=scatColors)
-        else:
-            cmap = ax[0].scatter(x=STEBtimes, y=STEB_Zacc, s =scatterSize, c=STEB_text_labels[:,1])
-
-        # plot the average z_acc
-        ax[0].axhline(STEB_Zacc_avg, linestyle='--', color='black', linewidth=3)
-        ax[0].text(dt.datetime(2022,11,20,17,25,45), STEB_Zacc_avg,f"Average: {round(STEB_Zacc_avg,2)} $R_E \pm ??$ ",fontsize=20,color='black', va='bottom')
-
-        # Apply the text to each datapoint
-        # for k in range(len(STEBtimes)):
-        #     ax.text(STEBtimes[k], STEB_Zacc[k], STEB_text_labels[k][0], color=STEB_text_labels[k][1], fontsize='large', va='top', ha='left')
-
-        # Plot Labels
-        ax[0].set_ylabel('$Z_{acc}$ Altitude [$R_{E}$]', color='black', fontsize=axisLabelFont,labelpad=20)
-        from matplotlib.dates import date2num,num2date
-        startPoint, endPoint = date2num(min(STEBtimes)), date2num(max(STEBtimes))
-        EpochTicks = num2date(np.linspace(startPoint,endPoint,8))
-        offSetAwareAttitudeEpoch = date2num(data_dict_attitude['Epoch'][0])
-        geomagLatTicks = [round(data_dict_attitude['Lat_geom'][0][ np.abs(offSetAwareAttitudeEpoch - date2num(tme)).argmin()],2) for tme in EpochTicks]
-        ax[0].set_xticks(ticks=EpochTicks,labels=[ep.strftime('%H:%M.%S') for ep in EpochTicks])
-        ax[0].minorticks_on()
-        ax[0].tick_params(axis='both', which='major', labelsize=21,width=3,length=16)
-        ax[0].tick_params(axis='both', which='minor', labelsize=21,width=3,length=8)
-        ax[0].grid(True)
-        ax[0].set_xticks(ticks=EpochTicks,labels=['' for thing in EpochTicks])
-
-        for l in range(len(STEBtimes)):
-            ax[0].text(x=STEBtimes[l], y=STEB_Zacc[l],s=f'{l+1}',va='center', ha='center',weight='bold',fontsize=plotTextSize)
-
-
-        # --- create geomagnetic axis ---
-        axGeoM = ax[0].twiny()
-        axGeoM.scatter(STEBtimes,STEB_Zacc,alpha=0)
-        axGeoM.set_xlabel('Geomagnetic Lattitude [deg]', fontsize=axisLabelFont, labelpad=20)
-
-        # set the ticks for the geomagnetic top plot to match the epoch
-        axGeoM.set_xticks(ticks=EpochTicks, labels=geomagLatTicks)
-
-        axGeoM.minorticks_on()
-        axGeoM.tick_params(axis='x', which='major', labelsize=21,width=3,length=16)
-        axGeoM.tick_params(axis='x', which='minor', labelsize=21,width=3,length=8)
-
-        # create my custom legend for Z_acc vs Epoch plot
-        from matplotlib.lines import Line2D
-
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=colorChoice[0], label='Isolated', markersize=18),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=colorChoice[1], label='Auroral', markersize=18),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=colorChoice[2], label='Edge-Type', markersize=18)
-        ]
-
-        ax[0].legend(handles=legend_elements, loc='upper right', prop={'size': 15})
-
-
-        # create delta E vs Epoch plot where I color the points in the ranges
-
-        # determine the colors
-        dT_colors = ['tab:blue','tab:green','tab:red']
-        dT_color_labels = []
-        for delT in STEB_deltaT:
-            if delT <= 0.5:
-                dT_color_labels.append(dT_colors[0])
-            elif 0.5 < delT <= 1:
-                dT_color_labels.append(dT_colors[1])
-            elif delT > 1:
-                dT_color_labels.append(dT_colors[2])
-
-        ax[1].scatter(x=STEBtimes,y=STEB_deltaE,c=dT_color_labels,s=scatterSize)
-        ax[1].grid(True)
-        ax[1].set_xticks(ticks=EpochTicks, labels=[ep.strftime('%H:%M.%S') for ep in EpochTicks])
-        ax[1].minorticks_on()
-        ax[1].tick_params(axis='both', which='major', labelsize=21, width=3, length=16)
-        ax[1].tick_params(axis='both', which='minor', labelsize=21, width=3, length=8)
-        ax[1].set_ylabel('STEB $\Delta E$ [eV]',fontsize=axisLabelFont, labelpad=10)
-        ax[1].set_xlabel('Epoch', color='black', fontsize=axisLabelFont, labelpad=10)
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=dT_colors[0], label='$\Delta T \leq$ 0.5s', markersize=18),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=dT_colors[1], label='0.5 < $\Delta T \leq$ 1s', markersize=18),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=dT_colors[2], label='$\Delta T$ > 1s', markersize=18)
-        ]
-
-        for l in range(len(STEBtimes)):
-            ax[1].text(x=STEBtimes[l], y=STEB_deltaE[l],s=f'{l+1}',va='center',ha='center',weight='bold',fontsize=plotTextSize)
-
-        ax[1].legend(handles=legend_elements, loc='upper right', prop={'size': 15})
-
-        # Show the figure
-        # plt.subplots_adjust(wspace=0, hspace=1)
-        plt.tight_layout()
-        plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot5\STEB_CorrelationAnalysis_Results.png')
+        prgMsg('Creating output file')
+        rocketAttrs, b, c = ACES_mission_dicts()
+        rocketID = rocketAttrs.rocketID[wRocket - 4]
+        fileoutName = f'ACESII_{rocketID}_crossCorrelationAnalysis.cdf'
+        outputPath = f'{rocketFolderPath}\\science\\TOFanalysis\\{fliers[wRocket - 4]}\\{fileoutName}'
+        outputCDFdata(outputPath, data_dict_output)
         Done(start_time)

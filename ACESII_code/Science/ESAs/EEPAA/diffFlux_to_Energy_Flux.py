@@ -22,7 +22,7 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 justPrintFileNames = False
-wRocket = 5
+wRocket = 4
 wFiles = [0]
 modifier = ''
 inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -31,6 +31,8 @@ outputPath_modifier = 'l3\Energy_Flux' # e.g. 'L2' or 'Langmuir'. It's the name 
 # ---------------------------
 outputData = True
 # ---------------------------
+downwardPitchRange = [1,2+1] # what pitch indicies to consider when calculating parallel (downward) # 0-90deg
+upwardPitchRange = [18,19+1] # 90-180deg
 
 # solid angle contributions of each pitch bin (starting at 0deg to -190 deg)
 solidAngleHfactor =[
@@ -63,6 +65,7 @@ solidAngleHfactor =[
 # --- IMPORTS ---
 # --- --- --- ---
 from numpy import trapz
+from ACESII_code.class_var_func import erg_to_eV
 
 
 def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflyer, wfile):
@@ -126,7 +129,7 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
 
                 if all(np.array(diffFLux_data) >= 0): # see if there's any fillvals or negative values in array. If not, then you can integrate
                     integratedValue = trapz(y=diffFLux_data, x=Energy)
-                    EFluxVal = (q0 * cm_to_m ** 2) * integratedValue * solidAngleHfactor[ptch]
+                    EFluxVal = (1/erg_to_eV) * integratedValue * solidAngleHfactor[ptch]
                 else:
                     EFluxVal = rocketAttrs.epoch_fillVal
                     integratedValue = rocketAttrs.epoch_fillVal
@@ -139,6 +142,23 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
         diffEFlux_avg = np.array(diffEFlux_avg)
         Eflux = np.array(Eflux)
         Done(start_time)
+
+
+        # Calculate Upward and Downward Particle Energy Flux
+        EFlux_downward = np.zeros(shape=(len(Eflux)))
+        EFlux_Upward = np.zeros(shape=(len(Eflux)))
+        cosineContribution = np.array([np.cos(np.radians(10*(i-1))) for i in range(21)])
+
+        for tme in range(len(Epoch)):
+
+            # remove fillval contributions
+            EFluxArray = Eflux[tme]
+
+            EFluxArray[EFluxArray ==rocketAttrs.epoch_fillVal ] = 0
+            EFlux_contribution = np.array(Eflux[tme]) * cosineContribution
+            EFlux_Upward[tme] = -1*sum(EFlux_contribution[upwardPitchRange[0]:upwardPitchRange[1]])
+            EFlux_downward[tme] = sum(EFlux_contribution[downwardPitchRange[0]:downwardPitchRange[1]])
+
 
 
         # --- --- --- --- --- --- ---
@@ -154,8 +174,17 @@ def diffFlux_to_Energy_Flux(wRocket, rocketFolderPath, justPrintFileNames, wflye
                                 'Energy': data_dict['Energy'],
                                 'Epoch': data_dict['Epoch']}
             data_dict_output['Energy_Flux'][1]['LABLAXIS'] = 'Energy_Flux'
-            data_dict_output['Energy_Flux'][1]['UNITS'] = 'J m!A-2!B!Ns!A-1!B!N'
+            data_dict_output['Energy_Flux'][1]['UNITS'] = 'erg cm!A-2!N'
             data_dict_output['Differential_Energy_Flux_avg'][1]['LABLAXIS'] = 'Differential_Energy_Flux_avg'
+
+            data_dict_output = {**data_dict_output,**{
+                'Energy_Flux_Downward':[EFlux_downward, deepcopy(data_dict_output['Energy_Flux'][1])]
+            }}
+
+            data_dict_output = {**data_dict_output, **{
+                'Energy_Flux_Upward': [EFlux_Upward, deepcopy(data_dict_output['Energy_Flux'][1])]
+            }}
+
 
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
 
