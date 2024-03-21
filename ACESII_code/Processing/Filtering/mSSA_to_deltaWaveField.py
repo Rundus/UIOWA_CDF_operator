@@ -1,6 +1,6 @@
 # --- L2_mag_to_mSSA.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Takes as input the despun B-Field data or E-Field data,bandpass filters, then mSSAs the data.
+# DESCRIPTION: Takes as input the despun B-Field data or E-Field data with/without bandpass filters. Then mSSAs the data.
 # The output are SSA component files found in \L3\SSAcomponents_B
 # or deltaB/deltaE files.
 
@@ -55,7 +55,6 @@ generate_only_these_files = [] # if I only want to re-generate specific componen
 # ---- SSA Grouping and delta ----
 plotGroupingSSA = True
 wAxesSSA = 1
-
 groupings_dict = {'RingCore_high': [[i for i in range(16)]+
                                     [20,21,22,23,24,25,26,28,29,30,31, 32,37,38,39,40,41,43,44,45,51,52, 53,54,56,57,58,59] +
                                     [60+i for i in range(10)] +
