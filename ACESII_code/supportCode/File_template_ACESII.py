@@ -100,6 +100,8 @@ elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
     wflyer = 1
 
+
+
 if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:

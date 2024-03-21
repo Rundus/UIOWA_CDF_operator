@@ -114,6 +114,9 @@ ionNames =  ['proton',       'O+',       'H+',        'He+',      'O2+',      'N
 ep0 = 8.8541878128E-12 # permittivity of free space
 u0 = 4*np.pi*(10**(-7))
 lightSpeed = 299792458
+coordinatesSets = [['_east','_north','_up'],['_x','_y','_z'],['_e','_p','_r']]
+coordinatesNames = ['ENU','RktFrm','Field_Aligned']
+
 
 # --- Model Data ---
 def tmCDF_ACES(flier):
@@ -165,6 +168,30 @@ def butter_filter(data, lowcutoff, highcutoff, fs, order,filtertype):
     b, a = butterworth(lowcutoff, highcutoff, fs, order, filtertype)
     y = filtfilt(b, a, data)
     return y
+
+def getCoordinateKeys(data_dict):
+
+    keys = [key for key in data_dict.keys()]
+
+    coordcompNames = []
+    coordSetName = []
+
+
+    for i,set in enumerate(coordinatesSets):
+
+        tempCoords = []
+
+        for key in keys:
+
+            for coordStr in set:
+                if coordStr in key.lower():
+                    tempCoords.append(key)
+
+        if len(tempCoords) == 3:
+            coordcompNames = tempCoords
+            coordSetName = coordinatesNames[i]
+
+    return coordcompNames,coordSetName
 
 def long_to_meter(long, lat):
     return long*(lat_to_meter * np.cos(np.radians(lat)))
