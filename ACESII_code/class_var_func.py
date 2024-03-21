@@ -270,6 +270,7 @@ def outputCDFdata(outputPath, data_dict, **kwargs):
 
         # --- WRITE OUT DATA ---
         for varKey, varVal in data_dict.items():
+
             if varKey in ['Epoch', 'Epoch_monitors', 'Epoch_esa']:  # epoch data
                 sciFile.new(varKey, data=varVal[0], type=33)
             elif 'Function' in varKey:

@@ -69,7 +69,6 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 
     fileoutName = f'ACESII_{rocketID}_PoyntingFlux_deltaS_{wCoordinate}.cdf' if useDelta_E_B else f'ACESII_{rocketID}_PoyntingFlux_flight_{wCoordinate}.cdf'
 
-
     if justPrintFileNames:
         if printMagFiles:
             print('--- B-FIELD FILES ---')

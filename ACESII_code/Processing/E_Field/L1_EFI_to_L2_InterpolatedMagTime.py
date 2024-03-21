@@ -1,6 +1,6 @@
-# --- L1_EFI_to_L2_downsampled.py ---
+# --- L1_EFI_to_L2_InterpolatedMagTime.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: little script to downsample the despin EFI data onto the mag frame.
+# DESCRIPTION: little script to interpolated the despun EFI data onto the mag frame.
 # Justified since the signals I'm interested in are low frequency and this step speeds up
 # my analysis a lot
 
@@ -52,18 +52,18 @@ outputData = True
 # --- --- --- ---
 # none
 
-def L1_EFI_to_L2_downsampled(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def L1_EFI_to_L2_InterpolatedMagTime(wRocket, wFile, rocketFolderPath, justPrintFileNames):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
-    rocketID = rocketAttrs.rocketID[wflyer]
-    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
+    rocketID = rocketAttrs.rocketID[wRocket-4]
+    globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-    outputModelData = L2_TRICE_Quick(wflyer)
+    outputModelData = L2_TRICE_Quick(wRocket-4)
 
-    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\*E_Field*')
-    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wflyer]}{modifier}\*RingCore_Despun_ENU*')
-    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles_elec]
+    inputFiles_elec = glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wRocket-4]}{modifier}\*E_Field*')
+    inputFiles_mag = glob(f'{rocketFolderPath}{inputPath_modifier_mag}\{fliers[wRocket-4]}{modifier}\*RingCore_Despun_ENU*')
+    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wRocket-4]}{modifier}\\', '') for ifile in inputFiles_elec]
     fileoutName = input_names[wFile].replace('l1','l2')
 
 
@@ -104,7 +104,7 @@ def L1_EFI_to_L2_downsampled(wRocket, wFile, rocketFolderPath, justPrintFileName
             # create the output data_dict
             data_dict_output = deepcopy(data_dict_elecInterp)
 
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
 
             outputCDFdata(outputPath, data_dict_output, outputModelData, globalAttrsMod, 'EFI')
 
@@ -119,21 +119,16 @@ def L1_EFI_to_L2_downsampled(wRocket, wFile, rocketFolderPath, justPrintFileName
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if wRocket == 4:  # ACES II High
-    rocketFolderPath = ACES_data_folder
-    wflyer = 0
-elif wRocket == 5: # ACES II Low
-    rocketFolderPath = ACES_data_folder
-    wflyer = 1
+rocketFolderPath = ACES_data_folder
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}\*.cdf')) == 0:
+if len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wRocket-4]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
     if justPrintFileNames:
-        L1_EFI_to_L2_downsampled(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
+        L1_EFI_to_L2_downsampled(wRocket, 0, rocketFolderPath, justPrintFileNames,wRocket-4)
     elif not wFiles:
-        for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wflyer]}\*E_Field*')))):
-            L1_EFI_to_L2_downsampled(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
+        for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier_elec}\{fliers[wRocket-4]}\*E_Field*')))):
+            L1_EFI_to_L2_downsampled(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wRocket-4)
     else:
         for filesNo in wFiles:
-            L1_EFI_to_L2_downsampled(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+            L1_EFI_to_L2_downsampled(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wRocket-4)

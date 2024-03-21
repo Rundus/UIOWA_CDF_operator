@@ -32,7 +32,7 @@ from scipy.integrate import simpson
 # figure_width = 7.5 # in inches
 figure_width = 9.5 # in inches
 figure_height = 11 # in inches
-dpi = 300
+dpi = 500
 PlotLabelSize = 10
 PlotTitleSize = 10
 PlotLegendSize = 10
@@ -368,12 +368,11 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             # ax[2][i].set_xscale('log')
             if NORMALIZE:
                 ax[2][i].set_ylim(1E-7, 1E-2)
-                freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
-                ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}'
-                                                                                               '$')
+                # freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
+                # ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}$')
             else:
-                freqS = [val ** (-1.67) for val in spectraFreqs[0][i] if val != 0]
-                ax[2][i].plot(spectraFreqs[0][i][:-1], freqS, color='black', linestyle='--')
+                # freqS = [val ** (-1.67) for val in spectraFreqs[0][i] if val != 0]
+                # ax[2][i].plot(spectraFreqs[0][i][:-1], freqS, color='black', linestyle='--')
                 for k in range(3):
                     ax[2][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
@@ -392,8 +391,8 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ######################
             # --- ASpeed Ratio ---
             ######################
-            # ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=0.5, linestyle='-', marker='o', markersize=1)
-            ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=1.2, linestyle='-')
+            ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=0.75, linestyle='-', marker='o', markersize=1)
+            # ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=1.2, linestyle='-')
 
 
             if NORMALIZE:
