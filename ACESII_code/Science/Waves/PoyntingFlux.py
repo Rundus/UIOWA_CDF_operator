@@ -33,16 +33,15 @@ wRocket = 5
 
 modifier = ''
 inputPath_modifier_elec = 'L2'
-wMagFile = 0
+wMagFile = 1
 Bscale = 1E-9 # what to multiply B-Field data to get into SI units
 
 inputPath_modifier_mag = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wEFIFile = 0
+wEFIFile = 1
 Escale = 1
 outputPath_modifier = 'science/PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
-# --- --- --- Which Data --- -- ---
-targetVar = [[dt.datetime(2022,11,20,17,20,00,00),dt.datetime(2022,11,20,17,28,00,00)],'Epoch']
+
 # --- --- --- PLOT --- --- ---
 plotSPoynting = False
 # --- --- --- OUTPUT --- --- ---
@@ -52,7 +51,7 @@ outputData = True
 # --- IMPORTS ---
 # --- --- --- ---
 
-from ACESII_code.class_var_func import u0, InterpolateDataDict,coordinatesNames,coordinatesSets
+from ACESII_code.class_var_func import u0,coordinatesNames,coordinatesSets
 
 def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -83,20 +82,24 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
 
     # --- get the data from the mag file ---
     prgMsg(f'Loading data from mag Files')
-    data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile],targetVar=targetVar)
+    data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile])
     compNames_B,cordSysB = getCoordinateKeys(data_dict_mag)
     Done(start_time)
 
     # --- get the data from the electric file ---
     prgMsg(f'Loading data from Electric Field Files')
-    data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile],targetVar=targetVar)
+    data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile])
     compNames_E,cordSysE = getCoordinateKeys(data_dict_elec)
     Done(start_time)
 
     compNamesS = []
     for k,sysNam in enumerate(coordinatesNames):
         if cordSysE in sysNam:
-            compNamesS = [f'S{val.title()}' for val in coordinatesSets[k]]
+
+            if cordSysE == 'ENU':
+                compNamesS = [f'S{val.title()}' for val in coordinatesSets[k]]
+            else:
+                compNamesS = [f'S{val}' for val in coordinatesSets[k]]
             break
 
 
@@ -157,9 +160,9 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
         data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
 
         # add in the attitude data
-        # keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom','ILat','ILong']
-        # for key in keys:
-        #     data_dict_output = {**data_dict_output, **{key:data_dict_mag[key]}}
+        keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom','ILat','ILong']
+        for key in keys:
+            data_dict_output = {**data_dict_output, **{key:data_dict_mag[key]}}
 
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
 

@@ -681,7 +681,8 @@ def determineCoordCompNames(inputFileName):
 
     compNames = []
     keyNames = [['B_East', 'B_North', 'B_Up'], ['B_e', 'B_p', 'B_r'], ['Bx', 'By', 'Bz'],
-                ['E_East', 'E_North', 'E_Up'], ['E_e', 'E_p', 'E_r'], ['Ex', 'Ey', 'Ez']]
+                ['E_East', 'E_North', 'E_Up'], ['E_e', 'E_p', 'E_r'], ['Ex', 'Ey', 'Ez'],
+                ['S_East', 'S_North', 'S_Up'], ['S_e', 'S_p', 'S_r'], ['Sx', 'Sy', 'Sz']]
     for keySet in keyNames:  # check if set of keys exist in dictonary
         if data_dict.keys() >= {key for key in keySet}:
             compNames = keySet

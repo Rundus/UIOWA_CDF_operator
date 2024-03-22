@@ -26,13 +26,10 @@ justPrintFileNames = False
 wRocket = 5
 
 # --- Select the DataSet ---
-# 0 -> ACES II Electric Field Data
-# 1 -> ACES II Magnetic Field Data
-wData = 0
-searchMod = 'E_Field' if wData == 0 else 'RingCore'
-
-# --- Select the specific DataFile ---
-wFile = 2
+wData = 2
+mods = ['E_Field', 'RingCore', 'PoyntingFlux']
+inputPath_modifier = 'science\PoyntingFlux'
+wFile = 3
 
 
 #################
@@ -40,11 +37,13 @@ wFile = 2
 #################
 
 # --- Mirror Data ---
-# for calculating the components, the data is cut in half
+# for calculating the components, the data is mirrored by "mirrorPercentage" amount on either end
 MirrorData = True
+mirrorPercentage = 0.2
 
 # --- Window Size ---
 SSA_window_Size = 601
+
 
 # ---- SSA Components ----
 computeSSAcomponents = False
@@ -68,12 +67,15 @@ groupings_dict = {'RingCore_high': [[i for i in range(16)]+
                                    3*SSA_window_Size],
                   'RingCore_low': [[0,1,2,3,4,5],
                                    [[i] for i in range(0,10)],
+                                   3*SSA_window_Size],
+                  'PoyntingFlux_low': [[0,1,2,3,4,5,14],
+                                   [[i] for i in range(15,20)],
                                    3*SSA_window_Size]
                   }
 # ------------------------
 
 # --- OUTPUT DATA ---
-outputData = False
+outputDataIntoOneMasterFile = False
 # -------------------
 
 
@@ -82,9 +84,6 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
     # --- ACES-II Attributes Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
     rocketID = rocketAttrs.rocketID[wRocket-4]
-    globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
-    globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L3'
-    outputModelData = L0_ACES_Quick(wRocket-4)
 
     if justPrintFileNames:
         for i, file in enumerate(inputDataFiles):
@@ -94,7 +93,7 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
 
     # --- Get the Input Data ---
     prgMsg('Loading Data for ' + inputDataFiles[wFile].rsplit("\\")[-1])
-    data_dict = loadDictFromFile(inputDataFiles[wFile])
+    data_dict, globalAttrs = loadDictFromFile(inputDataFiles[wFile], getGlobalAttrs=True)
     Done(start_time)
 
     # --- Determine which coordinate system the data uses ---
@@ -127,19 +126,20 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
             data_dict_chunk = {key: [val[0][subset[0]:subset[1]], val[1]] for key, val in temp_dict.items()}
             data_dict_output = mSSA_components(data_dict_input=data_dict_chunk, compNames=compNames,
                                                SSA_window_Size=SSA_window_Size, mirrorData=MirrorData,
-                                               mirrorPercent=0.2)
+                                               mirrorPercent=mirrorPercentage)
 
             # --- --- --- --- ---
             # --- OUTPUT DATA ---
             # --- --- --- --- ---
-            pathModifier = 'SSAcomponents_E' if wData == 0 else 'SSAcomponents_B'
-            wInstr = 'E_Field' if wData == 0 else 'RingCore'
-            outputFilePath = rf'{rocketFolderPath}L3\\{pathModifier}\\{fliers[wRocket-4]}\\ACESII_{rocketID}_{wInstr}_SSAComponents_{coordSys}_WL{SSA_window_Size}_subset_{i}'
+            wInstr = searchMod
+            pathModifier = ['SSAcomponents_E', 'SSAcomponents_B', 'SSAcomponents_S']
+            outputFilePath = rf'{rocketFolderPath}L3\\{pathModifier[wData]}\\{fliers[wRocket-4]}\\ACESII_{rocketID}_{wInstr}_SSAComponents_{coordSys}_WL{SSA_window_Size}_subset_{i}'
             if MirrorData:
                 outputFilePath = outputFilePath + '_mirrored'
-            outputCDFdata(outputFilePath+".cdf", data_dict_output, outputModelData, globalAttrsMod, pathModifier)
+            outputCDFdata(outputFilePath+".cdf", data_dict_output, globalAttrsMod=globalAttrs, instrNam=wInstr)
             Done(start_time)
 
+        return
 
     #############################
     # --- DEFINE THE GROUPING ---
@@ -171,12 +171,11 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
                                Epoch=data_dict['Epoch'][0],
                                mirrored = MirrorData)
 
-
     ##############################
     # --- OUTPUT THE DATA DICT ---
     ##############################
 
-    if outputData:
+    if outputDataIntoOneMasterFile:
         prgMsg('Outputting Data')
 
         # --- load all the data ---
@@ -230,7 +229,7 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
         # --- output the data ---
         filePaths = ['deltaE','deltaB']
         outputPath = f'{rocketFolderPath}\\L3\\{filePaths[wData]}\\{fliers[wRocket-4]}\\ACESII_{rocketID}_{searchMod}_{coordSys}_WL{fileWL}_stitchedFlight.cdf'
-        outputCDFdata(outputPath, data_dict_output,outputModelData,globalAttrsMod,searchMod)
+        outputCDFdata(outputPath, data_dict_output)
         Done(start_time)
 
 
@@ -245,13 +244,22 @@ def mSSA_filtering(wRocket, wData, inputDataFiles, rocketFolderPath, justPrintFi
 # --- EXECUTE ---
 # --- --- --- ---
 rocketFolderPath = ACES_data_folder
+searchMod = mods[wData]
+SSAcomps_directories = ['SSAcomponents_E','SSAcomponents_B','SSAcomponents_S']
+
+
 if computeSSAcomponents:
-    inputDataFiles = glob(f'{rocketFolderPath}\\l2\\{fliers[wRocket-4]}\\*{searchMod}*')
-elif plotGroupingSSA or outputData:
-    inputPath_modifier = 'SSAcomponents_E' if wData == 0 else 'SSAcomponents_B'
-    inputDataFiles = glob(f'{rocketFolderPath}\\l3\\{inputPath_modifier}\\{fliers[wRocket - 4]}\\*{searchMod}*')
+    inputDataFiles = glob(f'{rocketFolderPath}\\{inputPath_modifier}\\{fliers[wRocket-4]}\\*{searchMod}*')
+elif plotGroupingSSA or outputDataIntoOneMasterFile:
+    inputPath_modifier = SSAcomps_directories[wData]
+    inputDataFiles = glob(f'{rocketFolderPath}\\L3\\{inputPath_modifier}\\{fliers[wRocket - 4]}\\*{searchMod}*')
+    print(f'{rocketFolderPath}\\{inputPath_modifier}\\{fliers[wRocket - 4]}\\*{searchMod}*')
 else:
-    raise Exception('Need to set computeSSAcomponents == True or plotGroupingSSA == True')
+    if justPrintFileNames:
+        inputDataFiles = glob(f'{rocketFolderPath}\\{inputPath_modifier}\\{fliers[wRocket-4]}\\*{searchMod}*')
+        print(f'{rocketFolderPath}\\{inputPath_modifier}\\{fliers[wRocket-4]}\\*{searchMod}*')
+    else:
+        raise Exception('Need to set computeSSAcomponents == True or plotGroupingSSA == True')
 
 if len(inputDataFiles) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
