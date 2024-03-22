@@ -169,12 +169,26 @@ def butter_filter(data, lowcutoff, highcutoff, fs, order,filtertype):
     y = filtfilt(b, a, data)
     return y
 
+def getInputFiles(rocketFolderPath,wRocket,inputPath_modifier,**kwargs):
+
+    from glob import glob
+    modifier = kwargs.get('modifier', '')
+
+    from ACESII_code.data_paths import fliers
+
+    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{modifier}\{fliers[wRocket - 4]}\*.cdf')
+    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{modifier}\{fliers[wRocket - 4]}\\', '') for ifile in inputFiles]
+    input_names_searchable = [ifile.replace(inputPath_modifier.lower() + '_', '') for ifile in input_names]
+
+    return inputFiles,input_names,input_names_searchable
+
 def getCoordinateKeys(data_dict):
 
     keys = [key for key in data_dict.keys()]
 
     coordcompNames = []
     coordSetName = []
+    coordSet = []
 
 
     for i,set in enumerate(coordinatesSets):
@@ -190,8 +204,9 @@ def getCoordinateKeys(data_dict):
         if len(tempCoords) == 3:
             coordcompNames = tempCoords
             coordSetName = coordinatesNames[i]
+            coordSet = coordinatesSets[i]
 
-    return coordcompNames,coordSetName
+    return coordcompNames,coordSetName, coordSet
 
 def long_to_meter(long, lat):
     return long*(lat_to_meter * np.cos(np.radians(lat)))
@@ -663,44 +678,6 @@ def EpochTo_T0_Rocket(InputEpoch, T0):
     elif isinstance(InputEpoch[0], (int, float, complex)): # Input Epoch is tt2000 array
         return (np.array(InputEpoch) - startPoint)/1E9
 
-
-def determineCoordCompNames(inputFileName):
-
-    coordTypes = ['ENU', 'Field_Aligned', 'rktFrm']
-
-    coordSys = []
-    for type in coordTypes:
-        if type in inputFileName:
-            coordSys = type
-            break
-    if coordSys == []:
-        raise Exception('input Coordinate system not understood.')
-
-    # --- determine the names of the components to mSSA ---
-    data_dict = loadDictFromFile(inputFileName)
-
-    compNames = []
-    keyNames = [['B_East', 'B_North', 'B_Up'], ['B_e', 'B_p', 'B_r'], ['Bx', 'By', 'Bz'],
-                ['E_East', 'E_North', 'E_Up'], ['E_e', 'E_p', 'E_r'], ['Ex', 'Ey', 'Ez'],
-                ['S_East', 'S_North', 'S_Up'], ['S_e', 'S_p', 'S_r'], ['Sx', 'Sy', 'Sz']]
-    for keySet in keyNames:  # check if set of keys exist in dictonary
-        if data_dict.keys() >= {key for key in keySet}:
-            compNames = keySet
-            break
-
-    if compNames == []:
-        raise Exception('No keyNames found in input Dictionary. Check component names in dictionary or consider defining new set of keys')
-
-
-    # if applicable, return the WL used in the datafile, else return 0
-    try:
-        fileWL = int(inputFileName.rsplit('WL')[-1].rsplit('_subset')[0]) if inputFileName.rsplit('WL')[-1].rsplit('_subset')[0] != inputFileName else 0
-    except:
-        print('COULD NOT ACCURATELY FIND Window LENGTH (WL)')
-        fileWL = 0
-
-
-    return coordSys, compNames, fileWL
 
 def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
 

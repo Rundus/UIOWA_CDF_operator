@@ -42,9 +42,7 @@ def main(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     ModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*.cdf')
-    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
-    input_names_searchable = [ifile.replace(inputPath_modifier.lower() +'_', '') for ifile in input_names]
+    inputFiles, input_names, input_names_searchable = getInputFiles(rocketFolderPath=rocketFolderPath,wRocket=wRocket,inputPath_modifier=inputPath_modifier)
 
     fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_InvertedV_removed.cdf'
 

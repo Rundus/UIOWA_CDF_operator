@@ -22,9 +22,9 @@ start_time = time.time()
 justPrintFileNames = False
 wRocket = 5
 modifier = ''
-inputPath_modifier = 'science\PoyntingFlux' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'science\PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
-wFiles = [2]
+inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+wFiles = [7]
 # ----------------------------
 lowcutoff, highcutoff = 0.4, 20
 fs = 128
@@ -62,9 +62,8 @@ def FilterDespun(wRocket, wFile,rocketFolderPath, justPrintFileNames):
 
     # --- get the data from the file ---
     prgMsg(f'Loading data from {inputPath_modifier} Files')
-
     data_dict,GlobalAttrs = loadDictFromFile(inputFiles[wFile],getGlobalAttrs=True)
-    compNames, cordSys = getCoordinateKeys(data_dict)
+    compNames, coordSys, coordSet = getCoordinateKeys(data_dict)
     Done(start_time)
 
     # --- --- --- --- --- ---
@@ -82,7 +81,7 @@ def FilterDespun(wRocket, wFile,rocketFolderPath, justPrintFileNames):
 
     if outputData:
         prgMsg('Creating output file')
-        fileoutName = input_names[wFile].replace(cordSys,f'{cordSys}_{filtertype}_low{lowcutoff}_high{highcutoff}')
+        fileoutName = input_names[wFile].replace(coordSys,f'{coordSys}_{filtertype}_low{lowcutoff}_high{highcutoff}')
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
         outputCDFdata(outputPath, data_dict, globalAttrsMod=GlobalAttrs)
 
