@@ -25,12 +25,12 @@ wRocket = 5
 # inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 
-wFiles = [4]
+wFiles = [1,2,5,6]
 refAlt = 150 # represents 150 km reference altitude that everything is tied to
 # ---------------------------
 generateILatILong = False # Calculates and Stores the ILat and ILong variables as a .cdf File
 plotILatILong = False
-footPrintDiffernece = True # reads in BOTH attitude files and updates both files with a "ILat/ILong difference" variable
+footPrintDiffernece = False # reads in BOTH attitude files and updates both files with a "ILat/ILong difference" variable
 updateCDFfile = True # takes a CDF file, interpolates ILat/ILong and then stores it
 outputData = True
 # ---------------------------
@@ -280,6 +280,15 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
 
             prgMsg('Creating output file')
 
+            data_dict = {**data_dict, **{'Alt': [newILat, {'LABLAXIS': f'ILat_{int(refAlt)}km',
+                                                            'DEPEND_0': 'Epoch',
+                                                            'FILLVAL': rocketAttrs.epoch_fillVal,
+                                                            'FORMAT': 'E12.2',
+                                                            'UNITS': 'deg',
+                                                            'VALIDMIN': newILat.min(), 'VALIDMAX': newILat.max(),
+                                                            'VAR_TYPE': 'support_data',
+                                                            'SCALETYP': 'linear'}]}}
+
             data_dict = {**data_dict, **{'ILat': [newILat, {'LABLAXIS': f'ILat_{int(refAlt)}km',
                                                                        'DEPEND_0': 'Epoch',
                                                                        'FILLVAL': rocketAttrs.epoch_fillVal,
@@ -298,6 +307,9 @@ def ILatILong_Include(wRocket, rocketFolderPath, justPrintFileNames, wFile):
                                                                         'VALIDMAX': newILong.max(),
                                                                         'VAR_TYPE': 'support_data',
                                                                         'SCALETYP': 'linear'}]}}
+
+
+
 
             outputPath = inputFiles[wFile]
             try:

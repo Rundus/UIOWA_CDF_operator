@@ -22,16 +22,16 @@ start_time = time.time()
 justPrintFileNames = False
 wRocket = 5
 modifier = ''
-inputPath_modifier = 'l2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'l2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
-wFiles = [1,6]
+inputPath_modifier = 'science\PoyntingFlux' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'science\PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+wFiles = [1]
 # ----------------------------
 lowcutoff, highcutoff = 0.4, 20
 fs = 128
 order = 4
 filtertype = 'HighPass'
 # -----------------------------
-plotFilteredData = True
+plotFilteredData = False
 # -----------------------------
 outputData = True
 

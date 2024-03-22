@@ -406,8 +406,8 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         # --- Add DeltaB to Modified CHAOS data ---
         ###########################################
 
-        data_for_output = B_CHAOS_ENU_magTime + DeltaB_ENU
-        # data_for_output = DeltaB_ENU
+        # data_for_output = B_CHAOS_ENU_magTime + DeltaB_ENU
+        data_for_output = DeltaB_ENU
 
         if outputData:
 
