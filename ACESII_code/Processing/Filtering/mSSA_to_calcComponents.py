@@ -20,9 +20,9 @@ justPrintFileNames = False
 wRocket = 5
 
 # --- Select the DataSet ---
-inputPath_modifier = 'science\PoyntingFlux'
-# inputPath_modifier = ''
-wFiles = [3]
+# inputPath_modifier = 'science\PoyntingFlux'
+inputPath_modifier = 'L2'
+wFiles = [8]
 
 
 #################
@@ -35,8 +35,8 @@ MirrorData = True
 mirrorPercentage = 0.2
 
 # --- Window Size ---
-# SSA_window_Size = 601
-SSA_window_Size = 5
+SSA_window_Size = 601
+# SSA_window_Size = 5
 
 # ---- SSA Components ----
 computeSSAcomponents = True
@@ -112,6 +112,7 @@ def mSSA_to_calcComponents(wRocket, rocketFolderPath, justPrintFileNames,wFile):
             if outputData:
 
                 outputFilePath = rf'{rocketFolderPath}L3\\{pathModifier}\\{fliers[wRocket-4]}\\ACESII_{rocketID}_{wInstr}_SSAComponents_{coordSys}_WL{SSA_window_Size}_subset_{i}'
+                print(outputFilePath)
                 if MirrorData:
                     outputFilePath = outputFilePath + f'_mirrored{int(mirrorPercentage*100)}'
                 outputCDFdata(outputFilePath+".cdf", data_dict_output, globalAttrsMod=globalAttrs, instrNam=wInstr)

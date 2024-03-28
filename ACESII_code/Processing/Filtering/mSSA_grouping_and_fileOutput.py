@@ -3,6 +3,8 @@
 # DESCRIPTION:
 # The output are SSA component files found in \L3\SSAcomponents_B
 # or deltaB/deltaE files.
+import matplotlib.pyplot as plt
+import numpy as np
 
 # it this code must be able to do the following SIMPLY
 # [3] Plot the component grouping step
@@ -22,7 +24,7 @@ justPrintFileNames = False
 wRocket = 5
 
 # --- Select the DataSet ---
-inputPath_modifier = 'L3\SSAcomponents_S'
+inputPath_modifier = 'L3\SSAcomponents_E'
 
 
 #################
@@ -36,6 +38,14 @@ plot_wAxesSSA = 1
 # --- OUTPUT DATA ---
 outputDataIntoOneMasterFile = True
 # -------------------
+
+#################
+# --- IMPORTS ---
+#################
+from numpy.fft import rfft, fftfreq
+
+
+
 
 def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -85,15 +95,15 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                                         [[i] for i in range(14, 18)],  # indicies to investigation
                                         200],
                       # limit of the noise, between this value and 3*SSA_window size is discarded as noise
-                      'E_Field_low': [[0, 1, 2, 3, 4, 5, 8, 9],
-                                      [[i] for i in range(10, 20)],
-                                      3 * SSA_window_Size],
-                      'RingCore_low': [[0, 1, 2, 3, 4, 5],
-                                       [[i] for i in range(0, 10)],
-                                       3 * SSA_window_Size],
-                      'PoyntingFlux_low': [[0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 14],
-                                           [[i] for i in range(5, 11)],
-                                           3 * SSA_window_Size]
+                      'E_Field_low': [[0,1,2,3,4,5,12,13],
+                                      [[i] for i in range(0,5)],
+                                      3*SSA_window_Size],
+                      'RingCore_low': [[0,1,4,5],
+                                       [[i] for i in range(0,5)],
+                                       3*SSA_window_Size],
+                      'PoyntingFlux_low': [[0, 1, 2, 3,4,5, 10, 11],
+                                           [[i] for i in range(4,7)],
+                                           3*SSA_window_Size]
                       }
 
 
@@ -108,19 +118,123 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
     ###############################
     # --- PLOTTING THE GROUPING ---
     ###############################
+
+
     if plot_GroupingSSA:
 
-        # plot the grouping
-        from ACESII_code.class_var_func import mSSA_grouping_Plotting
-        B_SSA_vec = [data_dict[compNames[i]][0] for i in range(len(compNames))]
-        mSSA_grouping_Plotting(B_SSA=B_SSA_vec,
-                               groupings=groupings,
-                               compNames=compNames,
-                               SSA_window_Size=SSA_window_Size,
-                               wAxesSSA = plot_wAxesSSA,
-                               wRocket = wRocket,
-                               Epoch=data_dict['Epoch'][0],
-                               mirrored = MirrorData)
+        prgMsg('Grouping mSSA elements')
+
+        # some preamble
+        spinFreq = 0.6442441031179716 if wRocket == 4 else 0.55
+        Epoch = data_dict['Epoch'][0]
+        SSA_vec = np.array([data_dict[compNames[i]][0] for i in range(len(compNames))])
+
+        # --- --- --- --- --- --- --- --- --- --- --- --- --- -
+        # --- Plot the FFT and groupings for one wAxes axes ---
+        # --- --- --- --- --- --- --- --- --- --- --- --- --- -
+        fig, ax = plt.subplots(nrows=len(groupings), ncols=2)
+
+        rktName = 'ACESII 36359\n' if wRocket == 4 else 'ACESII 36364\n'
+        fig.suptitle(rktName +
+                     str(compNames[plot_wAxesSSA]) +
+                     f'\n Window Length: {SSA_window_Size}, Time: ' +
+                     f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}')
+
+        origMax = 1
+        origData = [[],[]]
+        physData = [[],[]]
+
+        # loop over all the groups in grouping
+        for i in range(len(groupings)):
+            data = np.array(SSA_vec[plot_wAxesSSA])
+
+            # combine the groupings
+            plotThisData = np.array([0 for i in range(len(data[:, 0]))], dtype='float64')
+
+            for j, componentIndex in enumerate(groupings[i]):
+                plotThisData += np.array(data[:, componentIndex])
+
+            # plot the component
+            ax[i, 0].plot([i for i in range(len(plotThisData))], plotThisData)
+
+            # if the data is mirrored, plot vertical bars on the LHS plots showing the cutoff
+            if MirrorData:
+                # determine where the true data starts using the length of the Epoch Variable
+                startPoint = int(0.2 * len(Epoch))
+                endPoint = len(SSA_vec[0]) - int(0.2 * len(Epoch))
+                ax[i, 0].axvline(x=startPoint, color='black')
+                ax[i, 0].axvline(x=endPoint, color='black')
+
+            if i == 0:
+                ax[i, 0].set_ylabel('Orig.')
+                ax[i, 1].set_ylabel('Orig.')
+                ax[i,1].set_xticks([])
+            elif i == 1:
+                ax[i, 0].set_ylabel('$f_{n}$')
+                ax[i, 1].set_ylabel('$f_{n}$')
+                ax[i, 1].set_xticks([])
+            elif i == len(groupings) - 2:
+                ax[i, 0].set_ylabel('Noise')
+                ax[i, 1].set_ylabel('Noise')
+                ax[i, 1].set_xticks([])
+            elif i == len(groupings) - 1:
+                ax[i, 0].set_ylabel('Phys.\n Signal')
+                ax[i, 1].set_xlabel('Frequency [Hz]')
+                ax[i, 1].set_ylabel('FFT')
+
+                # set the ticks
+                if MirrorData:
+                    tickLocs = np.linspace(startPoint,endPoint,4,dtype='int64',endpoint=False)
+                    tickLabels = [Epoch[indx-startPoint].strftime("%H:%M:%S") for indx in tickLocs]
+                    ax[i, 0].set_xticks(ticks=tickLocs,labels=tickLabels)
+
+            else:
+                ax[i, 0].set_ylabel('F{}'.format(i))
+                ax[i, 1].set_ylabel(groupings[i])
+
+            # calculate the FFT and plot it BUT ONLY for the real data, NOT the mirrored data
+            N, T = len(plotThisData[startPoint:endPoint]), 1 / 128
+            yf, xf = rfft(plotThisData[startPoint:endPoint]), fftfreq(N, T)[:N // 2]
+            FFT = (2.0 / N * np.abs(yf[0:N // 2]))
+            if i == 0:
+                origMax = FFT.max()
+                origData = [plotThisData,FFT]
+            elif i == len(groupings) - 1:
+                physData = [plotThisData, FFT]
+
+
+            ax[i, 1].plot(xf, FFT/origMax)
+
+            ax[i, 1].vlines([spinFreq * (i + 1) for i in range(50)], ymin=0, ymax=1, alpha=0.5, color='red')
+
+            ax[i, 1].set_xlim(-0.1, 15)
+            ax[i, 1].set_ylim(0, 1)
+
+        plt.show()
+
+        fig, ax = plt.subplots(ncols=2, nrows=3)
+        ax[0, 0].plot([i for i in range(len(plotThisData))], origData[0]/np.abs(max(origData[0])))
+        ax[0, 0].set_ylabel('orignal')
+        ax[0, 1].plot(xf, origData[1]/max(origData[1]))
+        ax[0, 1].set_ylabel('$f_{n}$')
+
+        ax[1, 0].plot([i for i in range(len(plotThisData))], physData[0]/np.abs(max(origData[0])))
+        ax[1, 0].set_ylabel('Phys. \nSignal')
+        ax[1, 1].plot(xf, physData[1]/max(origData[1]))
+        ax[1, 1].set_ylabel('$f_{n}$')
+
+        ax[2, 0].plot([i for i in range(len(plotThisData))], (origData[0]-physData[0])/np.abs(max(origData[0])))
+        ax[2, 0].set_ylabel('Difference')
+        ax[2, 1].plot(xf, (origData[1]-physData[1])/max(origData[1]))
+        ax[2, 1].set_ylabel('$f_{n}$')
+        for k in range(3):
+            ax[k, 0].set_xlim(startPoint,endPoint)
+            ax[k, 0].set_ylim(-1, 1)
+            ax[k, 1].set_xlim(0,15)
+            ax[k, 1].set_ylim(0, 1)
+        plt.show()
+
+
 
     ##############################
     # --- OUTPUT THE DATA DICT ---

@@ -7,12 +7,10 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
-import numpy as np
-
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
+
 wRocket = 4
 
 # --- IMPORTS ---
@@ -32,7 +30,7 @@ labelSize = 27
 labelPadding = 13
 tickLabelSize = 25
 tickWidth = 3
-tickLength  = 16
+tickLength = 16
 titleSize = 10
 legendSize = 24
 errorBarMarkerSize = 10
@@ -86,7 +84,7 @@ def Plot5_TOFanalysis(rocketFolderPath):
         ELow = Energy[np.abs(Energy - engyPair[0]).argmin()]
         EHigh = Energy[np.abs(Energy - engyPair[1]).argmin()]
         STEB_deltaE.append(EHigh-ELow)
-        STEB_engyBars.append([EHigh - 2*ELow,ELow])
+        STEB_engyBars.append([EHigh - 2*ELow, ELow])
 
 
     # Find deltaT
@@ -127,6 +125,9 @@ def Plot5_TOFanalysis(rocketFolderPath):
         STEB_text_labels = np.delete(STEB_text_labels, badIndicies,axis=0)
         STEB_deltaT = np.delete(STEB_deltaT, badIndicies)
 
+    print(STEB_Zacc)
+    print(STEB_deltaE)
+
 
     ##########################
     # --- PLOT THE RESULTS ---
@@ -152,7 +153,6 @@ def Plot5_TOFanalysis(rocketFolderPath):
     startPoint, endPoint = date2num(min(STEBtimes)), date2num(max(STEBtimes))
     EpochTicks_dt = num2date(np.linspace(startPoint, endPoint, 8))
     EpochTicks = np.array([ round((pycdf.lib.datetime_to_tt2000(tick) - pycdf.lib.datetime_to_tt2000(dt.datetime(2022,11,20,17,20,000,000)))/1E9,1) for tick in EpochTicks_dt])
-
 
     offSetAwareAttitudeEpoch = date2num(data_dict_attitude['Epoch'][0])
     iLatTicks = [round(data_dict_attitude['ILat'][0][np.abs(offSetAwareAttitudeEpoch - date2num(tme)).argmin()], 2) for tme in EpochTicks_dt]
@@ -184,7 +184,6 @@ def Plot5_TOFanalysis(rocketFolderPath):
     ]
 
     ax[0].legend(handles=legend_elements, loc='upper right', prop={'size': legendSize})
-
 
     # --- DELTA E PLOT ---
     for k in range(len(STEBtimes)):

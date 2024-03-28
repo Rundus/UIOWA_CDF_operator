@@ -174,9 +174,9 @@ class dispersionAttributes(object):
         'edgetype',  # s4
         'Auroral',  # s5
         'Auroral',  # s6
-        'Auroral',  # s7
-        'Auroral',  # s8
-        'edgetype',  # s9
+        'edgetype',  # s7
+        'isolated',  # s8
+        'isolated',  # s9
         'isolated',  # s10
         'isolated',  # s11
         'Auroral',  # s12

@@ -23,7 +23,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- TOGGLES ---
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
-wDispersions = [] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [8,9,10,11] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = True #IF ==TRUE no cross-correlation will occur
@@ -31,7 +31,7 @@ justPlotKeyDispersions = True #IF ==TRUE no cross-correlation will occur
 applyMaskVal = True
 maskVal = 2 # apply a single mask to the dispersion feature
 # ---------------------------
-isolateAlfvenSignature = False # removes unwanted data from the alfven signature
+isolateAlfvenSignature = True # removes unwanted data from the alfven signature
 # ---------------------------
 plotCorrelationProcess = False
 DetectorTimeResolution = 0.05 # in seconds

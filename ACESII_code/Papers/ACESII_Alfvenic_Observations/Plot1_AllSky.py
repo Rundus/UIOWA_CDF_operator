@@ -39,7 +39,7 @@ timeTargetsUTC = [dt.datetime(2022,11,20,17,23,20,100000),
                       dt.datetime(2022,11,20,17,27,20,100000)] # find the UTC dates times of the specifically sampled labels
 # --------------ALTvsLAT------------------
 altLatPlot = False
-AltLat_Height = 15
+AltLat_Height = 20
 AltLat_Width = 35
 trajColors = ['tab:red', 'tab:orange']
 altLat_labelFontSize = 65
@@ -185,9 +185,9 @@ if altLatPlot:
             axAltLat.scatter(x=xPos, y=yPos, s=altLat_scatterSize, marker="o", color=trajColors[i])
 
     # adjust the tick label size
-    axAltLat.tick_params(axis='both',labelsize=altLat_TickLabelSize, length=altLat_TickLength, width=altLat_TickWidth)
-    axAltLat.tick_params(axis='both',which='minor', length=int(altLat_TickLength*0.65), width=altLat_TickWidth)
-    axGeomLat.tick_params(axis='both',labelsize=altLat_TickLabelSize, length=altLat_TickLength, width=altLat_TickWidth)
+    axAltLat.tick_params(axis='both', labelsize=altLat_TickLabelSize, length=altLat_TickLength, width=altLat_TickWidth)
+    axAltLat.tick_params(axis='both', which='minor', length=int(altLat_TickLength*0.65), width=altLat_TickWidth)
+    axGeomLat.tick_params(axis='both', labelsize=altLat_TickLabelSize, length=altLat_TickLength, width=altLat_TickWidth)
     axGeomLat.tick_params(axis='both', which='minor', length=int(altLat_TickLength*0.65) , width=altLat_TickWidth)
     axAltLat.minorticks_on()
     axGeomLat.minorticks_on()
@@ -200,7 +200,6 @@ if altLatPlot:
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\AltLat.png')
     Done(start_time)
     # plt.show()
-
 
 # --- BIG ALLSKYIMAGER PLOT ---
 if BigAllSkyPlot:
@@ -302,11 +301,10 @@ if BigAllSkyPlot:
 if ILatDiffPlot:
     prgMsg('Plotting ILatDiff')
 
-
     # --- --- --- --- --- --- -
     # --- ILatDiffPlot plot ---
     # --- --- --- --- --- --- -
-    fig, (axILatDiff_space,axILatDiff_time) = plt.subplots(2, sharex=True)
+    fig, (axILatDiff_space, axILatDiff_time) = plt.subplots(2, sharex=True)
     figure_height = ILatDiff_Height
     figure_width = ILatDiff_Width
     fig.set_figwidth(figure_width)
@@ -319,22 +317,34 @@ if ILatDiffPlot:
     timeDiff = data_dicts_attitude[0]['footPrint_lattitude_time_Difference'][0][ttIndicies[0]:ttIndicies[1]]
 
     # --- SPATIAL ---
-    axILatDiff_space.plot(Epoch, spatialDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
+    axILatDiff_space.plot(Epoch, spatialDiff, color='black', linewidth=ILatDiff_PlotLineWidth)
     axILatDiff_space.set_ylabel(r'ILat $\Delta \varphi$'+'\n[km]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding, weight='bold')
     axILatDiff_space.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
     axILatDiff_space.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
     axILatDiff_space.margins(0)
     axILatDiff_space.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
     axILatDiff_space.set_ylim(-110, 110)
-    axILatDiff_space.axhline(y=0,color='red',linestyle='--',linewidth=ILatDiff_PlotLineWidth-5,alpha=0.4)
+    axILatDiff_space.axhline(y=0, color='red', linestyle='--', linewidth=ILatDiff_PlotLineWidth-5, alpha=0.4)
     axILatDiff_space.minorticks_on()
 
+    extraAxis = axILatDiff_space.twiny()
+    extraAxis.plot(Epoch, spatialDiff, alpha=0)
+    extraAxis.set_xticks(timeTargetsUTC)
+    tickIndicies = [np.abs(Epoch - val).argmin() for val in timeTargetsUTC]
+    extraAxis.set_xticklabels([round(ILat[idx], 2) for idx in tickIndicies])
+    extraAxis.set_xlabel('Low Flyer ILat [deg]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30)
+    extraAxis.tick_params(axis='both', labelsize=ILatDiff_TickLabelSize, length=ILatDiff_TickLength, width=ILatDiff_TickWidth)
+    extraAxis.tick_params(axis='both', which='minor', length=int(ILatDiff_TickLength * 0.65), width=ILatDiff_TickWidth)
+    extraAxis.margins(x=0)
+    extraAxis.set_xlim(timeTargetsUTC[0],timeTargetsUTC[-1])
+    # set the ticks
+
     # --- TEMPORAL ---
-    axILatDiff_time.plot(Epoch,timeDiff, color='black',linewidth=ILatDiff_PlotLineWidth)
+    axILatDiff_time.plot(Epoch, timeDiff, color='black', linewidth=ILatDiff_PlotLineWidth)
     axILatDiff_time.grid(which='both', linewidth=2.5, color='gray', alpha=0.6)
-    axILatDiff_time.set_ylabel('ILat $\Delta t$ \n  [s]',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30, weight='bold')
-    axILatDiff_time.set_xlabel('time (UTC)',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding)
-    axILatDiff_time.set_ylim(-65,65)
+    axILatDiff_time.set_ylabel('ILat $\Delta t$ \n [s]', fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30, weight='bold')
+    axILatDiff_time.set_xlabel('time (UTC)',fontsize=ILatDiff_LabelSize, labelpad=ILatDiff_LabelPadding+30)
+    axILatDiff_time.set_ylim(-65, 65)
     axILatDiff_time.margins(0)
 
     # TICKS
@@ -349,6 +359,7 @@ if ILatDiffPlot:
 
     plt.tight_layout()
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\\ILatDiff.png')
+    Done(start_time)
 
 
 

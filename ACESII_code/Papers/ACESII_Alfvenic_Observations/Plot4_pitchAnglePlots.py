@@ -19,6 +19,7 @@ start_time = time.time()
 # --- --- --- ---
 import math
 import matplotlib.colors
+from ACESII_code.class_var_func import EpochTo_T0_Rocket
 
 
 print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
@@ -37,11 +38,14 @@ sliceEpochIndicies = {
     's5':[6014, 6018 + 1, 6021 + 3],
     's10':[6139, 6142, 6145]  # s10 The Big One on the poleward side of the aurora
 }
-figure_height =40
-figure_width = 8
+figure_height =11.5
+figure_width = 3
 cmap = 'turbo'
 cbarLow_counts, cbarHigh_counts = 1, 100
-labelsFontSize = 30
+textFontSize = 5
+titleFontSize = 5
+labelsFontSize = 5
+tickLabelSize = 5
 TimeSinceLaunchLabelFontSize = 32
 
 
@@ -58,7 +62,7 @@ X_Velocity_limits, Y_Velocity_limit = [-0.5, 1.6], [-1.6, 1.6]
 NoOfSlices = 3
 
 # plot toggles - Histogram ---------------------------
-countsthresh = 5
+countsthresh = 2
 # consider only the pitch angles between -10 and 90
 # [  0 1  2  3  4  5  6  7  8  9 10 ...]
 # [-10 0 10 20 30 40 50 60 70 80 90 ...]
@@ -267,7 +271,7 @@ for i in range(len(wDispersions)):
 
     # output the figure
     pitchThreshUsed = Pitch[pitchAngleWidthAcceptance_upperlimit-1]
-    fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot4\\Plot4_pitchAngle_STEB_s{wDispersions[i]+1}_median_{pitchThreshUsed}deg_{countsthresh}countsThresh.png'
+    fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot4\\Plot4_pitchAngle_STEB_s{wDispersions[i]+1}_median_{pitchThreshUsed}deg_{countsthresh}countsThresh.png'
     plt.tight_layout(pad=1.5)
     plt.savefig(fileOutName)
     plt.close()
@@ -298,6 +302,6 @@ for i in range(len(wDispersions)):
         l.set_weight("bold")
         l.set_fontsize(25)
 
-    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot4\\Plot4_pitchAngle_STEB_colorbar.png')
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot4\\Plot4_pitchAngle_STEB_colorbar.png')
     # output
     Done(start_time)
