@@ -10,6 +10,8 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
+
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -18,8 +20,10 @@ start_time = time.time()
 # --- IMPORTS ---
 # --- --- --- ---
 import math
-import matplotlib.colors
+import matplotlib as mpl
 from ACESII_code.class_var_func import EpochTo_T0_Rocket
+from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
+
 
 
 print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
@@ -29,7 +33,6 @@ print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
 #################
 
 # plot toggles - Overview -----------------------------
-isolateSignatures = False # applies functions that remove data outside of signature
 sliceEpochIndicies = {
     's1':[5934, 5940, 5946],
     's2':[5959, 5966, 5974],
@@ -39,18 +42,24 @@ sliceEpochIndicies = {
     's10':[6139, 6142, 6145]  # s10 The Big One on the poleward side of the aurora
 }
 figure_height =11.5
-figure_width = 3
+figure_width = 9.9318
 cmap = 'turbo'
 cbarLow_counts, cbarHigh_counts = 1, 100
-textFontSize = 5
-titleFontSize = 5
-labelsFontSize = 5
-tickLabelSize = 5
-TimeSinceLaunchLabelFontSize = 32
+labelPadding = -0.25
+textFontSize = 10
+titleFontSize = 18
+labelsFontSize = 10
+SidelabelAdjust = 2.6
+tickFontSize = 10
+tickWidth = 1
+tickLength = 2
+lineWidth = 2
+cbarFont = 15
+dpi = 1200
 
 
 # plot toggles - Show STEB itself ----------
-wDispersions = np.array([1,2,3,4,5,10])-1 # [s1, s2, s3, s4, etc] <-- Index
+wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time plot
 # colors = ['red', 'green', 'black','red', 'green', 'black','red', 'green', 'black']
 sliceLineColors = np.array([['red', 'red', 'red'] for i in range(len(wDispersions))]).flatten()
@@ -72,12 +81,12 @@ useCustomHistrogramColorbar = True # create custom histogram Colorbar
 if useCustomHistrogramColorbar:
     tempCmap = plt.cm.turbo_r # define new colormap
     cmaplist = [tempCmap(i) for i in range(tempCmap.N)] # extract all colors from the colormap
-    cmap_hist = matplotlib.colors.LinearSegmentedColormap.from_list('turboCustom',cmaplist,tempCmap.N) # create the new map
+    cmap_hist = mpl.colors.LinearSegmentedColormap.from_list('turboCustom',cmaplist,tempCmap.N) # create the new map
     bounds = 10*np.array([-1.5+i for i in range(11)])
-    histNorm = matplotlib.colors.BoundaryNorm(bounds,tempCmap.N)
+    histNorm = mpl.colors.BoundaryNorm(bounds,tempCmap.N)
 else:
     cmap_hist = 'turbo_r'
-    histNorm = matplotlib.colors.Normalize(vmin=-10, vmax=90)
+    histNorm = mpl.colors.Normalize(vmin=-10, vmax=90)
 
 
 # --- --- --- --- --- ---
@@ -101,9 +110,7 @@ data_dict_eepaa_low = loadDictFromFile(inputFilePath=inputFiles_eepaa[1])
 cbarLow,cbarHigh = cbarLow_counts, cbarHigh_counts
 inputFiles_eepaa_counts = [glob('C:\Data\ACESII\L1\high\*eepaa_fullCal*')[0], glob('C:\Data\ACESII\L1\low\*eepaa_fullCal*')[0]]
 data_dict_counts_high = loadDictFromFile(inputFilePath=inputFiles_eepaa_counts[0])
-
 Done(start_time)
-
 
 
 # --- --- --- --- --- --- --
@@ -133,39 +140,36 @@ Done(start_time)
 ############################
 
 # define (in time) where the STEBS occur, this has been done already
-from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
+
 dispersionTimes = dispersionAttributes.keyDispersionTimes
 
 # the slices in time for each dispersion used
 sliceTimes = {key:[data_dict_eepaa_high['Epoch'][0][val] for val in sliceEpochIndicies[key]] for key,val in sliceEpochIndicies.items()}
 
-###############################
-# --- Make the Column Plots ---
-###############################
-for i in range(len(wDispersions)):
-    prgMsg('Beginning Plot')
+prgMsg('Beginning Plot')
+fig, ax = plt.subplots(nrows=NoOfSlices+1+1, ncols=len(wDispersions))
+fig.set_size_inches(figure_width,figure_height)
 
-    fig, ax = plt.subplots(NoOfSlices+1+1)
-    fig.set_figwidth(figure_width)
-    fig.set_figheight(figure_height)
+# fig.subplots_adjust(hspace=0) # remove the space between plots
+
+
+
+for colIndx in range(len(wDispersions)):
 
     # get the data
-    IndexLow, IndexHigh = np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[i]][0]).argmin(), np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[i]][1]).argmin()
+    IndexLow, IndexHigh = np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[colIndx]][0]).argmin(), np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[colIndx]][1]).argmin()
     Epoch = EpochTo_T0_Rocket(InputEpoch=data_dict_counts_high['Epoch'][0][IndexLow:IndexHigh], T0=data_dict_counts_high['Epoch'][0][0])
     dataArray = np.array(data_dict_counts_high['eepaa'][0][IndexLow:IndexHigh])
 
-    if isolateSignatures:
-        Epoch_for_one_dispersion = np.array(Epoch) - Epoch[0]
-        dataArray = dispersionAttributes.isolationFunctions[f's{wDispersions[i] + 1}'](dataArray, Energy,  Epoch_for_one_dispersion)
 
     # --- loop through the axis: (STEB Plot, Slice 1, slice 2, slice 3) ---
-    for j in range(NoOfSlices+1+1):
+    for rowIndx in range(NoOfSlices+1+1):
 
-        ax[j].xaxis.set_tick_params(labelsize=labelsFontSize - 8)
-        ax[j].yaxis.set_tick_params(labelsize=labelsFontSize - 8)
+        ax[rowIndx, colIndx].xaxis.set_tick_params(labelsize=tickFontSize)
+        ax[rowIndx, colIndx].yaxis.set_tick_params(labelsize=tickFontSize)
 
         # --- STEB top Plot ---
-        if j == 0:
+        if rowIndx == 0:
             # get the formatted eepaa data - Energy vs Time
             dataToPlot = deepcopy(np.transpose(dataArray[:, wPitch_Engy_vs_Time, :]))
 
@@ -175,32 +179,36 @@ for i in range(len(wDispersions)):
                     if dataToPlot[tme][engy] == 0:
                         dataToPlot[tme][engy] = 1
 
-            dispersionTitleTime = pycdf.lib.tt2000_to_datetime(pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[i]][0]) + int((pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[i]][0]) - pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[i]][1]))/2)).strftime("%H:%M:%S.%f")[:-3]
+            dispersionTitleTime = pycdf.lib.tt2000_to_datetime(pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) + int((pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) - pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][1]))/2)).strftime("%H:%M:%S.%f")[:-3]
 
-            ax[j].set_title(f'STEB {wDispersions[i]+1}\n' + dispersionTitleTime  + ' UTC',fontsize=labelsFontSize+5)
-            alfSigPlot = ax[j].pcolormesh(Epoch, Energy, dataToPlot, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
+
+            ax[rowIndx,colIndx].set_title(f'STEB {wDispersions[colIndx]+1}\n' + dispersionTitleTime  + ' UTC',fontsize=titleFontSize-4)
+            alfSigPlot = ax[rowIndx,colIndx].pcolormesh(Epoch, Energy, dataToPlot, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
 
             # format the plot
-            ax[j].set_ylim(Energy[-1], Energy_yLimit)
-            ax[j].set_ylabel('Energy [eV]',fontsize=labelsFontSize+8)
-            ax[j].set_xlabel('Time Since Launch [s]', fontsize=TimeSinceLaunchLabelFontSize, weight='bold')
-            ax[j].set_yscale('log')
-            ax[j].tick_params(axis='y', which='major', labelsize=labelsFontSize+10,width=3,length=16)
-            ax[j].tick_params(axis='y', which='minor', labelsize=labelsFontSize+5,width=3,length=16)
-            ax[j].tick_params(axis='x', which='major', labelsize=labelsFontSize, width=3, length=16)
-            ax[j].tick_params(axis='x', which='minor', labelsize=labelsFontSize, width=3, length=16)
+            ax[rowIndx, colIndx].set_ylim(Energy[-1], Energy_yLimit)
+
+            if colIndx == 0:
+                ax[rowIndx, colIndx].set_ylabel('P.A. = 10$^{\circ}$ \n Energy [eV]',fontsize=labelsFontSize+SidelabelAdjust+2)
+
+            ax[rowIndx, colIndx].set_xlabel('Time Since Launch [s]', fontsize=labelsFontSize+SidelabelAdjust-2, weight='bold',labelpad=labelPadding)
+            ax[rowIndx, colIndx].set_yscale('log')
+            ax[rowIndx, colIndx].tick_params(axis='y', which='major', labelsize=tickFontSize, width=tickWidth, length=tickLength)
+            ax[rowIndx, colIndx].tick_params(axis='y', which='minor', labelsize=tickFontSize, width=tickWidth, length=tickLength/2)
+            ax[rowIndx, colIndx].tick_params(axis='x', which='major', labelsize=tickFontSize, width=tickWidth, length=tickLength)
+            ax[rowIndx, colIndx].tick_params(axis='x', which='minor', labelsize=tickFontSize, width=tickWidth, length=tickLength/2)
 
         # --- STEB Slices Plots ---
-        elif j != 0 and j != NoOfSlices+1:
+        elif rowIndx != 0 and rowIndx != NoOfSlices+1:
             # get the formatted eepaa data - Vpara vs Vperp
 
             # colored textbox
-            timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{wDispersions[i] + 1}'][j - 1]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
+            timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{wDispersions[colIndx] + 1}'][rowIndx - 1]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
             props = dict(boxstyle='round', facecolor='white', alpha=1)
-            ax[j].text(0.5, -1.35, f'$t_{j}$=' +f'{timeTag} s',fontsize=labelsFontSize, weight='bold', color=sliceLineColors[j-1],bbox=props, ha='center')
+            ax[rowIndx, colIndx].text(0.5, -1.3, f'$t_{rowIndx}$=' +f'{timeTag} s',fontsize=labelsFontSize, weight='bold', color=sliceLineColors[rowIndx-1], bbox=props, ha='center')
 
             # dataToPlot
-            dataArray_Slice = data_dict_counts_high['eepaa'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[i]+1}'][j - 1]).argmin()]
+            dataArray_Slice = data_dict_counts_high['eepaa'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIndx]+1}'][rowIndx - 1]).argmin()]
 
             # Set the background black by turning all 0 values into 1's (just for display purposes)
             for tme in range(len(dataArray_Slice)):
@@ -208,22 +216,24 @@ for i in range(len(wDispersions)):
                     if not dataArray_Slice[tme][engy] >= 1:
                         dataArray_Slice[tme][engy] = 1
 
-            ax[j].pcolormesh(Vperp, Vpara, dataArray_Slice, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
-            ax[j].set_xlim(X_Velocity_limits[0], X_Velocity_limits[1])
-            ax[j].set_ylim(Y_Velocity_limit[0], Y_Velocity_limit[1])
-            ax[j].set_ylabel('V$_{\parallel}$ [10,000 km/s]', fontsize=labelsFontSize+6)
-            ax[j].tick_params(axis='both', which='major', labelsize=labelsFontSize-5, width=3, length=10)
-            ax[j].tick_params(axis='both', which='minor', labelsize=labelsFontSize-5, width=3, length=16)
+            ax[rowIndx,colIndx].pcolormesh(Vperp, Vpara, dataArray_Slice, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
+            ax[rowIndx,colIndx].set_xlim(X_Velocity_limits[0], X_Velocity_limits[1])
+            ax[rowIndx,colIndx].set_ylim(Y_Velocity_limit[0], Y_Velocity_limit[1])
+            if colIndx == 0:
+                ax[rowIndx,colIndx].set_ylabel('V$_{\parallel}$ [10,000 km/s]', fontsize=labelsFontSize+SidelabelAdjust+2,labelpad=labelPadding+5)
+            ax[rowIndx,colIndx].tick_params(axis='both', which='major', labelsize=tickFontSize, width=tickWidth, length=tickLength)
+            ax[rowIndx,colIndx].tick_params(axis='both', which='minor', labelsize=tickFontSize, width=tickWidth, length=tickLength/2)
 
             # if j == NoOfSlices:
-            ax[j].set_xlabel('V$_{\perp}$ [10,000 km/s]', fontsize=labelsFontSize+6)
-            ax[j].invert_yaxis()
+            ax[rowIndx,colIndx].set_xlabel('V$_{\perp}$ [10,000 km/s]', fontsize=labelsFontSize + SidelabelAdjust-2,labelpad=labelPadding)
+            ax[rowIndx,colIndx].invert_yaxis()
 
             # add a verical line on the Alfvenic signature plot
-            ax[0].axvline(x=timeTag, color=sliceLineColors[j-1], linewidth=5)
+            ax[0,colIndx].axvline(x=timeTag, color=sliceLineColors[rowIndx-1], linewidth=lineWidth)
 
-        # --- Pitch Angle COUNTS Histogram ---
+
         else:
+            # --- Pitch Angle COUNTS Histogram ---
             # construct the new dataset variable
             x = Epoch
             y = Energy
@@ -259,49 +269,60 @@ for i in range(len(wDispersions)):
                     Z[engy][tme] = medianVal_pitchVal
 
             # adjust the plot
-            cmapObj = ax[j].pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm, shading='nearest')
-            ax[j].set_yscale('log')
-            ax[j].set_ylim(Energy[-1], Energy_yLimit)
-            ax[j].set_ylabel('Energy [eV]', fontsize=labelsFontSize+8)
-            ax[j].set_xlabel('Time Since Launch [s]',fontsize=TimeSinceLaunchLabelFontSize, weight='bold')
-            ax[j].tick_params(axis='y', which='major', labelsize=labelsFontSize + 10,width=3,length=16)
-            ax[j].tick_params(axis='y', which='minor', labelsize=labelsFontSize + 5,width=3,length=8)
-            ax[j].tick_params(axis='x', which='major', labelsize=labelsFontSize, width=3, length=16)
-            ax[j].tick_params(axis='x', which='minor', labelsize=labelsFontSize, width=3, length=16)
+            cmapObj = ax[rowIndx,colIndx].pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm, shading='nearest')
+            ax[rowIndx,colIndx].set_yscale('log')
+            ax[rowIndx,colIndx].set_ylim(Energy[-1], Energy_yLimit)
+            if colIndx == 0:
+                ax[rowIndx,colIndx].set_ylabel('Energy [eV]', fontsize=labelsFontSize+SidelabelAdjust+2)
+            ax[rowIndx,colIndx].set_xlabel('Time Since Launch [s]',fontsize=labelsFontSize+SidelabelAdjust-2, weight='bold',labelpad=labelPadding)
+            ax[rowIndx,colIndx].tick_params(axis='y', which='major', labelsize=labelsFontSize, width=tickWidth,length=tickLength)
+            ax[rowIndx,colIndx].tick_params(axis='y', which='minor', labelsize=labelsFontSize, width=tickWidth,length=tickLength/2)
+            ax[rowIndx,colIndx].tick_params(axis='x', which='major', labelsize=labelsFontSize, width=tickWidth, length=tickLength)
+            ax[rowIndx,colIndx].tick_params(axis='x', which='minor', labelsize=labelsFontSize, width=tickWidth, length=tickLength/2)
 
-    # output the figure
-    pitchThreshUsed = Pitch[pitchAngleWidthAcceptance_upperlimit-1]
-    fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot4\\Plot4_pitchAngle_STEB_s{wDispersions[i]+1}_median_{pitchThreshUsed}deg_{countsthresh}countsThresh.png'
-    plt.tight_layout(pad=1.5)
-    plt.savefig(fileOutName)
-    plt.close()
-    Done(start_time)
 
-    prgMsg('Creating Colorbar Plot')
-    # --- Colorbar Plot ---
-    fig, ax = plt.subplots(NoOfSlices + 1 + 1)
-    fig.set_figwidth(figure_width+15)
-    fig.set_figheight(figure_height)
-    import matplotlib as mpl
 
-    # Slices Colorbar
-    axesToColorbar = ax.ravel().tolist()
-    sliceNorm = mpl.colors.LogNorm(vmin=cbarLow,vmax=cbarHigh)
-    cbar_slice = fig.colorbar(mpl.cm.ScalarMappable(norm=sliceNorm, cmap=cmap), ax=axesToColorbar[0:4])
-    cbar_slice.ax.get_yaxis().labelpad = 70
-    cbar_slice.set_label('Counts', fontsize=50, rotation=270)
-    for l in cbar_slice.ax.yaxis.get_ticklabels():
-        l.set_weight("bold")
-        l.set_fontsize(40)
+plt.tight_layout(w_pad=-0.5,h_pad=0.15,rect=[0,0,0.915,1])
 
-    # Histogram Colorbar
-    cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm,cmap=cmap_hist), ax=axesToColorbar[4])
-    cbar_hist.set_label(f'Median Pitch Angle', fontsize=labelsFontSize+10, rotation=270)
-    cbar_hist.ax.get_yaxis().labelpad = 40
-    for l in cbar_hist.ax.yaxis.get_ticklabels():
-        l.set_weight("bold")
-        l.set_fontsize(25)
+prgMsg('Creating Colorbar Plot')
 
-    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot4\\Plot4_pitchAngle_STEB_colorbar.png')
-    # output
-    Done(start_time)
+# --- Counts Colorbar ---
+cax = fig.add_axes([0.90, 0.23, 0.025, 0.718])
+cbar = plt.colorbar(alfSigPlot, cax=cax)
+cbar.ax.minorticks_on()
+cbar.ax.tick_params(labelsize=tickFontSize)
+cbar.set_label('Counts', fontsize=labelsFontSize+10, rotation=270)
+cbar.ax.get_yaxis().labelpad = 16
+for l in cbar.ax.yaxis.get_ticklabels():
+    l.set_weight("bold")
+    l.set_fontsize(cbarFont)
+
+# Slices Colorbar
+# axesToColorbar = ax.ravel().tolist()
+# sliceNorm = mpl.colors.LogNorm(vmin=cbarLow,vmax=cbarHigh)
+# cbar_slice = fig.colorbar(mpl.cm.ScalarMappable(norm=sliceNorm, cmap=cmap), ax=axesToColorbar[0:4])
+# cbar_slice.ax.get_yaxis().labelpad = 70
+# cbar_slice.set_label('Counts', fontsize=50, rotation=270)
+# for l in cbar_slice.ax.yaxis.get_ticklabels():
+#     l.set_weight("bold")
+#     l.set_fontsize(40)
+
+# Histogram Colorbar
+caxH = fig.add_axes([0.90, 0.044, 0.025, 0.155])
+cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
+cbar_hist.set_label(f'Median Pitch Angle', fontsize=labelsFontSize+8, rotation=270)
+cbar_hist.ax.get_yaxis().labelpad = 22
+
+cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
+
+for l in cbar_hist.ax.yaxis.get_ticklabels():
+    l.set_weight("bold")
+    l.set_fontsize(cbarFont)
+
+
+# output the figure
+pitchThreshUsed = Pitch[pitchAngleWidthAcceptance_upperlimit-1]
+fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot4\\Plot4_pitchAngle_median_{pitchThreshUsed}deg_{countsthresh}countsThresh.png'
+
+plt.savefig(fileOutName)
+Done(start_time)

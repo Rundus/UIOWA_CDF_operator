@@ -9,9 +9,6 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
-
-import matplotlib.pyplot as plt
-
 from ACESII_code.myImports import *
 from scipy.signal import spectrogram
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -29,14 +26,14 @@ print(color.UNDERLINE + f'Plot2_Conjugacy' + color.END)
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
-dpi = 700
+dpi = 800
 alignByILat = False # Align the Data via ILat
 
 
 
 # --- Cbar ---
 # cbarMin, cbarMax = 5E6, 3E9
-cbarMin, cbarMax = 1E8, 3E9
+cbarMin, cbarMax = 5E6, 3E9
 cbarTickLabelSize = 14
 my_cmap = apl_rainbow_black0_cmap()
 my_cmap.set_bad(color=(1, 1, 1))
@@ -47,20 +44,20 @@ Escale = 1000 # what to scale the deltaE field by
 # --- HF/LF General ---
 plot_General = False
 General_figure_width = 7.5 # in inches
-General_figure_height = 8 # in inches
+General_figure_height =9 # in inches
 General_targetILat = [71.35, 72.85]
 General_targetEpoch = [dt.datetime(2022,11,20,17,24,54,000000), dt.datetime(2022,11,20,17,25,11,00000)]
-General_LabelFontSize = 16
+General_LabelFontSize = 12
 General_TickFontSize = 13
 General_PlotLineWidth = 0.5
 General_EBlimits = 9
-General_LabelPadding = 11
+General_LabelPadding = 8
 GeneralCmap = my_cmap
 
 # --- HF/LF Dispersive Region ---
 plot_Dispersive = True
 Dispersive_figure_width = 8.5
-Dispersive_figure_height = 5.5
+Dispersive_figure_height = 5.5*2
 Disp_targetILat = [71.91, 72.03]
 Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,800000), dt.datetime(2022,11,20,17,25,9,000)]
 Dispersive_wPitch = 2 # 10deg pitch
@@ -70,7 +67,7 @@ Dispersive_TickLength = 5
 Dispersive_TickWidth = 2
 Dispersive_LabelPadding = 5
 DispersiveCmap = my_cmap
-specCbarMin, specCbarMax = 1E-2, 1E1
+specCbarMin, specCbarMax = 1E-2, 1E0
 DispersiveFreqlimits = [0, 12]
 Disp_PlotLineWidth = 1
 spectrogramCmap = blue_green_white_yellow_red_cmap()
@@ -116,14 +113,15 @@ inputEEPAA_low = glob('C:\Data\ACESII\L2\low\*eepaa_fullCal*')[0]
 data_dict_eepaa_low = loadDictFromFile(inputFilePath=inputEEPAA_low, targetVar=targetVar, wKeys_Reduce=['Differential_Energy_Flux', 'ILat', 'Epoch', 'Alt'])
 inputEEPAA_high = glob('C:\Data\ACESII\L2\high\*eepaa_fullCal*')[0]
 data_dict_eepaa_high = loadDictFromFile(inputFilePath=inputEEPAA_high, targetVar=targetVar, wKeys_Reduce=['Differential_Energy_Flux', 'ILat', 'Epoch', 'Alt'])
+
+
+# LP Particle Data
+inputLP_low = glob('C:\Data\ACESII\L3\Langmuir\low\*langmuir_fixed*')[1]
+data_dict_LP_low = loadDictFromFile(inputFilePath=inputLP_low, targetVar=targetVar, wKeys_Reduce=['ni', 'ILat', 'Epoch'])
+inputLP_high = glob('C:\Data\ACESII\L3\Langmuir\high\*langmuir_fixed*')[1]
+data_dict_LP_high = loadDictFromFile(inputFilePath=inputLP_high, targetVar=targetVar, wKeys_Reduce=['ni', 'ILat', 'Epoch'])
 Done(start_time)
 
-index_up = np.abs(data_dict_eepaa_high['ILat'][0]-General_targetILat[0]).argmin()
-index_down = np.abs(data_dict_eepaa_high['ILat'][0]-General_targetILat[1]).argmin()
-print(data_dict_eepaa_high['Epoch'][0][index_up], data_dict_eepaa_high['Epoch'][0][index_down])
-index_up = np.abs(data_dict_eepaa_low['ILat'][0]-General_targetILat[0]).argmin()
-index_down = np.abs(data_dict_eepaa_low['ILat'][0]-General_targetILat[1]).argmin()
-print(data_dict_eepaa_low['Epoch'][0][index_up], data_dict_eepaa_low['Epoch'][0][index_down])
 
 
 
@@ -154,7 +152,7 @@ if plot_General:
 
     Done(start_time)
 
-    fig, ax = plt.subplots(4, sharex=True, height_ratios=[2, 1, 2, 1])
+    fig, ax = plt.subplots(7, sharex=True, height_ratios=[2, 1, 0.75, 0.1, 2, 1, 0.75])
     fig.set_figwidth(General_figure_width)
     fig.set_figheight(General_figure_height)
     fig.subplots_adjust(hspace=0) # remove the space between plots
@@ -167,49 +165,76 @@ if plot_General:
     ax[0].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize-4, length=Dispersive_TickLength-2, width=Dispersive_TickWidth-1)
     ax[0].set_yscale('log')
 
-    # --- cbar ---
-    cax = fig.add_axes([0.91, 0.239, 0.02, 0.641])
-    cbar = plt.colorbar(cmap, cax=cax)
-    # cbar.set_label('Omni-Dir. diff E. Flux \n' + '[cm$^{-2}$str$^{-1}$eV/eV]', rotation=-90, labelpad=20, fontsize=General_LabelFontSize)
-    cbar.ax.minorticks_on()
-    cbar.ax.tick_params(labelsize=cbarTickLabelSize+5)
-
     # --- delta B HF---
     ax[1].plot(data_dict_mag_high['ILat'][0],data_dict_mag_high['B_e'][0], color='blue',linewidth=General_PlotLineWidth)
     ax[1].set_ylabel('$\delta B_{e}$ [nT]', fontsize=General_LabelFontSize, color='blue', labelpad=General_LabelPadding+3)
     ax[1].tick_params(axis='y',which='both', colors='blue', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
     ax[1].set_ylim(-General_EBlimits, General_EBlimits)
 
+    # --- LP High---
+    ax[2].plot(data_dict_LP_high['ILat'][0], data_dict_LP_high['ni'][0]/1E5, color='black', linewidth=General_PlotLineWidth+1)
+    ax[2].set_ylabel('ni [10$^{5}$ cm$^{-3}$]', fontsize=General_LabelFontSize-2, color='black', labelpad=General_LabelPadding+4)
+    ax[2].tick_params(axis='y', which='major', colors='black', labelsize=General_TickFontSize - 3, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[2].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize - 6, length=Dispersive_TickLength - 2, width=Dispersive_TickWidth)
+    ax[2].set_ylim(0, 1)
+    ax[2].minorticks_on()
+    # ax[2].set_yscale('log')
+    # ax[2].ticklabel_format(axis='y', style='sci', scilimits=(5, 5))
+
+    # --- BREAK AXIS ---
+    ax[3].spines[['left', 'right']].set_visible(False)
+    ax[3].set_yticks(ticks=[],labels=[])
+
+
     # --- LF EEPAA---
-    cmap = ax[2].pcolormesh(data_dict_eepaa_low['ILat'][0], data_dict_eepaa_low['Energy'][0], omniDirFlux_low.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
-    ax[2].tick_params(axis='y', which='major', colors='black', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
-    ax[2].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize-4, length=Dispersive_TickLength-2, width=Dispersive_TickWidth-1)
-    ax[2].set_ylabel('Energy [eV]', fontsize=General_LabelFontSize, labelpad=General_LabelPadding)
-    ax[2].set_yscale('log')
+    cmap = ax[4].pcolormesh(data_dict_eepaa_low['ILat'][0], data_dict_eepaa_low['Energy'][0], omniDirFlux_low.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+    ax[4].tick_params(axis='y', which='major', colors='black', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[4].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize-4, length=Dispersive_TickLength-2, width=Dispersive_TickWidth-1)
+    ax[4].set_ylabel('Energy [eV]', fontsize=General_LabelFontSize, labelpad=General_LabelPadding)
+    ax[4].set_yscale('log')
 
     # --- delta B LF---
-    ax[3].plot(data_dict_mag_low['ILat'][0], data_dict_mag_low['B_e'][0], color='blue',linewidth=General_PlotLineWidth, zorder=1)
-    ax[3].plot(data_dict_Efield_low['ILat'][0], data_dict_Efield_low['E_r'][0], linewidth=General_PlotLineWidth, color='red', zorder=0)
-    ax[3].set_ylabel('$\delta B_{e}$ [nT]', fontsize=General_LabelFontSize, color='blue', labelpad=General_LabelPadding+3)
-    ax[3].set_xlabel('ILat [deg]', fontsize=General_LabelFontSize+3,labelpad=General_LabelPadding)
-    ax[3].minorticks_on()
-    ax[3].tick_params(axis='y', which='major', colors='blue', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
-    ax[3].tick_params(axis='y', which='minor', colors='blue', labelsize=0, length=0, width=0)
-    ax[3].tick_params(axis='x', which='major', colors='black', labelsize=General_TickFontSize+2, length=Dispersive_TickLength+4, width=Dispersive_TickWidth)
-    ax[3].tick_params(axis='x', which='minor', colors='black', labelsize=General_TickFontSize-4, length=Dispersive_TickLength, width=Dispersive_TickWidth)
-    ax[3].set_ylim(-General_EBlimits,General_EBlimits)
+    ax[5].plot(data_dict_mag_low['ILat'][0], data_dict_mag_low['B_e'][0], color='blue',linewidth=General_PlotLineWidth, zorder=1)
+    ax[5].plot(data_dict_Efield_low['ILat'][0], data_dict_Efield_low['E_r'][0], linewidth=General_PlotLineWidth, color='red', zorder=0)
+    ax[5].set_ylabel('$\delta B_{e}$ [nT]', fontsize=General_LabelFontSize, color='blue', labelpad=General_LabelPadding+3)
+    ax[5].tick_params(axis='y', which='major', colors='blue', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[5].tick_params(axis='y', which='minor', colors='blue', labelsize=0, length=0, width=0)
+    ax[5].set_ylim(-General_EBlimits,General_EBlimits)
 
     # --- delta E LF ---
-    axEr = ax[3].twinx()
+    axEr = ax[5].twinx()
     axEr.set_ylabel('$\delta E_{r}$ [mV/m]', fontsize=General_LabelFontSize, color='red', rotation=-90, labelpad=General_LabelPadding+20)
     axEr.tick_params(axis='y', which='both', colors='red', labelsize=General_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
     axEr.set_ylim(-General_EBlimits, General_EBlimits)
 
-    for i in range(4):
+    # --- LP Low ---
+    ax[6].plot(data_dict_LP_low['ILat'][0], data_dict_LP_low['ni'][0]/1E5, color='black', linewidth=General_PlotLineWidth+1)
+    ax[6].set_ylabel('ni [10$^{5}$ cm$^{-3}$]', fontsize=General_LabelFontSize-2, color='black', labelpad=General_LabelPadding+12 )
+    ax[6].tick_params(axis='y', which='major', colors='black', labelsize=General_TickFontSize-3, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[6].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize - 6, length=Dispersive_TickLength-2, width=Dispersive_TickWidth)
+    ax[6].tick_params(axis='x', which='major', colors='black', labelsize=General_TickFontSize + 2, length=Dispersive_TickLength + 4, width=Dispersive_TickWidth)
+    ax[6].tick_params(axis='x', which='minor', colors='black', labelsize=General_TickFontSize - 4, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+    ax[6].set_ylim(0,2.5)
+    ax[6].set_xlabel('ILat [deg]', fontsize=General_LabelFontSize + 3, labelpad=General_LabelPadding)
+    ax[6].minorticks_on()
+    # ax[6].set_yscale('log')
+    # ax[6].ticklabel_format(axis='y', style='sci', scilimits=(5, 5))
+
+    for i in range(7):
         ax[i].margins(0)
         ax[i].set_xlim(targetILat[0],targetILat[1])
 
     # --- SHOW PLOT ---
+    # plt.tight_layout(rect=[0, 0, 0.95, 1])
+    # plt.tight_layout()
+
+    # --- cbar ---
+    cax = fig.add_axes([0.91, 0.288, 0.02, 0.592])
+    cbar = plt.colorbar(cmap, cax=cax)
+    # cbar.set_label('Omni-Dir. diff E. Flux \n' + '[cm$^{-2}$str$^{-1}$eV/eV]', rotation=-90, labelpad=20, fontsize=General_LabelFontSize)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(labelsize=cbarTickLabelSize + 5)
+
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot2\Plot2_ConjugacyStack.png', dpi=dpi)
 
 

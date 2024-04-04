@@ -20,16 +20,16 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 justPrintFileNames = False
-wRocket = 5
+wRocket = 4
 modifier = ''
-inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
-outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
-wFiles = [7]
+inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
+outputPath_modifier = 'L3\Langmuir' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
+wFiles = [0]
 # ----------------------------
-lowcutoff, highcutoff = 0.7, 20
-fs = 128
-order = 6
-filtertype = 'HighPass'
+lowcutoff, highcutoff = 0.3, 0.3
+fs = 1000
+order = 4
+filtertype = 'LowPass'
 # -----------------------------
 plotFilteredData = False
 # -----------------------------
@@ -63,17 +63,25 @@ def FilterDespun(wRocket, wFile,rocketFolderPath, justPrintFileNames):
     # --- get the data from the file ---
     prgMsg(f'Loading data from {inputPath_modifier} Files')
     data_dict,GlobalAttrs = loadDictFromFile(inputFiles[wFile],getGlobalAttrs=True)
-    compNames, coordSys, coordSet = getCoordinateKeys(data_dict)
     Done(start_time)
 
     # --- --- --- --- --- ---
     # --- FILTER THE DATA ---
     # --- --- --- --- --- ---
-    for comp in compNames:
-        data = deepcopy(data_dict[comp][0])
-        data_dict[comp][0] = butter_filter(data, lowcutoff, highcutoff, fs, order, filtertype)
 
+    # LP Probe Data
+    if 'langmuir' in  input_names[wFile].lower():
+        data = deepcopy(data_dict['ni'][0])
+        data_dict['ni'][0] = butter_filter(data, lowcutoff, highcutoff, fs, order, filtertype)
+        fileoutName = input_names[wFile].replace('.cdf', f'_{filtertype}_low{lowcutoff}_high{highcutoff}.cdf')
 
+    else: # E-Field and B-Field data
+        compNames, coordSys, coordSet = getCoordinateKeys(data_dict)
+        for comp in compNames:
+            data = deepcopy(data_dict[comp][0])
+            data_dict[comp][0] = butter_filter(data, lowcutoff, highcutoff, fs, order, filtertype)
+
+        fileoutName = input_names[wFile].replace(coordSys, f'{coordSys}_{filtertype}_low{lowcutoff}_high{highcutoff}')
 
     # --- --- --- --- --- --- ---
     # --- WRITE OUT THE DATA ---
@@ -81,7 +89,7 @@ def FilterDespun(wRocket, wFile,rocketFolderPath, justPrintFileNames):
 
     if outputData:
         prgMsg('Creating output file')
-        fileoutName = input_names[wFile].replace(coordSys,f'{coordSys}_{filtertype}_low{lowcutoff}_high{highcutoff}')
+
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
         outputCDFdata(outputPath, data_dict, globalAttrsMod=GlobalAttrs)
 

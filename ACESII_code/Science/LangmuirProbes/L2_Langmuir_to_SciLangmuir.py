@@ -56,11 +56,11 @@ unitConv = 1E9  # converts from A to nA
 ### FIXED PROBE ###
 ###################
 SECTION_calculateFixedni = True
-fixedTi_assumed = False # IF FALSE use IRI model
+fixedTi_assumed = True # IF FALSE use IRI model
 tromsoCal = True # scale the output density based off the tromso ionosonde and
 # tromsoScales = [1/58, 1/180] # values used to make LP density match ~ 5.7E4 cm^-4 at the E-Region
 tromsoScales = [1/50, 1/50] # values used to make LP density match ~ 5.7E4 cm^-4 at the E-Region
-Ti_assumed = 0.07  # assuming an ion temperature of 1eV
+Ti_assumed = 0.1  # assuming an ion temperature (in eV)
 unit_conversion = 1E9  # 1 for Amps 10**9 for nano amps, etc
 
 ###################
@@ -169,7 +169,6 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
     data_dict_errors = loadDictFromFile(errorsPath[0])
     Done(start_time)
 
-
     if SECTION_calculateFixedni:
 
         prgMsg('Calculating Fixed ni')
@@ -185,16 +184,15 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
                                                    wKeys=[],
                                                    targetEpochArray=data_dict['fixed_Epoch'][0])
 
-
         # determining n_i from Ion saturation
         # using the fixed LP data (now calibrated), determine n_i from the basic ion saturation current equation
         if fixedTi_assumed: # use fixed Ti and m_i
-            vth_i = [np.sqrt( 8 * (Ti_assumed)/(data_dict_IRI_interp['m_i_avg'][0][k]*np.pi)) for k in range(len(ni))]
+            vth_i = [np.sqrt( 8 * (q0*Ti_assumed)/(data_dict_IRI_interp['m_i_avg'][0][k]*np.pi)) for k in range(len(ni))]
         else: # use IRI model
             vth_i = [np.sqrt( 8 * (kB*data_dict_IRI_interp['Ti'][0][k])/(data_dict_IRI_interp['m_i_avg'][0][k]*np.pi)) for k in range(len(ni))]
 
-        ni_density = (1/(100**3))*np.array([(4 * (current*(1E-9))) / (q0 * vth_i[h] * rocketAttrs.LP_probe_areas[0][0]) for h, current in enumerate(ni)])
-        ni_density[np.abs(ni_density)>1E20] = rocketAttrs.epoch_fillVal # remove outliers
+        ni_density = (1/(1E6))*np.array([(4 * (current*(1E-9))) / (q0 * vth_i[h] * rocketAttrs.LP_probe_areas[0][0]) for h, current in enumerate(ni)])
+        ni_density[np.abs(ni_density) > 1E10] = rocketAttrs.epoch_fillVal # remove outliers
 
         # create an output data_dict for the fixed data
 
@@ -204,7 +202,7 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
                                                                        'FILLVAL': rocketAttrs.epoch_fillVal,
                                                                        'FORMAT': 'E12.2',
                                                                        'UNITS': '!Ncm!A-3!N',
-                                                                       'VALIDMIN': ni_density.min(),
+                                                                       'VALIDMIN': 0,
                                                                        'VALIDMAX': ni_density.max(),
                                                                        'VAR_TYPE': 'data', 'SCALETYP': 'linear'}
 
@@ -216,9 +214,18 @@ def L2_Langmuir_to_SciLangmuir(wRocket, wFile, rocketFolderPath, justPrintFileNa
 
 
         # --- ---- QUALTIY ASSURANCE --- ----
-        # some of the Epoch values are fillvals. Lets remove these datapoints
-        data_dict_fixed['ni'][0] = np.delete(data_dict_fixed['ni'][0], np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0], inverse=False) <= 0)[0])
-        data_dict_fixed['Epoch'][0] = np.delete(data_dict_fixed['Epoch'][0], np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0],inverse=False) <= 0)[0])
+        # some of the Epoch values are fillvals. Lets interpolate these datapoints
+
+        # find fillval indicies
+        fillVals_time = list(np.where(dateTimetoTT2000(data_dict_fixed['Epoch'][0], inverse=False) <= 0)[0])
+        negative_ni = list(np.where(data_dict_fixed['ni'][0] <= 0)[0])
+        fillVals_ni = list(np.where(data_dict_fixed['ni'][0] == rocketAttrs.epoch_fillVal)[0])
+        badIndicies = list(set(fillVals_time + negative_ni + fillVals_ni))
+
+
+        # find enormous jump gap indicies
+        data_dict_fixed['ni'][0] = np.delete(data_dict_fixed['ni'][0], obj=badIndicies)
+        data_dict_fixed['Epoch'][0] = np.delete(data_dict_fixed['Epoch'][0], obj=badIndicies)
 
         if tromsoCal:
             data_dict_fixed['ni'][0] = np.array(data_dict_fixed['ni'][0]) * tromsoScales[wRocket-4]

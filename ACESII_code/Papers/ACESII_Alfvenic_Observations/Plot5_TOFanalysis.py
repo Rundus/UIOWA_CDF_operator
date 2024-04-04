@@ -86,7 +86,6 @@ def Plot5_TOFanalysis(rocketFolderPath):
         STEB_deltaE.append(EHigh-ELow)
         STEB_engyBars.append([EHigh - 2*ELow, ELow])
 
-
     # Find deltaT
     STEB_deltaT = np.array([pycdf.lib.datetime_to_tt2000(tmePair[1]) - pycdf.lib.datetime_to_tt2000(tmePair[0]) for tmePair in dispersionAttributes.keyDispersionDeltaT]) / 1E9
 
@@ -125,9 +124,11 @@ def Plot5_TOFanalysis(rocketFolderPath):
         STEB_text_labels = np.delete(STEB_text_labels, badIndicies,axis=0)
         STEB_deltaT = np.delete(STEB_deltaT, badIndicies)
 
-    print(STEB_Zacc)
-    print(STEB_deltaE)
-
+    print('STEB No', STEB_text_labels)
+    print('Zacc', STEB_Zacc)
+    print('dE', STEB_deltaE)
+    print('Energy Range', STEB_engyBars)
+    print('dT', STEB_deltaT)
 
     ##########################
     # --- PLOT THE RESULTS ---

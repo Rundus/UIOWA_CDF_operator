@@ -23,10 +23,10 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- TOGGLES ---
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
-wDispersions = [8,9,10,11] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
-justPlotKeyDispersions = True #IF ==TRUE no cross-correlation will occur
+justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
 # ---------------------------
 applyMaskVal = True
 maskVal = 2 # apply a single mask to the dispersion feature
@@ -37,9 +37,9 @@ plotCorrelationProcess = False
 DetectorTimeResolution = 0.05 # in seconds
 DetectorEnergyResolution = 0.18
 # ---------------------------
-correlationAnalysis = False
+correlationAnalysis = True
 showErrorBars = False
-weightLinearFitByCounts = True
+weightLinearFitByCounts = False
 outputCorrelationPlot = True
 # ---------------------------
 outputData = False
@@ -74,7 +74,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
     wDispersion_key = f's{wDis}'
     Energy = data_dict['Energy'][0]
     Pitch = data_dict['Pitch_Angle'][0]
-    lowCut, highCut = np.abs(data_dict['Epoch'][0] - dispersionAttributes.keyDispersionTimes[wDis-1][0]).argmin(), np.abs(data_dict['Epoch'][0] - dispersionAttributes.keyDispersionTimes[wDis-1][1]).argmin()
+    lowCut, highCut = np.abs(data_dict['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis-1][0]).argmin(), np.abs(data_dict['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis-1][1]).argmin()
     Epoch_dis = dateTimetoTT2000(data_dict['Epoch'][0][lowCut:highCut+1],inverse=False)
     Epoch_dis = (np.array(Epoch_dis) - Epoch_dis[0]) / 1E9 # converted data to TIME SINCE START OF DISPERSION (needed for proper plot fitting)
 
@@ -124,11 +124,34 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ############################################
         # --- PERFORM CROSS CORRELATION ANALYSIS ---
         ############################################
-        # determine the energy pairs to be used in the correlation analysis via combination statistics
-        engyIndexLow, engyIndexHigh = np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][0]).argmin(),np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][1]).argmin()
-        engysToAnalyze = Energy[engyIndexHigh:engyIndexLow+1]
-        engysIndicesToAnalyze = np.arange(engyIndexHigh,engyIndexLow+1,1)
-        energyPairs = [comb for comb in combinations(engysIndicesToAnalyze,2)]
+        engyIndx = 0
+        tmeIndex = 0
+        peakVal = 0
+
+        for engy in range(len(Energy)):
+            for tme in range(len(eepaa_dis_onePitch.T)):
+                if eepaa_dis_onePitch[engy][tme] > peakVal:
+                    peakVal = eepaa_dis_onePitch[engy][tme]
+                    engyIndx = engy
+                    tmeIndex = tme
+                    print(wDis, Energy[engyIndx], Epoch_dis[tmeIndex], peakVal)
+
+
+
+
+        # for each energy in the eepaa data, check if there's at least 1 count in that energy "row". If so, consider this energy
+        validEngyIndicies = []
+        for engy,engyRow in enumerate(eepaa_dis_onePitch):
+            aboveZero = np.where(engyRow > 0)[0]
+
+            if aboveZero.size != 0:
+                validEngyIndicies.append(engy)
+
+
+        validEngyIndicies = np.array(validEngyIndicies)
+        minEnergy = validEngyIndicies.min()
+        energyPairs = [comb for comb in combinations(validEngyIndicies,2) if minEnergy in comb]
+
 
         # for each pair of Energies, perform the cross-correlation analysis:
         # Note: the peak value in the lag-time determines the deltaT value between the velocities
@@ -252,7 +275,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             xtick_labels[0] = '0'
             ax.set_xticks(xticks,xtick_labels)
             plt.legend()
-            plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot5\STEB_{wDis}.png')
+            plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\STEB_{wDis}.png')
 
         ########################################
         # --- Return results of the Analysis ---
@@ -320,6 +343,6 @@ else:
         rocketAttrs, b, c = ACES_mission_dicts()
         rocketID = rocketAttrs.rocketID[wRocket - 4]
         fileoutName = f'ACESII_{rocketID}_crossCorrelationAnalysis.cdf'
-        outputPath = f'{rocketFolderPath}\\science\\TOFanalysis\\{fliers[wRocket - 4]}\\{fileoutName}'
+        outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\{fileoutName}'
         outputCDFdata(outputPath, data_dict_output)
         Done(start_time)

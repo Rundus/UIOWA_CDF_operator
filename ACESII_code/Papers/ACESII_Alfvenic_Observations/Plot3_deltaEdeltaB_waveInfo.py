@@ -25,6 +25,7 @@ start_time = time.time()
 from numpy.fft import rfft, fftfreq
 from ACESII_code.class_var_func import u0
 from scipy.integrate import simpson
+from scipy.signal import spectrogram
 
 # --- --- --- ---
 # --- TOGGLES ---
@@ -40,13 +41,18 @@ PlotTickLabelSize = 10
 freqLimit = 15
 plotLineWidth = 1
 TitlePadding = 10
-EB_ratio_limits = [9E4, 1E8]
+PoyntingScale = 1000# convert from W/m^2 to ergs/cm^2
+Escale = 1000 # convert V/m to mV/m
+EB_ratio_limits = [1E5, 1E7]
 plotColors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green']
 RegionNames = ['Quiet Region', 'Temporal Align', 'ILat Align']
 kSets = [0, 1] # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e or [0,1] for both
-NORMALIZE = True
-
+NORMALIZE = False
 CalcPoyntingFluxEnergies = False
+
+# Phase Histogram
+windowType, npersegN, scalingType = 'hann', 64*2, 'spectrum'  # spectrogram toggles
+overlap = int(npersegN * (7 / 8))  # hanning filter overlap
 
 
 # --- TARGET REDUCTION VARIABLES ---
@@ -61,12 +67,30 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
 
 # trying to make it fit
 targetILats = [[71.15, 71.25], # Quiet Time
-               [71.58, 71.67], # temporally Time
-               [71.865, 71.915]] # spatially aligned
+               [71.59, 71.67], # temporally Time
+               [71.865, 71.904]] # spatially aligned
 
+# OTHER regions of alfven activity
+extraILats = [[72.1, 72.136],
+              [72.5458, 72.6787],
+              [72.75, 72.8]]
 
 targetVar = targetILats
 targetVarName = 'ILat'
+
+
+
+
+
+
+
+
+##########################
+# --- --- --- --- --- ---
+# --- PLOTTING START ---
+# --- --- --- --- --- ---
+#########################
+
 
 # --- --- --- --- --- ---
 # --- LOAD IN THE DATA ---
@@ -110,9 +134,9 @@ for i in range(len(targetVar)):
     sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0], data_dict_deltaB['Epoch'][0][-1]])
 
     # adjust E-field scale
-    data_dict_deltaE['E_e'][0] = 1000*data_dict_deltaE['E_e'][0]
-    data_dict_deltaE['E_p'][0] = 1000*data_dict_deltaE['E_p'][0]
-    data_dict_deltaE['E_r'][0] = 1000*data_dict_deltaE['E_r'][0]
+    data_dict_deltaE['E_e'][0] = Escale*data_dict_deltaE['E_e'][0]
+    data_dict_deltaE['E_p'][0] = Escale*data_dict_deltaE['E_p'][0]
+    data_dict_deltaE['E_r'][0] = Escale*data_dict_deltaE['E_r'][0]
 
     dict_sets.append([data_dict_deltaB,
                       data_dict_deltaE,
@@ -312,7 +336,15 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             data_dicts = dict_sets[i] # raw data
 
             # Set the title
-            ax[0][i].set_title(RegionNames[i] + f'\n {sectionTimeRange[i][0].strftime("%H:%M:%S")} to {sectionTimeRange[i][1].strftime("%H:%M:%S")} UTC',
+            lowTime = sectionTimeRange[i][0]
+            highTime = sectionTimeRange[i][1]
+
+            # ax[0][i].set_title(RegionNames[i] + f'\n {lowTime.hour}:{lowTime.minute}:{lowTime.second + round(lowTime.microsecond/1E6,2)} to {highTime.hour}:{highTime.minute}:0{highTime.second + round(highTime.microsecond/1E6,2)} UTC',
+            #                    weight='bold',
+            #                    fontsize=PlotTitleSize,
+            #                    pad=TitlePadding)
+
+            ax[0][i].set_title(RegionNames[i] + f'\n {lowTime.strftime("%H:%M:%S")} to {highTime.strftime("%H:%M:%S")} UTC',
                                weight='bold',
                                fontsize=PlotTitleSize,
                                pad=TitlePadding)
@@ -354,7 +386,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ############################
             # --- Poynting Flux plot ---
             ############################
-            ax[1][i].plot(data_dicts[2]['ILat'][0], 1000*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [mW/$m^{2}$]',linewidth=plotLineWidth)
+            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
             ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize)
             ax[1][i].set_ylim(-2, 2)
             ax[1][i].set_xmargin(0)
@@ -376,7 +408,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ax[2][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
             ax[2][i].set_xlim(0, freqLimit)
             ax[2][i].set_yscale('log')
-            # ax[2][i].set_ylim(1E-3, 1E1)
+            ax[2][i].set_ylim(1E-3, 1E1)
 
             if NORMALIZE:
                 print('potato')
@@ -447,12 +479,50 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                     ax[3][i].set_ylabel(f'{wWaveSetLabels[1]}/{wWaveSetLabels[0]} [m/s]', fontsize=PlotLabelSize)
 
 
+
         ### OUTPUT THE DATA ###
         plt.tight_layout()
         fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
         plt.savefig(outputPath, dpi=dpi)
         Done(start_time)
+
+        #########################
+        # --- PHASE HISTOGRAM ---
+        #########################
+
+        # B-Field
+        f_B, t_B, Sxx_B = spectrogram( data_dicts[0][wWaveSetKeys[0]][0],
+                                fs=128,
+                                window=windowType,
+                                nperseg=npersegN,  # note: if ==None default size is 256
+                                noverlap=overlap,
+                                scaling=scalingType,
+                                mode='angle')  # scaling = density or scaling = spectrum
+        # E-Field
+        f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[1][wWaveSetKeys[1]][0],
+                                fs=128,
+                                window=windowType,
+                                nperseg=npersegN,  # note: if ==None default size is 256
+                                noverlap=overlap,
+                                scaling=scalingType,
+                                mode='angle')  # scaling = density or scaling = spectrum
+
+        fig, ax = plt.subplots(2)
+        ax[0].plot(data_dicts[0]['ILat'][0], data_dicts[0][wWaveSetKeys[0]][0], color='blue')
+        ax[0].plot(data_dicts[1]['ILat'][0], data_dicts[0][wWaveSetKeys[1]][0], color='red')
+        from ACESII_code.myImports import R
+
+        ax[1].pcolormesh(t_B, f_B, phaseDiff, shading='gouraud', vmin=-180, vmax=180, cmap='')
+        ax[1].ylabel('Frequency [Hz]')
+        ax[1].xlabel('Time [sec]')
+
+        phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
+        print('PhaseDiff',phaseDiff)
+        print('freq_B',f_B)
+        print('freq_E', f_E)
+        print(np.shape(f_E),np.shape(t_E),np.shape(phaseDiff))
+
 
 
 
