@@ -20,6 +20,7 @@ start_time = time.time()
 # --- --- --- ---
 import cartopy.crs as ccrs
 from netCDF4 import Dataset as netcdf_dataset
+from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 
 print(color.UNDERLINE + f'Plot1_AllSky' + color.END)
 
@@ -28,7 +29,8 @@ print(color.UNDERLINE + f'Plot1_AllSky' + color.END)
 # --- --- --- ---
 
 # -------------GENERAL PLOT TOGGLES-------------------
-cmapColor = 'viridis'
+# cmapColor = 'viridis'
+cmapColor = matlab_parula_cmap()
 faceColorChoice = (156 / 255, 156 / 255, 156 / 255, 0.5)  # in normalize RGBA
 timeTargetsUTC = [dt.datetime(2022,11,20,17,23,20,100000),
                       dt.datetime(2022,11,20,17,24,00,100000),
@@ -52,7 +54,7 @@ altLat_lineThickness = 6.5
 AltLat_LegendSize = 55
 altLat_LabelPadding = 45
 # ---------------BigAllSky-----------------
-BigAllSkyPlot = False
+BigAllSkyPlot = True
 # lonW = 10
 # lonE = 23.5
 lonW = 11.5
@@ -70,7 +72,7 @@ BigAllSky_GridSize = 5
 BigAllSky_TitleSize = 70
 BigAllSky_costLineSize = 3
 # --------------------------------
-ILatDiffPlot = True
+ILatDiffPlot = False
 ILatDiff_Height = 15
 ILatDiff_Width = 35
 ILatDiff_PlotLineWidth = 12

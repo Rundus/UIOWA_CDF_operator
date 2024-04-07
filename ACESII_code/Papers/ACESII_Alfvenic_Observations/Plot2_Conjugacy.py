@@ -214,7 +214,7 @@ if plot_General:
     ax[6].tick_params(axis='y', which='minor', colors='black', labelsize=General_TickFontSize - 6, length=Dispersive_TickLength-2, width=Dispersive_TickWidth)
     ax[6].tick_params(axis='x', which='major', colors='black', labelsize=General_TickFontSize + 2, length=Dispersive_TickLength + 4, width=Dispersive_TickWidth)
     ax[6].tick_params(axis='x', which='minor', colors='black', labelsize=General_TickFontSize - 4, length=Dispersive_TickLength, width=Dispersive_TickWidth)
-    ax[6].set_ylim(0,2.5)
+    ax[6].set_ylim(0, 2.5)
     ax[6].set_xlabel('ILat [deg]', fontsize=General_LabelFontSize + 3, labelpad=General_LabelPadding)
     ax[6].minorticks_on()
     # ax[6].set_yscale('log')

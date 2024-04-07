@@ -23,21 +23,23 @@ start_time = time.time()
 # --- IMPORTS ---
 # --- --- --- ---
 from numpy.fft import rfft, fftfreq
-from ACESII_code.class_var_func import u0
+from ACESII_code.class_var_func import u0, InterpolateDataDict
 from scipy.integrate import simpson
 from scipy.signal import spectrogram
+from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
 # figure_width = 7.5 # in inches
 figure_width = 9.5 # in inches
-figure_height = 11 # in inches
+figure_height = 12 # in inches
 dpi = 500
-PlotLabelSize = 10
-PlotTitleSize = 10
+PlotLabelSize = 11
+PlotTitleSize = 12
 PlotLegendSize = 10
 PlotTickLabelSize = 10
+PlotLabelPad = -0.75
 freqLimit = 15
 plotLineWidth = 1
 TitlePadding = 10
@@ -48,10 +50,9 @@ plotColors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green']
 RegionNames = ['Quiet Region', 'Temporal Align', 'ILat Align']
 kSets = [0, 1] # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e or [0,1] for both
 NORMALIZE = False
-CalcPoyntingFluxEnergies = False
 
 # Phase Histogram
-windowType, npersegN, scalingType = 'hann', 64*2, 'spectrum'  # spectrogram toggles
+windowType, npersegN, scalingType = 'hann', 64*4, 'spectrum'  # spectrogram toggles
 overlap = int(npersegN * (7 / 8))  # hanning filter overlap
 
 
@@ -62,13 +63,16 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
                ]
 # keeper - nonNormalized
 # targetILats = [[71.15, 71.25], # Quiet Time
-#                [71.58, 71.67], # temporally Time
-#                [71.865, 71.915]] # spatially aligned
+#                [71.62, 71.67], # temporally Time
+#                [71.87, 71.914]] # spatially aligned
 
 # trying to make it fit
+# targetILats = [[71.15, 71.25], # Quiet Time
+#                [71.615, 71.67], # temporally Time
+#                [71.87, 71.912]] # spatially aligned
 targetILats = [[71.15, 71.25], # Quiet Time
-               [71.59, 71.67], # temporally Time
-               [71.865, 71.904]] # spatially aligned
+               [71.5, 71.68], # temporally Time
+               [71.86, 71.912]] # spatially aligned
 
 # OTHER regions of alfven activity
 extraILats = [[72.1, 72.136],
@@ -109,8 +113,12 @@ inputFile_E = 'C:\Data\ACESII\L2\low\ACESII_36364_l2_E_Field_Field_Aligned.cdf' 
 inputFile_poynting = glob('C:\Data\ACESII\L3\deltaS\low\*Field_Aligned*')[0] # get the Poynting Flux data
 
 inputFile_ASpeed = glob('C:\Data\ACESII\science\AlfvenSpeed_rkt\low\ACESII_36364_AlfvenSpeed_flight.cdf')[0] # get the Alfven Speed data
-inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed.cdf'
+inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed_LowPass_low0.3_high0.3.cdf'
 inputFile_Bmag = 'C:\Data\ACESII\L1\low\ACESII_36364_l1_RingCore_rktFrm.cdf'
+
+
+inputFile_EISCAT = 'C:\Data\ACESII\science\EISCAT_ACESII_Slice\low\ACESII_36364_EISCAT_Tromso_rktSlice.cdf'
+
 # --- Break up DataDicts into targetTime sections ---
 
 # FORMAT: [[deltaB, deltaE, poynting, AlfvenSpeedRatio], ...]
@@ -123,13 +131,19 @@ for i in range(len(targetVar)):
     data_dict_deltaB = deepcopy(loadDictFromFile(inputFile_deltaB,targetVar=[targetVar[i], targetVarName]))
     data_dict_deltaE = deepcopy(loadDictFromFile(inputFile_deltaE,targetVar=[targetVar[i], targetVarName]))
     data_dict_poynting = deepcopy(loadDictFromFile(inputFile_poynting,targetVar=[targetVar[i], targetVarName]))
-    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetVar=[targetVar[i], targetVarName],wKeys_Load=['ni','Epoch','ILat']))
+    data_dict_langmuir = deepcopy(loadDictFromFile(inputFile_Langmuir,targetVar=[targetVar[i], targetVarName],wKeys_Load=['ni', 'Epoch', 'ILat']))
+    data_dict_EISCAT = deepcopy(loadDictFromFile(inputFile_EISCAT, targetVar=[targetVar[i], targetVarName],wKeys_Load=['Ion_Comp', 'Op_Comp','ILat','Epoch']))
 
     # downsample the langmuir data
     indexVals = [np.abs(data_dict_langmuir['ILat'][0] - ILat).argmin() for ilt, ILat in enumerate(data_dict_B['ILat'][0])]
     data_dict_langmuir['ni'][0] = deepcopy(data_dict_langmuir['ni'][0][indexVals])
     data_dict_langmuir['Epoch'][0] = deepcopy(data_dict_langmuir['Epoch'][0][indexVals])
     data_dict_langmuir['ILat'][0] = deepcopy(data_dict_langmuir['ILat'][0][indexVals])
+
+    # Up-sample the EISCAT data (it's fine since the EISCAT variables are very slowly varying)
+    data_dict_EISCAT_interp = InterpolateDataDict(InputDataDict=data_dict_EISCAT,InputEpochArray=data_dict_EISCAT['Epoch'][0],targetEpochArray=data_dict_deltaE['Epoch'][0],wKeys=[])
+    data_dict_EISCAT = deepcopy(data_dict_EISCAT_interp)
+
 
     sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0], data_dict_deltaB['Epoch'][0][-1]])
 
@@ -143,21 +157,10 @@ for i in range(len(targetVar)):
                       data_dict_poynting,
                       data_dict_langmuir,
                       data_dict_B,
-                      data_dict_E
+                      data_dict_E,
+                      data_dict_EISCAT
                       ])
 
-    if CalcPoyntingFluxEnergies:
-        print(f'\nCalculating Poynting Flux for {RegionNames[i]}')
-        Sp = deepcopy(data_dict_poynting['S_p'][0])
-        SILats = deepcopy(data_dict_poynting['ILat'][0])
-        Sp_p = deepcopy(Sp)
-        Sp_p[Sp_p <  0] = 0
-        DownwardEnergy = simpson(Sp_p,x=SILats,dx=0.1)
-        print(f'DownwardEnergy: {DownwardEnergy}')
-        Sp_n = deepcopy(Sp)
-        Sp_n[Sp_n > 0] = 0
-        UpwardEnergy = simpson(Sp_n,x=SILats, dx=0.1)
-        print(f'UpwardEnergy Area: {UpwardEnergy}')
 
 Done(start_time)
 
@@ -182,7 +185,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                 'Ee_norm_fft' : [],
                 'Er_norm_fft' : [],
                 'ni' : [],
-                'm_i_avg' : [],
+                'VA_avg' : [],
                 'VA_t' : [],
                 'xf_B':[],
                 'xf_E':[]}
@@ -212,8 +215,13 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         dE_r = data_dicts[1]['E_r'][0]
 
         ni = (cm_to_m ** 3) * data_dicts[3]['ni'][0]
-        m_i_avg = 2.45E-26
-        VA_t = B0 / np.sqrt(u0 * ni * m_i_avg)
+
+        # calculate the Alfven speed using EISCAT mass concentrations
+        # Note: At 180km the primary contributions to Ions are NO+, O2+, N2+, O+
+        # With the exception of O+, everything has an atomic mass around 28-32 amu. EISCAT gives these ratios of concentration
+        rhoCalc = (ni*data_dicts[6]['Ion_Comp'][0]*((IonMasses[4] + IonMasses[5] + IonMasses[7])/3) + IonMasses[1]*ni*data_dicts[6]['Op_Comp'][0])
+        VA_t = B0 / np.sqrt(u0 * rhoCalc)
+        VA_avg = sum(VA_t)/len(VA_t)
 
         # calculate the normalization
         Er_norm = E_r / (np.abs(VA_t) * np.abs(B0))
@@ -270,7 +278,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         data_dict_FFT['xf_B'].append(xf_B)
         data_dict_FFT['xf_E'].append(xf_E)
         data_dict_FFT['ni'].append(ni)
-        data_dict_FFT['m_i_avg'].append(m_i_avg)
+        data_dict_FFT['VA_avg'].append(VA_avg)
         data_dict_FFT['VA_t'].append(VA_t)
 
     # ---------------------
@@ -320,7 +328,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
     for wKeySet in kSets:
 
         prgMsg('Plotting Data')
-        fig, ax = plt.subplots(nrows=4, ncols=len(targetVar))
+        fig, ax = plt.subplots(nrows=5, ncols=len(targetVar))
         fig.set_size_inches(figure_width, figure_height)
 
         wWaveSetKeys = waveSetKeys[wKeySet]
@@ -362,7 +370,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             #################################
 
             # delta Be
-            ax[0][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize)
+            ax[0][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
             ax[0][i].set_ylim(-8,8)
             ax[0][i].set_xmargin(0)
             ax[0][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
@@ -387,7 +395,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             # --- Poynting Flux plot ---
             ############################
             ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
-            ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize)
+            ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
             ax[1][i].set_ylim(-2, 2)
             ax[1][i].set_xmargin(0)
             ax[1][i].invert_yaxis()
@@ -405,14 +413,14 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ######################
 
             ln1 = ax[2][i].plot(spectraFreqs[0][i], wSpectraData[0][i], color=plotColors[0], label=f'{wSpectraLabel[0]}',linewidth=plotLineWidth)
-            ax[2][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
+            ax[2][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize, labelpad=PlotLabelPad)
             ax[2][i].set_xlim(0, freqLimit)
             ax[2][i].set_yscale('log')
             ax[2][i].set_ylim(1E-3, 1E1)
 
             if NORMALIZE:
                 print('potato')
-                # ax[2][i].set_ylim(1E-7, 1E-2)
+                ax[2][i].set_ylim(1E-7, 1E-2)
                 # freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
                 # ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}$')
             else:
@@ -444,34 +452,92 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                 ax[3][i].axhline(1, linestyle='--', color='red', label='V$_{A}$ (Avg)')
                 ax[3][i].set_ylim(0, 3)
             else:
-                ax[3][i].axhline(sum(wAlfvenData[i])/len(wAlfvenData[i]),linestyle='--', color='red', label='V$_{A}$ (Avg) [m/s]')
+                ax[3][i].axhline(data_dict_FFT['VA_avg'][0],linestyle='--', color='red', label='V$_{A}$ (Avg) [m/s]')
                 ax[3][i].set_ylim(EB_ratio_limits[0], EB_ratio_limits[1])
                 ax[3][i].set_yscale('log')
-
                 # ax[3][i].axvline(0.8, color='green', linestyle='--', alpha=0.5)
 
                 for k in range(3):
                     ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
-
             ax[3][i].minorticks_on()
-            ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
+            ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize, labelpad=PlotLabelPad)
             ax[3][i].set_xlim(0, freqLimit)
             ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
+
+
+            #########################
+            # --- PHASE HISTOGRAM ---
+            #########################
+
+            # B-Field
+            f_B, t_B, Sxx_B = spectrogram(data_dicts[0][wWaveSetKeys[0]][0],
+                                          fs=128,
+                                          window=windowType,
+                                          nperseg=npersegN,  # note: if ==None default size is 256
+                                          noverlap=overlap,
+                                          scaling=scalingType,
+                                          mode='angle')  # scaling = density or scaling = spectrum
+            # E-Field
+            f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[1][wWaveSetKeys[1]][0],
+                                          fs=128,
+                                          window=windowType,
+                                          nperseg=npersegN,  # note: if ==None default size is 256
+                                          noverlap=overlap,
+                                          scaling=scalingType,
+                                          mode='angle')  # scaling = density or scaling = spectrum
+
+            phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
+
+            # --- Create the Histogram ---
+            phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
+            plotBins = [-180 + 15 * i for i in range(25)]
+            phaseHistogram = np.zeros(shape=(len(f_B), len(phaseDiffBins) - 1))
+            medianPhase = []
+
+            for frq in range(len(phaseDiff)):
+                hist, bin_edges = np.histogram(phaseDiff[frq], bins=phaseDiffBins)
+                phaseHistogram[frq] = hist
+
+                # Get the median value for each frequency
+                # if i == 2:
+                #     print(f_B[frq],np.median(phaseDiff[frq]))
+
+                medianPhase.append(np.median(phaseDiff[frq]))
+
+
+
+            # Normalize the histogram
+            phaseHistogram = 100 * phaseHistogram / phaseHistogram.max()
+            cmap = ax[4][i].pcolormesh(f_B, plotBins, phaseHistogram.T, vmin=0, vmax=50, cmap=matlab_parula_cmap())
+            ax[4][i].plot(f_B,medianPhase, color='white', linewidth=plotLineWidth+0.5)
+
+
+            ax[4][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
+            ax[4][i].set_xlim(0, freqLimit)
+            ax[4][i].set_yticks([-180, -90, 0, 90, 180])
+            ax[4][i].minorticks_on()
+            ax[4][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
+            ax[4][i].set_ylim(-180, 180)
+
+            for k in range(3):
+                ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
 
 
             # set the legend(s)
             lns = ln1 + ln2
             labs = [l.get_label() for l in lns]
             if i == 0:
-                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.4 Hz HighPass", fontsize=PlotLabelSize)
+                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.4 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
                 ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize)
+                ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad-0.5)
                 ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize)
+                ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
                 axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
                 ax[3][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+                ax[4][i].set_ylabel('Phase Difference', fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
 
                 if NORMALIZE:
                     ax[3][i].set_ylabel('$E_{\perp}(t)/B_{\perp}(t)$', fontsize=PlotLabelSize)
@@ -481,47 +547,23 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
 
 
         ### OUTPUT THE DATA ###
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)
         fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
+
+        # spectrogram colorbar
+        cax = fig.add_axes([0.932, 0.0325, 0.0155, 0.158])
+        cbar = plt.colorbar(cmap, cax=cax)
+        cbar.ax.minorticks_on()
+        cbar.set_label('Histogram Occurance (%)', labelpad=5)
+
         plt.savefig(outputPath, dpi=dpi)
         Done(start_time)
 
-        #########################
-        # --- PHASE HISTOGRAM ---
-        #########################
 
-        # B-Field
-        f_B, t_B, Sxx_B = spectrogram( data_dicts[0][wWaveSetKeys[0]][0],
-                                fs=128,
-                                window=windowType,
-                                nperseg=npersegN,  # note: if ==None default size is 256
-                                noverlap=overlap,
-                                scaling=scalingType,
-                                mode='angle')  # scaling = density or scaling = spectrum
-        # E-Field
-        f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[1][wWaveSetKeys[1]][0],
-                                fs=128,
-                                window=windowType,
-                                nperseg=npersegN,  # note: if ==None default size is 256
-                                noverlap=overlap,
-                                scaling=scalingType,
-                                mode='angle')  # scaling = density or scaling = spectrum
 
-        fig, ax = plt.subplots(2)
-        ax[0].plot(data_dicts[0]['ILat'][0], data_dicts[0][wWaveSetKeys[0]][0], color='blue')
-        ax[0].plot(data_dicts[1]['ILat'][0], data_dicts[0][wWaveSetKeys[1]][0], color='red')
-        from ACESII_code.myImports import R
 
-        ax[1].pcolormesh(t_B, f_B, phaseDiff, shading='gouraud', vmin=-180, vmax=180, cmap='')
-        ax[1].ylabel('Frequency [Hz]')
-        ax[1].xlabel('Time [sec]')
 
-        phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
-        print('PhaseDiff',phaseDiff)
-        print('freq_B',f_B)
-        print('freq_E', f_E)
-        print(np.shape(f_E),np.shape(t_E),np.shape(phaseDiff))
 
 
 
