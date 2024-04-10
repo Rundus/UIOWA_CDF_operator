@@ -44,8 +44,8 @@ remove_STEB18_and_STEB12 = True # steb18 is really far away from the rest and it
 dT_colors = ['tab:blue', 'tab:green', 'tab:red']
 
 # Numbered Labels Alignment
-verticalAligns = ['center' for i in range(18)]
-horizontalAligns = ['center' for i in range(18)]
+verticalAligns = 0.08*np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+horizontalAligns = 0.05*np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
 
 def Plot5_TOFanalysis(rocketFolderPath):
@@ -103,7 +103,6 @@ def Plot5_TOFanalysis(rocketFolderPath):
     STEB_text_labels = np.array(STEB_text_labels)
 
     # determine the colors
-
     dT_color_labels = []
     for delT in STEB_deltaT:
         if delT <= 0.5:
@@ -120,15 +119,9 @@ def Plot5_TOFanalysis(rocketFolderPath):
         STEB_ILats = np.delete(STEB_ILats, badIndicies)
         STEB_Zacc = np.delete(STEB_Zacc, badIndicies)
         STEB_deltaE = np.delete(STEB_deltaE, badIndicies)
-        STEB_engyBars = np.delete(STEB_engyBars, badIndicies,axis=0)
-        STEB_text_labels = np.delete(STEB_text_labels, badIndicies,axis=0)
+        STEB_engyBars = np.delete(STEB_engyBars, badIndicies, axis=0)
+        STEB_text_labels = np.delete(STEB_text_labels, badIndicies, axis=0)
         STEB_deltaT = np.delete(STEB_deltaT, badIndicies)
-
-    print('STEB No', STEB_text_labels)
-    print('Zacc', STEB_Zacc)
-    print('dE', STEB_deltaE)
-    print('Energy Range', STEB_engyBars)
-    print('dT', STEB_deltaT)
 
     ##########################
     # --- PLOT THE RESULTS ---
@@ -147,14 +140,15 @@ def Plot5_TOFanalysis(rocketFolderPath):
 
     # Scatter Labels
     for l in range(len(STEBtimes)):
-        ax[0].text(x=STEBtimes[l], y=STEB_Zacc[l], s=f'{l + 1}', va=verticalAligns[l], ha=horizontalAligns[l], weight='bold', fontsize=textFontSize-5,zorder=1)
+        ax[0].text(x=STEBtimes[l], y=STEB_Zacc[l]+verticalAligns[l],
+                   s=f'{l + 1}', va='center', ha='center',
+                   weight='bold', fontsize=textFontSize-5, zorder=1)
 
     # Ticks
     # startPoint, endPoint = date2num(dt.datetime(2022, 11, 20, 17, 24, 18, 000)), date2num(dt.datetime(2022, 11, 20, 17, 25, 25))
     startPoint, endPoint = date2num(min(STEBtimes)), date2num(max(STEBtimes))
     EpochTicks_dt = num2date(np.linspace(startPoint, endPoint, 8))
     EpochTicks = np.array([ round((pycdf.lib.datetime_to_tt2000(tick) - pycdf.lib.datetime_to_tt2000(dt.datetime(2022,11,20,17,20,000,000)))/1E9,1) for tick in EpochTicks_dt])
-
     offSetAwareAttitudeEpoch = date2num(data_dict_attitude['Epoch'][0])
     iLatTicks = [round(data_dict_attitude['ILat'][0][np.abs(offSetAwareAttitudeEpoch - date2num(tme)).argmin()], 2) for tme in EpochTicks_dt]
 

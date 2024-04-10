@@ -182,10 +182,14 @@ def ACES_mission_dicts():
                             'LEESA>Low Energy Electrostatic Analyzer',
                             'IEPAA>Ion Energy Pitch Angle Analyzer',
                             'Langmuir_Probe>Langmuir Probe'],
+        # 'geometric_factor': [
+        #     [0.000174 for i in range(21)],
+        #     [0.000174/100 for i in range(21)], # LEESA geofactor was ~EEPAA/100
+        #     [0.000174 for i in range(7)]],
         'geometric_factor': [
-            [0.000174 for i in range(21)],
-            [0.000174/100 for i in range(21)], # LEESA geofactor was ~EEPAA/100
-            [0.000174 for i in range(7)]],
+            [8.63E-5 for i in range(21)],
+            [8.63E-5 / 100 for i in range(21)],  # LEESA geofactor was ~EEPAA/100
+            [8.63E-5 for i in range(7)]],
         'deadtime': [674E-9, 674E-9],
         'Instr_sector_to_pitch': [
             [-10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190],

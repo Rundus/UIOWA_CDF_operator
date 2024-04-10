@@ -5,8 +5,5 @@ from scipy import signal
 from scipy.fft import fftshift
 import matplotlib.pyplot as plt
 
-phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
-plotBins = [-180 + 15 * i for i in range(25)]
-
-print(phaseDiffBins)
-print(plotBins)
+a = np.array([1,2,3])
+print(a**2)

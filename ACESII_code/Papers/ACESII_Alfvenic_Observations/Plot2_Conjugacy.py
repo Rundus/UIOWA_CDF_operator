@@ -33,7 +33,7 @@ alignByILat = False # Align the Data via ILat
 
 # --- Cbar ---
 # cbarMin, cbarMax = 5E6, 3E9
-cbarMin, cbarMax = 5E6, 3E9
+cbarMin, cbarMax = 5E6, 5E9
 cbarTickLabelSize = 14
 my_cmap = apl_rainbow_black0_cmap()
 my_cmap.set_bad(color=(1, 1, 1))
@@ -67,7 +67,7 @@ Dispersive_TickLength = 5
 Dispersive_TickWidth = 2
 Dispersive_LabelPadding = 5
 DispersiveCmap = my_cmap
-specCbarMin, specCbarMax = 1E-2, 1E0
+specCbarMin, specCbarMax = 1E-2, 1E1
 DispersiveFreqlimits = [0, 12]
 Disp_PlotLineWidth = 1
 spectrogramCmap = blue_green_white_yellow_red_cmap()

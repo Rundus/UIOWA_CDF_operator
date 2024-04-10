@@ -41,7 +41,7 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files in
-justPrintFileNames = False
+justPrintFileNames = True
 
 # --- Select the Rocket ---
 # 0 -> Integration High Flier

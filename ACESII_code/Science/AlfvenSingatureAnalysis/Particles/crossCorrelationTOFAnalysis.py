@@ -9,6 +9,9 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 from ACESII_code.myImports import *
 start_time = time.time()
 # --- --- --- --- ---
@@ -23,7 +26,8 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- TOGGLES ---
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
-wDispersions = [] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+# wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [1] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
@@ -134,9 +138,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
                     peakVal = eepaa_dis_onePitch[engy][tme]
                     engyIndx = engy
                     tmeIndex = tme
-                    print(wDis, Energy[engyIndx], Epoch_dis[tmeIndex], peakVal)
-
-
+                    # print(wDis, Energy[engyIndx], Epoch_dis[tmeIndex], peakVal)
 
 
         # for each energy in the eepaa data, check if there's at least 1 count in that energy "row". If so, consider this energy
@@ -147,10 +149,11 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             if aboveZero.size != 0:
                 validEngyIndicies.append(engy)
 
-
         validEngyIndicies = np.array(validEngyIndicies)
-        minEnergy = validEngyIndicies.min()
-        energyPairs = [comb for comb in combinations(validEngyIndicies,2) if minEnergy in comb]
+        minEnergy = validEngyIndicies.max() # remember: LOWER index --> Higher energy
+        maxEnergy = validEngyIndicies.min()
+        # energyPairs = [comb for comb in combinations(validEngyIndicies,2) if minEnergy in comb]
+        energyPairs = [comb for comb in combinations(validEngyIndicies, 2) if maxEnergy in comb]
 
 
         # for each pair of Energies, perform the cross-correlation analysis:
@@ -244,19 +247,81 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         # --- FIT THE DATA TO DERIVE TOF Z_ACC ---
         ##########################################
 
-        # Fitted Model
-        def fitFunc(x, a, b):
+        # Linear Fitted Model
+        def fitFunc_linear(x, a, b):
             return a * x + b
 
-        params, cov = curve_fit(fitFunc, deltaVs, deltaTs)
-        x_s = np.linspace(deltaVs.min(), deltaVs.max(), 20)
-        fitData = [params[0] * x + params[1] for x in x_s]
-        r_corr = round(np.corrcoef(deltaVs, deltaTs)[0, 1], 3)
+        paramsLin, covLin = curve_fit(fitFunc_linear, deltaVs, deltaTs)
+
+        # Polynomial Fitted Model
+        def fitFunc_polynomial(x, a0, a1, a2):
+            return a0 + a1 * x + a2 * (x ** 2)
+
+        p0 = [-9.113E-1, 7.350E3, -1.108E7]
+        paramsPoly, covPoly = curve_fit(fitFunc_polynomial, deltaVs, deltaTs, p0=p0, maxfev=int(1E6))
+
+
+        # --- CORRELATION ---
+        # linear
+        corLongCal = np.zeros(shape=(len(covLin), len(covLin[0])))
+        for row in range(len(covLin)):
+            for col in range(len(covLin[0])):
+                corLongCal[row][col] = covLin[row][col]/np.sqrt(covLin[row][row]*covLin[col][col])
+
+        diagX = np.diag(covLin) ** (-0.5)
+        vec1 = diagX.reshape(-1, 1)
+        stdDevMatrix = np.dot(vec1, vec1.T)
+        corrLin = covLin*stdDevMatrix
+        r_corr = corrLin[0][1]
+        print(np.cov([deltaTs, deltaVs], rowvar=True))
+        print(np.cov([deltaTs, deltaVs], rowvar=False))
+        # print(np.corrcoef([deltaTs, deltaVs]))
+
+        # Polynomial
+        diagX = np.diag(covPoly) ** (-0.5)
+        vec1 = diagX.reshape(-1, 1)
+        stdDevMatrix = np.dot(vec1, vec1.T)
+        corr = covPoly * stdDevMatrix
+        corLongCal = np.zeros(shape=(len(covPoly), len(covPoly[0])))
+        for row in range(len(covPoly)):
+            for col in range(len(covPoly[0])):
+                corLongCal[row][col] = covPoly[row][col] / np.sqrt(covPoly[row][row] * covPoly[col][col])
+
+        print(covPoly)
+        print(corLongCal)
+
+
+        # calculate chisquare
+        # varianceT = np.var(deltaTs)
+        # varianceV = np.var(deltaVs)
+        # variance = varianceT + varianceV
+        # ExpectedLin = fitFunc_linear(deltaVs,*paramsLin)
+        # ExpectedPoly = fitFunc_polynomial(deltaVs,*paramsPoly)
+        # print('\n')
+        # print('lin',ExpectedLin)
+        # print('poly',ExpectedPoly)
+        #
+        # ChiLin =  sum( [ (ExpectedLin[i] - deltaTs[i])**2/(0.05**2) for i in range(len(deltaVs))])
+        # ChiPoly = sum([ (ExpectedPoly[i] - deltaTs[i])**2/(0.05**2)   for i in range(len(deltaVs))])
+        #
+        # print('ChiLin', ChiLin)
+        # print('ChiPoly', ChiPoly)
+        #
+        # fig, ax = plt.subplots()
+        # ax.plot(deltaVs,deltaTs,color='blue')
+        # ax.plot(deltaVs,ExpectedPoly,color='red')
+        # plt.show()
+
+
 
         #####################################
         # --- PLOT THE RESULTS OF THE FIT ---
         #####################################
         if outputCorrelationPlot:
+
+            x_s = np.linspace(deltaVs.min(), deltaVs.max(), 20)
+            fitData = fitFunc_linear(x_s,*paramsLin)
+            fitData_poly = fitFunc_polynomial(x_s, *paramsPoly)
 
             fig, ax = plt.subplots()
             fig.suptitle(f'STEB {wDis}\n' + r'$\alpha$ =' + f'{Pitch[wPitch]} deg, maslVal = {maskVal}, N = {len(deltaVs)}')
@@ -269,7 +334,9 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
             ax.set_ylabel('Delay time [s]')
             ax.set_xlabel('1/v [s/km]')
-            ax.plot(x_s, fitData, color="red",label=f'd ={params[0]/6371}Re\n t_0={params[1]}\n r_corr = {r_corr}')
+            ax.plot(x_s, fitData, color="red",label=f'd ={paramsLin[0]/6371}Re\n t_0={paramsLin[1]}\n r_corr = {r_corr}')
+            ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}')
+
             xticks = np.linspace(0, deltaVs.max(), 6)
             xtick_labels = [f'{x:.2e}' for x in xticks]
             xtick_labels[0] = '0'
@@ -282,7 +349,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ########################################
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
         errorZ_avg = sum(errorZ) / len(errorZ)
-        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, params[0] / Re, errorZ_avg, r_corr]
+        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr]
 
 
 # --- --- --- ---
