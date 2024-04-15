@@ -33,11 +33,11 @@ wRocket = 5
 
 modifier = ''
 inputPath_modifier_elec = 'L2'
-wMagFile = 1
+wMagFile = 2
 Bscale = 1E-9 # what to multiply B-Field data to get into SI units
 
 inputPath_modifier_mag = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wEFIFile = 1
+wEFIFile = 2
 Escale = 1
 outputPath_modifier = 'science/PoyntingFlux' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
@@ -83,25 +83,14 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
     # --- get the data from the mag file ---
     prgMsg(f'Loading data from mag Files')
     data_dict_mag = loadDictFromFile(inputFiles_mag[wMagFile])
-    compNames_B,cordSysB = getCoordinateKeys(data_dict_mag)
+    compNames_B,cordSysB,a = getCoordinateKeys(data_dict_mag)
     Done(start_time)
 
     # --- get the data from the electric file ---
     prgMsg(f'Loading data from Electric Field Files')
     data_dict_elec = loadDictFromFile(inputFiles_elec[wEFIFile])
-    compNames_E,cordSysE = getCoordinateKeys(data_dict_elec)
+    compNames_E,cordSysE,a = getCoordinateKeys(data_dict_elec)
     Done(start_time)
-
-    compNamesS = []
-    for k,sysNam in enumerate(coordinatesNames):
-        if cordSysE in sysNam:
-
-            if cordSysE == 'ENU':
-                compNamesS = [f'S{val.title()}' for val in coordinatesSets[k]]
-            else:
-                compNamesS = [f'S{val}' for val in coordinatesSets[k]]
-            break
-
 
     #################################
     # --- CALCULATE POYNTING FLUX ---
@@ -113,6 +102,15 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
     E_Field = Escale*np.array([data_dict_elec[compNames_E[0]][0],data_dict_elec[compNames_E[1]][0],data_dict_elec[compNames_E[2]][0]]).T
     S = (1/u0)*np.array(np.cross(E_Field, B_Field))
 
+    for i,vec in enumerate(S):
+        if np.abs(sum(vec)) > 1E10:
+            S[i] = np.array([rocketAttrs.epoch_fillVal,rocketAttrs.epoch_fillVal,rocketAttrs.epoch_fillVal])
+
+
+
+
+
+
     Done(start_time)
     if plotSPoynting:
         Epoch = data_dict_mag['Epoch'][0]
@@ -121,9 +119,9 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
         ax[0].plot(Epoch, S[:, 0])
         ax[0].set_ylabel('S_East')
         ax[1].plot(Epoch, S[:, 1])
-        ax[1].set_ylabel('S_North')
+        ax[1].set_ylabel('S_up')
         ax[2].plot(Epoch, S[:, 2])
-        ax[2].set_ylabel('S_Up')
+        ax[2].set_ylabel('S_North')
         for i in range(3):
             ax[i].set_ylim(-3E-1,3E-1)
         plt.show()
@@ -132,6 +130,7 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
     # --- prepare data for output ---
     prgMsg('Preparing Data')
     data_for_output = np.array([[S[i][0], S[i][1], S[i][2], np.linalg.norm(S[i])] for i in range(len(S))])
+    compNamesS = [thing.replace('E','S') for thing in compNames_E]
     newComps = compNamesS + ['Smag']
     Done(start_time)
 

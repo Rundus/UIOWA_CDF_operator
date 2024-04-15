@@ -33,14 +33,14 @@ outputData = False
 # none
 
 
-def main(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
+def main(wRocket, rocketFolderPath, justPrintFileNames):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
-    rocketID = rocketAttrs.rocketID[wflyer]
-    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
+    rocketID = rocketAttrs.rocketID[wRocket-4]
+    globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-    ModelData = L2_TRICE_Quick(wflyer)
+    ModelData = L2_TRICE_Quick(wRocket-4)
 
     inputFiles, input_names, input_names_searchable = getInputFiles(rocketFolderPath=rocketFolderPath,wRocket=wRocket,inputPath_modifier=inputPath_modifier)
 
@@ -78,7 +78,7 @@ def main(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
     if outputData:
         prgMsg('Creating output file')
 
-        outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+        outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
 
         outputCDFdata(outputPath, data_dict, ModelData, globalAttrsMod, wInstr[1])
 
@@ -93,14 +93,12 @@ def main(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
 # --- --- --- ---
 if wRocket == 4:  # ACES II High
     rocketFolderPath = ACES_data_folder
-    wflyer = 0
 elif wRocket == 5: # ACES II Low
     rocketFolderPath = ACES_data_folder
-    wflyer = 1
 
 
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) == 0:
+if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wRocket-4]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
-    main(wRocket, rocketFolderPath, justPrintFileNames,wflyer)
+    main(wRocket, rocketFolderPath, justPrintFileNames)

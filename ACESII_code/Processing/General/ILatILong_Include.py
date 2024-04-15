@@ -21,11 +21,11 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 justPrintFileNames = False
-wRocket = 5
+wRocket = 4
 # inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier = 'science\EISCAT_ACESII_Slice' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 
-wFiles = [0, 1]
+wFiles = [5, 6]
 refAlt = 150 # represents 150 km reference altitude that everything is tied to
 # ---------------------------
 generateILatILong = False # Calculates and Stores the ILat and ILong variables as a .cdf File

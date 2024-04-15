@@ -67,11 +67,8 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
 #                [71.87, 71.914]] # spatially aligned
 
 # trying to make it fit
-# targetILats = [[71.15, 71.25], # Quiet Time
-#                [71.615, 71.67], # temporally Time
-#                [71.87, 71.912]] # spatially aligned
 targetILats = [[71.15, 71.25], # Quiet Time
-               [71.5, 71.68], # temporally Time
+               [71.615, 71.67], # temporally Time
                [71.86, 71.912]] # spatially aligned
 
 # OTHER regions of alfven activity
@@ -105,19 +102,19 @@ prgMsg('Loading Data')
 
 # inputFile_deltaB = glob('C:\Data\ACESII\L3\deltaB\low\*Field_Aligned*')[0] # get the deltaB data
 # inputFile_deltaE = glob('C:\Data\ACESII\L3\deltaE\low\*Field_Aligned*')[0] # get the deltaE data
-inputFile_deltaB = glob('C:\Data\ACESII\L2\low\ACESII_36364_l2_RingCore_Field_Aligned_HighPass_low0.7_high20.cdf')[0] # get the deltaB data
-inputFile_deltaE = glob('C:\Data\ACESII\L2\low\ACESII_36364_l2_E_Field_Field_Aligned_HighPass_low0.7_high20.cdf')[0] # get the deltaE data
+inputFile_deltaB = glob('C:\Data\ACESII\L2\low\ACESII_36364_l2_RingCore_Field_Aligned_HighPass_low0.7_high0.7.cdf')[0] # get the deltaB data
+inputFile_deltaE = glob('C:\Data\ACESII\L2\low\ACESII_36364_l2_E_Field_Field_Aligned_HighPass_low0.7_high0.7.cdf')[0] # get the deltaE data
 
 inputFile_B = 'C:\Data\ACESII\L2\low\ACESII_36364_l2_RingCore_Field_Aligned.cdf'  # get the B data
 inputFile_E = 'C:\Data\ACESII\L2\low\ACESII_36364_l2_E_Field_Field_Aligned.cdf'  # get the E data
-inputFile_poynting = glob('C:\Data\ACESII\L3\deltaS\low\*Field_Aligned*')[0] # get the Poynting Flux data
+# inputFile_poynting = glob('C:\Data\ACESII\L3\deltaS\low\*Field_Aligned*')[0] # get the Poynting Flux data
+inputFile_poynting = glob('C:\Data\ACESII\science\PoyntingFlux\low\*Field_Aligned*')[0] # get the Poynting Flux data
 
 inputFile_ASpeed = glob('C:\Data\ACESII\science\AlfvenSpeed_rkt\low\ACESII_36364_AlfvenSpeed_flight.cdf')[0] # get the Alfven Speed data
 inputFile_Langmuir = 'C:\Data\ACESII\L3\Langmuir\low\ACESII_36364_langmuir_fixed_LowPass_low0.3_high0.3.cdf'
 inputFile_Bmag = 'C:\Data\ACESII\L1\low\ACESII_36364_l1_RingCore_rktFrm.cdf'
-
-
 inputFile_EISCAT = 'C:\Data\ACESII\science\EISCAT_ACESII_Slice\low\ACESII_36364_EISCAT_Tromso_rktSlice.cdf'
+
 
 # --- Break up DataDicts into targetTime sections ---
 
@@ -143,7 +140,6 @@ for i in range(len(targetVar)):
     # Up-sample the EISCAT data (it's fine since the EISCAT variables are very slowly varying)
     data_dict_EISCAT_interp = InterpolateDataDict(InputDataDict=data_dict_EISCAT,InputEpochArray=data_dict_EISCAT['Epoch'][0],targetEpochArray=data_dict_deltaE['Epoch'][0],wKeys=[])
     data_dict_EISCAT = deepcopy(data_dict_EISCAT_interp)
-
 
     sectionTimeRange.append([data_dict_deltaB['Epoch'][0][0], data_dict_deltaB['Epoch'][0][-1]])
 
@@ -371,7 +367,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
 
             # delta Be
             ax[0][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
-            ax[0][i].set_ylim(-8,8)
+            ax[0][i].set_ylim(-8, 8)
             ax[0][i].set_xmargin(0)
             ax[0][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[0][i].tick_params(axis='y', which='minor', labelsize=PlotTickLabelSize,length=0,grid_alpha=0)
@@ -386,19 +382,19 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
 
             # fix the xticks
             newTicks = data_dicts[1]['ILat'][0][::int(len(data_dicts[1]['ILat'][0])/2)]
-            newTicks = [round(tick,2) for tick in newTicks]
-            newTicks.append(round(data_dicts[1]['ILat'][0][-1],2))
+            newTicks = [round(tick, 2) for tick in newTicks]
+            newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
             newTickStr = [str(tick) for tick in newTicks]
             ax[0][i].set_xticks(newTicks, newTickStr)
 
             ############################
             # --- Poynting Flux plot ---
             ############################
-            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]),plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
+            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]), plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
             ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
-            ax[1][i].set_ylim(-2, 2)
+            ax[1][i].set_ylim(-0.005, 0.03)
             ax[1][i].set_xmargin(0)
-            ax[1][i].invert_yaxis()
+            # ax[1][i].invert_yaxis()
             ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
             newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
@@ -418,18 +414,18 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ax[2][i].set_yscale('log')
             ax[2][i].set_ylim(1E-3, 1E1)
 
-            if NORMALIZE:
-                print('potato')
-                ax[2][i].set_ylim(1E-7, 1E-2)
-                # freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
-                # ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}$')
-            else:
-                # freqS = [val ** (-1.67) for val in spectraFreqs[0][i] if val != 0]
-                # ax[2][i].plot(spectraFreqs[0][i][:-1], freqS, color='black', linestyle='--')
-                # ax[2][i].axvline(0.8, color='green',linestyle='--',alpha=0.5)
-
-                for k in range(3):
-                    ax[2][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
+            # if NORMALIZE:
+            #     print('potato')
+            #     ax[2][i].set_ylim(1E-7, 1E-2)
+            #     # freqS = [val**(-1.67) for val in spectraFreqs[0][i] if val !=0]
+            #     # ax[2][i].plot(spectraFreqs[0][i][:-1],freqS,color='black',linestyle='--',label='$f^{-1.67}$')
+            # else:
+            #     # freqS = [val ** (-1.67) for val in spectraFreqs[0][i] if val != 0]
+            #     # ax[2][i].plot(spectraFreqs[0][i][:-1], freqS, color='black', linestyle='--')
+            #     # ax[2][i].axvline(0.8, color='green',linestyle='--',alpha=0.5)
+            #
+            #     # for k in range(3):
+            #     #     ax[2][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
             ax[2][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[2][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
@@ -457,8 +453,8 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                 ax[3][i].set_yscale('log')
                 # ax[3][i].axvline(0.8, color='green', linestyle='--', alpha=0.5)
 
-                for k in range(3):
-                    ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
+                # for k in range(3):
+                #     ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
             ax[3][i].minorticks_on()
             ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize, labelpad=PlotLabelPad)
@@ -522,15 +518,15 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
             ax[4][i].set_ylim(-180, 180)
 
-            for k in range(3):
-                ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
+            # for k in range(3):
+            #     ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
 
 
             # set the legend(s)
             lns = ln1 + ln2
             labs = [l.get_label() for l in lns]
             if i == 0:
-                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.4 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
+                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.7 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
                 ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
                 ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad-0.5)
                 ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})

@@ -21,31 +21,29 @@ justPrintFileNames = False
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # --- Select the DataSet ---
-inputPath_modifier = 'L3\SSAcomponents_E'
-
+inputPath_modifier = 'L3\SSAcomponents_B'
 
 #################
 # --- TOGGLES ---
 #################
+plotLabelSize = 15
 
 # --- Plotting ---
-plot_GroupingSSA = False
+plot_GroupingSSA = True
 plot_wSSAComponetFile = 2
-plot_wAxesSSA = 1
+plot_wAxesSSA = 0
+
 # --- OUTPUT DATA ---
-outputDataIntoOneMasterFile = True
+outputDataIntoOneMasterFile = False
 # -------------------
 
 #################
 # --- IMPORTS ---
 #################
 from numpy.fft import rfft, fftfreq
-
-
-
 
 def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -92,7 +90,7 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                                         [90, 91, 92, 93, 94, 95, 96, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107,
                                          108, 109, 110] +
                                         [],  # identified harmonics (10,11,48,51,81,82 maybe?)
-                                        [[i] for i in range(14, 18)],  # indicies to investigation
+                                        [],  # indicies to investigation
                                         200],
                       # limit of the noise, between this value and 3*SSA_window size is discarded as noise
                       'E_Field_low': [[0,1,2,3,4,5,12,13],
@@ -101,8 +99,8 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                       'RingCore_low': [[0,1,4,5],
                                        [[i] for i in range(0,5)],
                                        3*SSA_window_Size],
-                      'PoyntingFlux_low': [[0, 1, 2, 3,4,5, 10, 11],
-                                           [[i] for i in range(4,7)],
+                      'PoyntingFlux_low': [[4, 5, 6, 7, 8, 9, 11, 12, 13],
+                                           [[i] for i in range(18, 21)],
                                            3*SSA_window_Size]
                       }
 
@@ -138,7 +136,7 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
         fig.suptitle(rktName +
                      str(compNames[plot_wAxesSSA]) +
                      f'\n Window Length: {SSA_window_Size}, Time: ' +
-                     f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}')
+                     f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}',fontsize=20)
 
         origMax = 1
         origData = [[],[]]
@@ -166,21 +164,21 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                 ax[i, 0].axvline(x=endPoint, color='black')
 
             if i == 0:
-                ax[i, 0].set_ylabel('Orig.')
-                ax[i, 1].set_ylabel('Orig.')
-                ax[i,1].set_xticks([])
+                ax[i, 0].set_ylabel('Orig.', fontsize=plotLabelSize)
+                ax[i, 1].set_ylabel('Orig.', fontsize=plotLabelSize)
+                ax[i, 1].set_xticks([])
             elif i == 1:
-                ax[i, 0].set_ylabel('$f_{n}$')
-                ax[i, 1].set_ylabel('$f_{n}$')
+                ax[i, 0].set_ylabel('$f_{n}$', fontsize=plotLabelSize)
+                ax[i, 1].set_ylabel('$f_{n}$', fontsize=plotLabelSize)
                 ax[i, 1].set_xticks([])
             elif i == len(groupings) - 2:
-                ax[i, 0].set_ylabel('Noise')
-                ax[i, 1].set_ylabel('Noise')
+                ax[i, 0].set_ylabel('Noise', fontsize=plotLabelSize)
+                ax[i, 1].set_ylabel('Noise', fontsize=plotLabelSize)
                 ax[i, 1].set_xticks([])
             elif i == len(groupings) - 1:
-                ax[i, 0].set_ylabel('Phys.\n Signal')
-                ax[i, 1].set_xlabel('Frequency [Hz]')
-                ax[i, 1].set_ylabel('FFT')
+                ax[i, 0].set_ylabel('Phys.\n Signal', fontsize=plotLabelSize)
+                ax[i, 1].set_xlabel('Frequency [Hz]', fontsize=plotLabelSize)
+                ax[i, 1].set_ylabel('FFT', fontsize=plotLabelSize)
 
                 # set the ticks
                 if MirrorData:

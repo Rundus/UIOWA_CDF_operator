@@ -5,6 +5,9 @@
 # [0] handle Electric or magnetic data
 # [1] perform mSSA on an input data_dict
 # [2] be able to output components for the whole time series, a subset or the whole series broken into subsets
+import math
+
+import numpy as np
 
 # --- bookkeeping ---
 from ACESII_code.myImports import *
@@ -20,9 +23,9 @@ justPrintFileNames = False
 wRocket = 5
 
 # --- Select the DataSet ---
-# inputPath_modifier = 'science\PoyntingFlux'
-inputPath_modifier = 'L2'
-wFiles = [8]
+inputPath_modifier = 'science\PoyntingFlux'
+# inputPath_modifier = 'L2'
+wFiles = [0]
 
 
 #################
@@ -35,7 +38,7 @@ MirrorData = True
 mirrorPercentage = 0.2
 
 # --- Window Size ---
-SSA_window_Size = 601
+SSA_window_Size = 501
 # SSA_window_Size = 5
 
 # ---- SSA Components ----
@@ -70,7 +73,7 @@ def mSSA_to_calcComponents(wRocket, rocketFolderPath, justPrintFileNames,wFile):
     compNames, coordSys, coordSet = getCoordinateKeys(data_dict)
 
     # Where the componentSSA files need to go
-    varName = compNames[0].replace(coordSet[0],'')
+    varName = compNames[0].replace(coordSet[0], '')
     pathModifier = 'SSAcomponents' + f'_{varName}'
 
     wInstr = ''
@@ -102,6 +105,7 @@ def mSSA_to_calcComponents(wRocket, rocketFolderPath, justPrintFileNames,wFile):
             # get the data_dict subset
             temp_dict = deepcopy(data_dict)
             data_dict_chunk = {key: [val[0][subset[0]:subset[1]], val[1]] for key, val in temp_dict.items()}
+
             data_dict_output = mSSA_components(data_dict_input=data_dict_chunk, compNames=compNames,
                                                SSA_window_Size=SSA_window_Size, mirrorData=MirrorData,
                                                mirrorPercent=mirrorPercentage)
@@ -112,7 +116,6 @@ def mSSA_to_calcComponents(wRocket, rocketFolderPath, justPrintFileNames,wFile):
             if outputData:
 
                 outputFilePath = rf'{rocketFolderPath}L3\\{pathModifier}\\{fliers[wRocket-4]}\\ACESII_{rocketID}_{wInstr}_SSAComponents_{coordSys}_WL{SSA_window_Size}_subset_{i}'
-                print(outputFilePath)
                 if MirrorData:
                     outputFilePath = outputFilePath + f'_mirrored{int(mirrorPercentage*100)}'
                 outputCDFdata(outputFilePath+".cdf", data_dict_output, globalAttrsMod=globalAttrs, instrNam=wInstr)

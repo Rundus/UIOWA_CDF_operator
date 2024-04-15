@@ -27,7 +27,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [1] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [1,2,3,4,5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
@@ -262,20 +262,18 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
 
         # --- CORRELATION ---
-        # linear
-        corLongCal = np.zeros(shape=(len(covLin), len(covLin[0])))
-        for row in range(len(covLin)):
-            for col in range(len(covLin[0])):
-                corLongCal[row][col] = covLin[row][col]/np.sqrt(covLin[row][row]*covLin[col][col])
-
-        diagX = np.diag(covLin) ** (-0.5)
-        vec1 = diagX.reshape(-1, 1)
-        stdDevMatrix = np.dot(vec1, vec1.T)
-        corrLin = covLin*stdDevMatrix
-        r_corr = corrLin[0][1]
-        print(np.cov([deltaTs, deltaVs], rowvar=True))
-        print(np.cov([deltaTs, deltaVs], rowvar=False))
-        # print(np.corrcoef([deltaTs, deltaVs]))
+        # # linear
+        # corLongCal = np.zeros(shape=(len(covLin), len(covLin[0])))
+        # for row in range(len(covLin)):
+        #     for col in range(len(covLin[0])):
+        #         corLongCal[row][col] = covLin[row][col]/np.sqrt(covLin[row][row]*covLin[col][col])
+        #
+        # diagX = np.diag(covLin) ** (-0.5)
+        # vec1 = diagX.reshape(-1, 1)
+        # stdDevMatrix = np.dot(vec1, vec1.T)
+        # corrLin = covLin*stdDevMatrix
+        fitData = fitFunc_linear(deltaVs, *paramsLin)
+        r_corr_linear = np.corrcoef([deltaTs,fitData])[0][1]
 
         # Polynomial
         diagX = np.diag(covPoly) ** (-0.5)
@@ -287,8 +285,10 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             for col in range(len(covPoly[0])):
                 corLongCal[row][col] = covPoly[row][col] / np.sqrt(covPoly[row][row] * covPoly[col][col])
 
-        print(covPoly)
-        print(corLongCal)
+        fitData_poly = fitFunc_polynomial(deltaVs, *paramsPoly)
+        r_corr_poly = np.corrcoef([deltaTs,fitData_poly])[0][1]
+
+
 
 
         # calculate chisquare
@@ -334,8 +334,8 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
             ax.set_ylabel('Delay time [s]')
             ax.set_xlabel('1/v [s/km]')
-            ax.plot(x_s, fitData, color="red",label=f'd ={paramsLin[0]/6371}Re\n t_0={paramsLin[1]}\n r_corr = {r_corr}')
-            ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}')
+            ax.plot(x_s, fitData, color="red",label=f'd ={paramsLin[0]/6371}Re\n t_0={paramsLin[1]}\n r_corr_lin = {r_corr_linear}')
+            ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}\n r_corr_poly = {r_corr_poly}')
 
             xticks = np.linspace(0, deltaVs.max(), 6)
             xtick_labels = [f'{x:.2e}' for x in xticks]
@@ -349,7 +349,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ########################################
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
         errorZ_avg = sum(errorZ) / len(errorZ)
-        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr]
+        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr_linear]
 
 
 # --- --- --- ---

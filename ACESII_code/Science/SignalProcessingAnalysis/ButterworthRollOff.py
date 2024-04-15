@@ -31,7 +31,7 @@ for order in [orderVal]:
 
 plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
          '--', label='sqrt(0.5)')
-plt.xlim(-0.1,1)
+plt.xlim(-0.1, 1.5)
 plt.title('Butterworth Filter RollOff\n'
           f'Sample Freq: {fs}\n'
           f'Order: {orderVal}\n'

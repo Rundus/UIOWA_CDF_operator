@@ -44,6 +44,8 @@ sliceEpochIndicies = {
 figure_height =11.5
 figure_width = 9.9318
 cmap = 'turbo'
+from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
+cmap = apl_rainbow_black0_cmap()
 cbarLow_counts, cbarHigh_counts = 1, 100
 labelPadding = -0.25
 textFontSize = 10

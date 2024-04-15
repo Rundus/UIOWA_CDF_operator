@@ -49,7 +49,6 @@ reduceTimes = [ [dt.datetime(2022, 11, 20, 17, 22, 00, 000000), dt.datetime(2022
 # --- --- --- DETERMINE DC AND TIME OFFSET --- --- ---
 find_time_offset = False
 find_DC_offset = False
-
 replaceNANS = True
 
 # --- --- --- output Data --- --- ---

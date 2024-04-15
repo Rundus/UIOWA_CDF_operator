@@ -39,7 +39,7 @@ wRocket = 5
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [5]
+wFiles = [6]
 
 modifier = ''
 inputPath_modifier_attitude = 'attitude' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -115,7 +115,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
     prgMsg(f'Loading CHAOS model for {len(data_dict["Epoch"][0])} points')
 
     # get the key components
-    compNames = [key for key, val in data_dict.items() if key.lower() not in ['de_mag', 'db_mag', 'epoch','e_mag','ilat','ilong','bmag','b_mag']]
+    compNames = [key for key, val in data_dict.items() if key.lower() not in ['de_mag', 'db_mag', 'epoch','e_mag','ilat','ilong','bmag','b_mag','alt']]
 
     # Get the Data
     B_rkt_ENU = np.array([[data_dict[compNames[0]][0][i], data_dict[compNames[1]][0][i], data_dict[compNames[2]][0][i]] for i in range(len(data_dict['Epoch'][0]))])
@@ -196,6 +196,7 @@ def ENU_to_Field_Aligned(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
 
         # --- Insert Magnetic or Electric Components ---
         # get the attributes of the old components and replace them
+
         for i, key in enumerate(compNames):
             newAttrs = deepcopy(data_dict_output[key][1])
             newAttrs['LABLAXIS'] = newComps[i]

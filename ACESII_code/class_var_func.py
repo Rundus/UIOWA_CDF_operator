@@ -190,8 +190,7 @@ def getCoordinateKeys(data_dict):
     coordSetName = []
     coordSet = []
 
-
-    for i,set in enumerate(coordinatesSets):
+    for i, set in enumerate(coordinatesSets):
 
         tempCoords = []
 
@@ -206,7 +205,7 @@ def getCoordinateKeys(data_dict):
             coordSetName = coordinatesNames[i]
             coordSet = coordinatesSets[i]
 
-    return coordcompNames,coordSetName, coordSet
+    return coordcompNames, coordSetName, coordSet
 
 def long_to_meter(long, lat):
     return long*(lat_to_meter * np.cos(np.radians(lat)))

@@ -27,13 +27,13 @@ print(color.UNDERLINE + f'Plot2_Conjugacy' + color.END)
 # --- TOGGLES ---
 # --- --- --- ---
 dpi = 800
-alignByILat = False # Align the Data via ILat
+
 
 
 
 # --- Cbar ---
 # cbarMin, cbarMax = 5E6, 3E9
-cbarMin, cbarMax = 5E6, 5E9
+cbarMin, cbarMax = 5E6, 3E9
 cbarTickLabelSize = 14
 my_cmap = apl_rainbow_black0_cmap()
 my_cmap.set_bad(color=(1, 1, 1))
@@ -56,8 +56,8 @@ GeneralCmap = my_cmap
 
 # --- HF/LF Dispersive Region ---
 plot_Dispersive = True
-Dispersive_figure_width = 8.5
-Dispersive_figure_height = 5.5*2
+Dispersive_figure_width = 7.5
+Dispersive_figure_height = 5.5
 Disp_targetILat = [71.91, 72.03]
 Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,800000), dt.datetime(2022,11,20,17,25,9,000)]
 Dispersive_wPitch = 2 # 10deg pitch
@@ -72,6 +72,12 @@ DispersiveFreqlimits = [0, 12]
 Disp_PlotLineWidth = 1
 spectrogramCmap = blue_green_white_yellow_red_cmap()
 
+if plot_General:
+    alignByILat = True # Align the Data via ILat
+elif plot_Dispersive:
+    alignByILat = False  # Align the Data via ILat
+else:
+    alignByILat = True  # Align the Data via ILat
 
 # --- --- --- --- --- ---
 # --- LOAD IN THE DATA ---

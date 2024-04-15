@@ -57,13 +57,13 @@ altLat_LabelPadding = 45
 BigAllSkyPlot = True
 # lonW = 10
 # lonE = 23.5
-lonW = 11.5
-lonE = 18.5
-latS = 68
+lonW = 5
+lonE = 25
+latS = 67
 latN = 75
 res = '50m'
 wImage = 10
-cbarVmin,cbarVmax = 0, 14 # in kRayleigh
+cbarVmin,cbarVmax = 0, 12 # in kRayleigh
 BigAllSky_textSize = 35
 BigAllSky_tickLabelSize = 60
 BigAllSky_scatterSize = 550
@@ -82,7 +82,7 @@ ILatDiff_TickLength = 25
 ILatDiff_TickWidth = 4
 ILatDiff_LabelPadding = 0
 # --------------------------------
-makeColorbarPlot = False
+makeColorbarPlot = True
 
 
 # --- --- --- --- --- --- -
@@ -203,6 +203,8 @@ if altLatPlot:
     Done(start_time)
     # plt.show()
 
+
+
 # --- BIG ALLSKYIMAGER PLOT ---
 if BigAllSkyPlot:
     prgMsg('Plotting BigAllSky')
@@ -212,24 +214,26 @@ if BigAllSkyPlot:
     # --- --- --- --- --- --
     # --- BigAllSky plot ---
     # --- --- --- --- --- --
+    projProjection = ccrs.Orthographic(central_longitude=15, central_latitude=70)
+    projTransform = ccrs.PlateCarree()
+
     for i in range(2):
         # --- PLOT MAP OF NORWAY ---
-        projTransform = ccrs.PlateCarree()
-        fig, axBigAllSky = plt.subplots(1,subplot_kw=dict(projection=projTransform))
+        fig, axBigAllSky = plt.subplots(1,subplot_kw=dict(projection=projProjection))
         figure_height = 20
         figure_width = 20
         fig.set_figwidth(figure_width)
         fig.set_figheight(figure_height)
 
         # get the elevation map data and plot it
-        fname = glob(r"C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Papers\ACESII_Alfvenic_Observations\ElevationData\*.nc*")[0]
-        dataset = netcdf_dataset(fname) # Load data into separate arrays,if variables are not known, print(dataset.variables) to check them
-        elev = dataset.variables['elevation'][:]
-        lats = dataset.variables['lat'][:]
-        lons = dataset.variables['lon'][:]
-        vmin, vmax = -8000, 3000
-        v = np.linspace(vmin, vmax, 100, endpoint=True) # Set how many contour lines to display
-        axBigAllSky.contourf(lons, lats, elev, v, cmap="gray", vmin=vmin, vmax=vmax, transform=projTransform)
+        # fname = glob(r"C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Papers\ACESII_Alfvenic_Observations\ElevationData\*.nc*")[0]
+        # dataset = netcdf_dataset(fname) # Load data into separate arrays,if variables are not known, print(dataset.variables) to check them
+        # elev = dataset.variables['elevation'][:]
+        # lats = dataset.variables['lat'][:]
+        # lons = dataset.variables['lon'][:]
+        # vmin, vmax = -8000, 3000
+        # v = np.linspace(vmin, vmax, 100, endpoint=True) # Set how many contour lines to display
+        # axBigAllSky.contourf(lons, lats, elev, v, cmap="gray", vmin=vmin, vmax=vmax, transform=projTransform)
 
         # gridlines
         gl = axBigAllSky.gridlines(draw_labels=True, linewidth=BigAllSky_GridSize,
@@ -408,6 +412,6 @@ if makeColorbarPlot:
     cbar.ax.tick_params(labelsize=60)
 
     # plt.tight_layout()
-    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Paper_Photos\Plot1\colorbar.png')
+    plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot1\colorbar.png')
     # plt.show()
     Done(start_time)
