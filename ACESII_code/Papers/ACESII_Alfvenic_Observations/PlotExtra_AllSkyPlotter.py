@@ -116,11 +116,7 @@ for ImageIdx in wImage:
     # --- --- --- --- --- --
     for i in range(2):
         # --- PLOT MAP OF NORWAY ---
-        # projTransform = ccrs.AzimuthalEquidistant(central_longitude=15,central_latitude=70)
-        # projTransform =
-        # projTransform = ccrs.Geostationary(central_longitude=15, central_latitude=70,satellite_height=)
         projProjection =ccrs.Orthographic(central_longitude=15, central_latitude=70)
-
         projTransform = ccrs.PlateCarree()
 
         fig, axBigAllSky = plt.subplots(1,subplot_kw=dict(projection=projProjection))

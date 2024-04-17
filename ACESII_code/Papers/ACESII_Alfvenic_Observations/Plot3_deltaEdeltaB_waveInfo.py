@@ -61,15 +61,15 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
                [dt.datetime(2022, 11, 20, 17, 24, 54, 250000), dt.datetime(2022, 11, 20, 17, 25, 3, 250000)], # Dispersed Time
                [dt.datetime(2022, 11, 20, 17, 25, 18, 000000), dt.datetime(2022, 11, 20, 17, 25, 27, 000000)]  # Auroral Time ( i.e. the FULL aurora)
                ]
-# keeper - nonNormalized
+
 # targetILats = [[71.15, 71.25], # Quiet Time
-#                [71.62, 71.67], # temporally Time
-#                [71.87, 71.914]] # spatially aligned
+#                [71.615, 71.67], # temporally Time
+#                [71.86, 71.912]] # spatially alignedZ
 
 # trying to make it fit
 targetILats = [[71.15, 71.25], # Quiet Time
-               [71.615, 71.67], # temporally Time
-               [71.86, 71.912]] # spatially aligned
+               [71.59, 71.64], # temporally Time
+               [71.86, 71.912]] # spatially alignedZ
 
 # OTHER regions of alfven activity
 extraILats = [[72.1, 72.136],
