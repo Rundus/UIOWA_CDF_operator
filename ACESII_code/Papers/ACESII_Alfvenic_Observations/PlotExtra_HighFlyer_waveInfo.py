@@ -24,7 +24,6 @@ start_time = time.time()
 # --- --- --- ---
 from numpy.fft import rfft, fftfreq
 from ACESII_code.class_var_func import u0, InterpolateDataDict
-from scipy.integrate import simpson
 from scipy.signal import spectrogram
 from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 
@@ -33,15 +32,15 @@ from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 # --- --- --- ---
 # figure_width = 7.5 # in inches
 figure_width = 9.5 # in inches
-figure_height = 12 # in inches
-dpi = 500
+figure_height = 3*(12/5) # in inches
+dpi = 200
 PlotLabelSize = 15
 PlotTitleSize = 14
 PlotLegendSize = 10
 PlotTickLabelSize = 12
 PlotLabelPad = 1
 freqLimit = 15
-plotLineWidth = 1
+plotLineWidth = 2
 TitlePadding = 10
 PoyntingScale = 1000# convert from W/m^2 to ergs/cm^2
 Escale = 1000 # convert V/m to mV/m
@@ -49,6 +48,9 @@ EB_ratio_limits = [1E5, 1E7]
 plotColors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green']
 RegionNames = ['Quiet Region', 'Dispersive Region', 'ILat Align']
 kSets = [0, 1] # determines the E/B pairs: (1) B_e/E_r (2) B_r/-E_e or [0,1] for both
+plotSTEBRegions = True
+wSTEBtoPlot = [1,2,3,4,5] # STEB number NOT index. Don't -1
+regionColors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green','tab:olive']
 
 # Phase Histogram
 windowType, npersegN, scalingType = 'hann', 64*4, 'spectrum'  # spectrogram toggles
@@ -66,8 +68,8 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
 #                [71.87, 71.914]] # spatially aligned
 
 # trying to make it fit
-targetILats = [[71.1186, 71.22],
-               [71.91, 72.03]] # spatially aligned
+targetILats = [[71.15, 71.21],
+               [71.91, 71.97]] # spatially aligned
 
 # OTHER regions of alfven activity
 extraILats = [[72.1, 72.136],
@@ -228,7 +230,7 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
     for wKeySet in kSets:
 
         prgMsg('Plotting Data')
-        fig, ax = plt.subplots(nrows=5, ncols=len(targetVar))
+        fig, ax = plt.subplots(nrows=3, ncols=len(targetVar))
         fig.set_size_inches(figure_width, figure_height)
 
         wWaveSetKeys = waveSetKeys[wKeySet]
@@ -247,13 +249,6 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
             # Set the title
             lowTime = sectionTimeRange[i][0]
             highTime = sectionTimeRange[i][1]
-
-            # ax[0][i].set_title(RegionNames[i] + f'\n {lowTime.hour}:{lowTime.minute}:{lowTime.second + round(lowTime.microsecond/1E6,2)} to {highTime.hour}:{highTime.minute}:0{highTime.second + round(highTime.microsecond/1E6,2)} UTC',
-            #                    weight='bold',
-            #                    fontsize=PlotTitleSize,
-            #                    pad=TitlePadding)
-
-
             ax[0][i].set_title(RegionNames[i] + f'\n {lowTime.strftime("%H:%M:%S")} to {highTime.strftime("%H:%M:%S")} UTC' + '\n $V_{A}$ (avg) = ' +f'{round(data_dict_FFT["VA_avg"][i]/1000,1)} [km/s]',
                                weight='bold',
                                fontsize=PlotTitleSize,
@@ -264,7 +259,7 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
             #####################
 
             # set the grid
-            for j in range(4):
+            for j in range(3):
                 ax[j][i].grid(which='both', alpha=0.5)
 
             #################################
@@ -296,13 +291,25 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
             ############################
             # --- Poynting Flux plot ---
             ############################
-            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*S_estFluxs[i], plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
+            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*S_estFluxs[i], plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth,zorder=2)
             ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
-            ax[1][i].set_ylim(-0.1E-2, 5E-2)
+            ax[1][i].set_ylim(-0.1E-2, 5.3E-2)
             ax[1][i].set_xmargin(0)
             ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
-            newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
+
+            if i == 1:
+                from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
+                STEBtimes = [dispersionAttributes.keyDispersionDeltaT[idx-1] for idx in wSTEBtoPlot]
+
+                # plot the color regions
+                for k,tme in enumerate(STEBtimes):
+                    lowIdx = np.abs(data_dicts[2]['Epoch'][0] - tme[0]).argmin()
+                    highIdx = np.abs(data_dicts[2]['Epoch'][0] - tme[1]).argmin()
+                    ax[1][i].axvspan(data_dicts[2]['ILat'][0][lowIdx],data_dicts[2]['ILat'][0][highIdx], color=regionColors[k], alpha=0.25,zorder=1)
+                    ax[1][i].text((data_dicts[2]['ILat'][0][lowIdx]+data_dicts[2]['ILat'][0][highIdx])/2, 0.048, f'S{wSTEBtoPlot[k]}', ha='center', weight='bold')
+
+            newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0]) / 2)]
             newTicks = [round(tick, 2) for tick in newTicks]
             newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
             newTickStr = [str(tick) for tick in newTicks]
@@ -332,92 +339,92 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
             axFFT_E.set_yticks([])
             ax[2][i].minorticks_on()
 
-            ######################
-            # --- ASpeed Ratio ---
-            ######################
-            # ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=0.75, linestyle='-', marker='o', markersize=1)
-
-            ax[3][i].axhline(data_dict_FFT['VA_avg'][0],linestyle='--', color='red', label='V$_{A}$ (Avg) [m/s]')
-            ax[3][i].set_ylim(EB_ratio_limits[0], EB_ratio_limits[1])
-            ax[3][i].set_yscale('log')
-            # ax[3][i].axvline(0.8, color='green', linestyle='--', alpha=0.5)
-
+            # ######################
+            # # --- ASpeed Ratio ---
+            # ######################
+            # # ax[3][i].plot(spectraFreqs[0][i], wAlfvenData[i], color='black', label=f'', linewidth=0.75, linestyle='-', marker='o', markersize=1)
+            #
+            # ax[3][i].axhline(data_dict_FFT['VA_avg'][0],linestyle='--', color='red', label='V$_{A}$ (Avg) [m/s]')
+            # ax[3][i].set_ylim(EB_ratio_limits[0], EB_ratio_limits[1])
+            # ax[3][i].set_yscale('log')
+            # # ax[3][i].axvline(0.8, color='green', linestyle='--', alpha=0.5)
+            #
+            # # for k in range(3):
+            # #     ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
+            #
+            # ax[3][i].minorticks_on()
+            # ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize, labelpad=PlotLabelPad)
+            # ax[3][i].set_xlim(0, freqLimit)
+            # ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            # ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
+            #
+            #
+            # #########################
+            # # --- PHASE HISTOGRAM ---
+            # #########################
+            #
+            # # B-Field
+            # f_B, t_B, Sxx_B = spectrogram(data_dicts[0][wWaveSetKeys[0]][0],
+            #                               fs=128,
+            #                               window=windowType,
+            #                               nperseg=npersegN,  # note: if ==None default size is 256
+            #                               noverlap=overlap,
+            #                               scaling=scalingType,
+            #                               mode='angle')  # scaling = density or scaling = spectrum
+            # # E-Field
+            # f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[0][wWaveSetKeys[1]][0],
+            #                               fs=128,
+            #                               window=windowType,
+            #                               nperseg=npersegN,  # note: if ==None default size is 256
+            #                               noverlap=overlap,
+            #                               scaling=scalingType,
+            #                               mode='angle')  # scaling = density or scaling = spectrum
+            #
+            # phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
+            #
+            # # --- Create the Histogram ---
+            # phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
+            # plotBins = [-180 + 15 * i for i in range(25)]
+            # phaseHistogram = np.zeros(shape=(len(f_B), len(phaseDiffBins) - 1))
+            # medianPhase = []
+            #
+            # for frq in range(len(phaseDiff)):
+            #     hist, bin_edges = np.histogram(phaseDiff[frq], bins=phaseDiffBins)
+            #     phaseHistogram[frq] = hist
+            #     medianPhase.append(np.median(phaseDiff[frq]))
+            #
+            #
+            # # Normalize the histogram
+            # phaseHistogram = 100 * phaseHistogram / phaseHistogram.max()
+            # cmap = ax[4][i].pcolormesh(f_B, plotBins, phaseHistogram.T, vmin=0, vmax=50, cmap=matlab_parula_cmap())
+            # ax[4][i].plot(f_B, medianPhase, color='white', linewidth=plotLineWidth+0.5)
+            # ax[4][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
+            # ax[4][i].set_xlim(0, freqLimit)
+            # ax[4][i].set_yticks([-180, -90, 0, 90, 180])
+            # ax[4][i].minorticks_on()
+            # ax[4][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            # ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
+            # ax[4][i].set_ylim(-180, 180)
+            #
             # for k in range(3):
-            #     ax[3][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
-
-            ax[3][i].minorticks_on()
-            ax[3][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize, labelpad=PlotLabelPad)
-            ax[3][i].set_xlim(0, freqLimit)
-            ax[3][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
-            ax[3][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
-
-
-            #########################
-            # --- PHASE HISTOGRAM ---
-            #########################
-
-            # B-Field
-            f_B, t_B, Sxx_B = spectrogram(data_dicts[0][wWaveSetKeys[0]][0],
-                                          fs=128,
-                                          window=windowType,
-                                          nperseg=npersegN,  # note: if ==None default size is 256
-                                          noverlap=overlap,
-                                          scaling=scalingType,
-                                          mode='angle')  # scaling = density or scaling = spectrum
-            # E-Field
-            f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[0][wWaveSetKeys[1]][0],
-                                          fs=128,
-                                          window=windowType,
-                                          nperseg=npersegN,  # note: if ==None default size is 256
-                                          noverlap=overlap,
-                                          scaling=scalingType,
-                                          mode='angle')  # scaling = density or scaling = spectrum
-
-            phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
-
-            # --- Create the Histogram ---
-            phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
-            plotBins = [-180 + 15 * i for i in range(25)]
-            phaseHistogram = np.zeros(shape=(len(f_B), len(phaseDiffBins) - 1))
-            medianPhase = []
-
-            for frq in range(len(phaseDiff)):
-                hist, bin_edges = np.histogram(phaseDiff[frq], bins=phaseDiffBins)
-                phaseHistogram[frq] = hist
-                medianPhase.append(np.median(phaseDiff[frq]))
-
-
-            # Normalize the histogram
-            phaseHistogram = 100 * phaseHistogram / phaseHistogram.max()
-            cmap = ax[4][i].pcolormesh(f_B, plotBins, phaseHistogram.T, vmin=0, vmax=50, cmap=matlab_parula_cmap())
-            ax[4][i].plot(f_B, medianPhase, color='white', linewidth=plotLineWidth+0.5)
-            ax[4][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
-            ax[4][i].set_xlim(0, freqLimit)
-            ax[4][i].set_yticks([-180, -90, 0, 90, 180])
-            ax[4][i].minorticks_on()
-            ax[4][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
-            ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
-            ax[4][i].set_ylim(-180, 180)
-
-            for k in range(3):
-                ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
-
-            # set the legend(s)
-            lns = ln1 + ln2
-            labs = [l.get_label() for l in lns]
-            if i == 0:
-                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.7 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
-                ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad-0.5)
-                ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
-                axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
-                ax[3][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[4][i].set_ylabel('Phase Difference', fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
-                ax[3][i].set_ylabel(f'{wWaveSetLabels[1]}/{wWaveSetLabels[0]} [m/s]', fontsize=PlotLabelSize)
-
-            ax[3][i].set_visible(False)
-            ax[4][i].set_visible(False)
+            #     ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
+            #
+            # # set the legend(s)
+            # lns = ln1 + ln2
+            # labs = [l.get_label() for l in lns]
+            # if i == 0:
+            #     ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.7 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
+            #     ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+            #     ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad-0.5)
+            #     ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+            #     ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
+            #     axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
+            #     ax[3][i].legend(loc='upper right', prop={'size': PlotLegendSize})
+            #     ax[4][i].set_ylabel('Phase Difference', fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
+            #     ax[3][i].set_ylabel(f'{wWaveSetLabels[1]}/{wWaveSetLabels[0]} [m/s]', fontsize=PlotLabelSize)
+            #
+            # ax[3][i].set_visible(False)
+            # ax[4][i].set_visible(False)
 
         ### OUTPUT THE DATA ###
         # plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)

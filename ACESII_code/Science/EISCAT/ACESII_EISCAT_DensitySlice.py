@@ -20,7 +20,7 @@ start_time = time.time()
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
-wRocket = 5
+wRocket = 4
 modifier = ''
 useTromso = True # if false USE SVALBARD
 inputPath_modifier = r'science\EISCAT\tromso\UHF' if useTromso else r'science\EISCAT\svalbard\UKFI_radar' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -35,7 +35,7 @@ outputData = True
 # none
 
 
-def ACESII_EISCAT_DensitySlice(wRocket, rocketFolderPath, wflyer):
+def ACESII_EISCAT_DensitySlice(wRocket, rocketFolderPath):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
@@ -43,7 +43,7 @@ def ACESII_EISCAT_DensitySlice(wRocket, rocketFolderPath, wflyer):
     globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
     inputFiles_EISCAT = glob(rf'{rocketFolderPath}{inputPath_modifier}\*.cdf')[0]
-    inputFiles_attitude = glob(f'{rocketFolderPath}attitude\{fliers[wflyer]}{modifier}\*.cdf')[0]
+    inputFiles_attitude = glob(f'{rocketFolderPath}attitude\{fliers[wRocket-4]}{modifier}\*.cdf')[0]
     fileoutName = f'ACESII_{rocketID}_EISCAT_Tromso_rktSlice.cdf' if useTromso else f'ACESII_{rocketID}_EISCAT_Svalbard_rktSlice.cdf'
 
 
@@ -185,7 +185,7 @@ def ACESII_EISCAT_DensitySlice(wRocket, rocketFolderPath, wflyer):
         data_dict['Op_Comp'][1]['LABLAXIS'] = 'Oxygen Ratio'
         data_dict['Op_Comp'][1]['UNITS'] = '[O+]/Ne'
 
-        outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
+        outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'
 
         outputCDFdata(outputPath, data_dict, instrNam='EISCAT')
 
