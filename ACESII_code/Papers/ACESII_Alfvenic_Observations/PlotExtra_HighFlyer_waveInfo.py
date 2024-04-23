@@ -32,7 +32,8 @@ from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 # --- --- --- ---
 # figure_width = 7.5 # in inches
 figure_width = 9.5 # in inches
-figure_height = 3*(12/5) # in inches
+# figure_height = 3*(12/4) # in inches
+figure_height = 7.75 # in inches
 dpi = 200
 PlotLabelSize = 15
 PlotTitleSize = 14
@@ -325,7 +326,7 @@ def PlotExtra_HighFlyer_waveInfo(targetVar,dict_sets):
             ax[2][i].set_xlim(0, freqLimit)
             ax[2][i].set_yscale('log')
             ax[2][i].set_ylim(1E-3, 1E1)
-            for k in range(3):
+            for k in range(4):
                 ax[2][i].axvline(0.55*(k+1), color='green',linestyle='--',alpha=0.5)
 
             ax[2][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)

@@ -41,12 +41,11 @@ sliceEpochIndicies = {
     's5':[6014, 6018 + 1, 6021 + 3],
     's10':[6139, 6142, 6145]  # s10 The Big One on the poleward side of the aurora
 }
-figure_height =11.5
-figure_width = 9.9318
+figure_height = (11.5)
+figure_width = (9.9318)
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 cmap = apl_rainbow_black0_cmap()
-cbarLow_counts, cbarHigh_counts = 1, 100
 labelPadding = -0.25
 textFontSize = 10
 titleFontSize = 18
@@ -61,6 +60,9 @@ dpi = 1200
 
 
 # plot toggles - Show STEB itself ----------
+useCounts = False # if False --> use diffEFlux
+cbarLow_counts, cbarHigh_counts = 1, 100
+cbarLow_diffEFlux, cbarHigh_diffEFlux = 5E6, 1E9
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time plot
 # colors = ['red', 'green', 'black','red', 'green', 'black','red', 'green', 'black']
@@ -108,10 +110,16 @@ data_dict_attitude_low = loadDictFromFile(inputFilePath=inputFiles_Attitude[1])
 # EEPAA Particle Data
 inputFiles_eepaa = [glob('C:\Data\ACESII\L2\high\*eepaa_fullCal*')[0], glob('C:\Data\ACESII\L2\low\*eepaa_fullCal*')[0]]
 data_dict_eepaa_high = loadDictFromFile(inputFilePath=inputFiles_eepaa[0])
-data_dict_eepaa_low = loadDictFromFile(inputFilePath=inputFiles_eepaa[1])
-cbarLow,cbarHigh = cbarLow_counts, cbarHigh_counts
+
 inputFiles_eepaa_counts = [glob('C:\Data\ACESII\L1\high\*eepaa_fullCal*')[0], glob('C:\Data\ACESII\L1\low\*eepaa_fullCal*')[0]]
 data_dict_counts_high = loadDictFromFile(inputFilePath=inputFiles_eepaa_counts[0])
+
+# Set the cbar limits
+if useCounts:
+    cbarLow, cbarHigh = cbarLow_counts, cbarHigh_counts
+else:
+    cbarLow, cbarHigh = cbarLow_diffEFlux, cbarHigh_diffEFlux
+
 Done(start_time)
 
 
@@ -119,8 +127,8 @@ Done(start_time)
 # --- Calc Vpara & Vperp ---
 # --- --- --- --- --- --- --
 prgMsg('Calculating Vperp and Vparallel')
-Energy = data_dict_eepaa_high['Energy'][0]
-Pitch = data_dict_eepaa_high['Pitch_Angle'][0]
+Energy = data_dict_counts_high['Energy'][0]
+Pitch = data_dict_counts_high['Pitch_Angle'][0]
 countsTemp = data_dict_counts_high['eepaa'][0][6000]
 Vperp = deepcopy(countsTemp)
 Vpara = deepcopy(countsTemp)
@@ -161,7 +169,7 @@ for colIndx in range(len(wDispersions)):
     # get the data
     IndexLow, IndexHigh = np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[colIndx]][0]).argmin(), np.abs(data_dict_counts_high['Epoch'][0] - dispersionTimes[wDispersions[colIndx]][1]).argmin()
     Epoch = EpochTo_T0_Rocket(InputEpoch=data_dict_counts_high['Epoch'][0][IndexLow:IndexHigh], T0=data_dict_counts_high['Epoch'][0][0])
-    dataArray = np.array(data_dict_counts_high['eepaa'][0][IndexLow:IndexHigh])
+    dataArray = np.array(data_dict_counts_high['eepaa'][0][IndexLow:IndexHigh]) if useCounts else np.array(data_dict_eepaa_high['Differential_Energy_Flux'][0][IndexLow:IndexHigh])
 
 
     # --- loop through the axis: (STEB Plot, Slice 1, slice 2, slice 3) ---
@@ -172,17 +180,21 @@ for colIndx in range(len(wDispersions)):
 
         # --- STEB top Plot ---
         if rowIndx == 0:
-            # get the formatted eepaa data - Energy vs Time
-            dataToPlot = deepcopy(np.transpose(dataArray[:, wPitch_Engy_vs_Time, :]))
 
-            # Set the background black by turning all 0 values into 1's (just for display purposes)
-            for tme in range(len(dataToPlot)):
-                for engy in range(len(dataToPlot[0])):
-                    if dataToPlot[tme][engy] == 0:
-                        dataToPlot[tme][engy] = 1
+            if useCounts:
+                # get the formatted eepaa data - Energy vs Time
+                dataToPlot = deepcopy(np.transpose(dataArray[:, wPitch_Engy_vs_Time, :]))
+
+                # Set the background black by turning all 0 values into 1's (just for display purposes)
+                for tme in range(len(dataToPlot)):
+                    for engy in range(len(dataToPlot[0])):
+                        if dataToPlot[tme][engy] == 0:
+                            dataToPlot[tme][engy] = 1
+            else:
+                dataToPlot = deepcopy(np.transpose(dataArray[:, wPitch_Engy_vs_Time, :]))
+
 
             dispersionTitleTime = pycdf.lib.tt2000_to_datetime(pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) + int((pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) - pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][1]))/2)).strftime("%H:%M:%S.%f")[:-3]
-
 
             ax[rowIndx,colIndx].set_title(f'STEB {wDispersions[colIndx]+1}\n' + dispersionTitleTime  + ' UTC',fontsize=titleFontSize-4)
             alfSigPlot = ax[rowIndx,colIndx].pcolormesh(Epoch, Energy, dataToPlot, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
@@ -210,7 +222,7 @@ for colIndx in range(len(wDispersions)):
             ax[rowIndx, colIndx].text(0.5, -1.3, f'$t_{rowIndx}$=' +f'{timeTag} s',fontsize=labelsFontSize, weight='bold', color=sliceLineColors[rowIndx-1], bbox=props, ha='center')
 
             # dataToPlot
-            dataArray_Slice = data_dict_counts_high['eepaa'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIndx]+1}'][rowIndx - 1]).argmin()]
+            dataArray_Slice = data_dict_counts_high['eepaa'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIndx]+1}'][rowIndx - 1]).argmin()] if useCounts else data_dict_eepaa_high['Differential_Energy_Flux'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIndx]+1}'][rowIndx - 1]).argmin()]
 
             # Set the background black by turning all 0 values into 1's (just for display purposes)
             for tme in range(len(dataArray_Slice)):
@@ -241,6 +253,7 @@ for colIndx in range(len(wDispersions)):
             y = Energy
             X, Y = np.meshgrid(x, y)
             Z = deepcopy(X)
+            countsArray = np.array(data_dict_counts_high['eepaa'][0][IndexLow:IndexHigh])
 
             # populate the new data
             for tme in range(len(Epoch)):
@@ -248,7 +261,7 @@ for colIndx in range(len(wDispersions)):
 
                     # get the data across all pitch angles here
                     # pitchData = dataArray_counts[tme, :, engy]
-                    pitchData = dataArray[tme, :, engy]
+                    pitchData = countsArray[tme, :, engy]
 
                     # Find errors in data and eliminate them from the median calculation
                     for k, val in enumerate(pitchData):
@@ -284,7 +297,7 @@ for colIndx in range(len(wDispersions)):
 
 
 
-plt.tight_layout(w_pad=-0.5,h_pad=0.15,rect=[0,0,0.915,1])
+plt.tight_layout(w_pad=-0.5,h_pad=0.15,rect=[0,0,0.8,1])
 
 prgMsg('Creating Colorbar Plot')
 
@@ -293,7 +306,11 @@ cax = fig.add_axes([0.90, 0.23, 0.025, 0.718])
 cbar = plt.colorbar(alfSigPlot, cax=cax)
 cbar.ax.minorticks_on()
 cbar.ax.tick_params(labelsize=tickFontSize)
-cbar.set_label('Counts', fontsize=labelsFontSize+10, rotation=270)
+if useCounts:
+    cbar.set_label('Counts', fontsize=labelsFontSize+10, rotation=270)
+else:
+    cbar.set_label('cm$^{-2}$str$^{-1}$s$^{-1}$eV/eV', fontsize=labelsFontSize + 10, rotation=270)
+
 cbar.ax.get_yaxis().labelpad = 16
 for l in cbar.ax.yaxis.get_ticklabels():
     l.set_weight("bold")

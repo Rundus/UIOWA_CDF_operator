@@ -17,8 +17,8 @@ from scipy.signal import freqz
 
 # Sample rate and desired cutoff frequencies (in Hz).
 fs = 128
-lowcut = 0.8
-highcut = 62
+lowcut = 1
+highcut = 15
 orderVal = 4
 
 # Plot the frequency response for a few different orders.
@@ -31,7 +31,7 @@ for order in [orderVal]:
 
 plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
          '--', label='sqrt(0.5)')
-plt.xlim(-0.1, 1.5)
+plt.xlim(-0.1, 13)
 plt.title('Butterworth Filter RollOff\n'
           f'Sample Freq: {fs}\n'
           f'Order: {orderVal}\n'

@@ -33,7 +33,7 @@ wRocket = 4
 
 modifier = ''
 inputPath_modifier_mag = 'L3\deltaB'
-wMagFile = 1
+wMagFile = 2
 Bscale = 1E-9 # what to multiply B-Field data to get into SI units
 
 inputPath_modifier_elec = 'L3\deltaE' # e.g. 'L1' or 'L1'. It's the name of the broader input folder

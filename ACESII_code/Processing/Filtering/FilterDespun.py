@@ -26,10 +26,11 @@ inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader inpu
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
 wFiles = [6]
 # ----------------------------
-lowcutoff, highcutoff = 1, 1
+lowcutoff, highcutoff = 1, 15
 fs = 128
 order = 4
-filtertype = 'HighPass'
+# filtertype = 'HighPass'
+filtertype = 'BandPass'
 # -----------------------------
 outputData = True
 

@@ -29,15 +29,15 @@ inputPath_modifier = 'L3\SSAcomponents_B'
 #################
 # --- TOGGLES ---
 #################
-plotLabelSize = 15
+plotLabelSize = 11
 
 # --- Plotting ---
-plot_GroupingSSA = True
+plot_GroupingSSA = False
 plot_wSSAComponetFile = 2
 plot_wAxesSSA = 0
 
 # --- OUTPUT DATA ---
-outputDataIntoOneMasterFile = False
+outputDataIntoOneMasterFile = True
 # -------------------
 
 #################
@@ -82,15 +82,19 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
     #############################
     # --- DEFINE THE GROUPING ---
     #############################
-    groupings_dict = {'RingCore_high': [[i for i in range(16)] +
-                                        [20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 37, 38, 39, 40, 41, 43, 44, 45,
-                                         51, 52, 53, 54, 56, 57, 58, 59] +
-                                        [60 + i for i in range(10)] +
-                                        [71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 86, 88, 89] +
-                                        [90, 91, 92, 93, 94, 95, 96, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107,
-                                         108, 109, 110] +
-                                        [],  # identified harmonics (10,11,48,51,81,82 maybe?)
-                                        [],  # indicies to investigation
+    groupings_dict = {
+        # 'RingCore_high': [[i for i in range(16)] +
+        #                                 [20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 37, 38, 39, 40, 41, 43, 44, 45,
+        #                                  51, 52, 53, 54, 56, 57, 58, 59] +
+        #                                 [60 + i for i in range(10)] +
+        #                                 [71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 86, 88, 89] +
+        #                                 [90, 91, 92, 93, 94, 95, 96, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107,
+        #                                  108, 109, 110] +
+        #                                 [],  # identified harmonics (10,11,48,51,81,82 maybe?)
+        #                                 [[i] for i in range(5)],  # indicies to investigation
+        #                                 200],
+                      'RingCore_high': [[0,1,2,3,4,5,6,7,8,9,10,11,12,14,15,18,19,25,41,42,43,44, 58], # identified harmonics (2,3, 13 maybe not?)
+                                        [[i] for i in range(60, 64)],  # indicies to investigation
                                         200],
                       # limit of the noise, between this value and 3*SSA_window size is discarded as noise
                       'E_Field_low': [[0,1,2,3,4,5,12,13],
@@ -108,9 +112,9 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
     # generate the groupings variables
     from ACESII_code.class_var_func import generateGrouping
     groupings = generateGrouping(SSA_window_Size = SSA_window_Size,
-                                 badCompIndicies=groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][0],
+                                 badCompIndicies = groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][0],
                                  InvestigateIndicies = groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][1],
-                                 noiseLimit=groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][2])
+                                 noiseLimit = groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][2])
 
 
     ###############################
@@ -139,8 +143,8 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                      f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}',fontsize=20)
 
         origMax = 1
-        origData = [[],[]]
-        physData = [[],[]]
+        origData = [[], []]
+        physData = [[], []]
 
         # loop over all the groups in grouping
         for i in range(len(groupings)):
@@ -162,7 +166,6 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                 endPoint = len(SSA_vec[0]) - int(0.2 * len(Epoch))
                 ax[i, 0].axvline(x=startPoint, color='black')
                 ax[i, 0].axvline(x=endPoint, color='black')
-
             if i == 0:
                 ax[i, 0].set_ylabel('Orig.', fontsize=plotLabelSize)
                 ax[i, 1].set_ylabel('Orig.', fontsize=plotLabelSize)
@@ -201,29 +204,34 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                 physData = [plotThisData, FFT]
 
 
-            ax[i, 1].plot(xf, FFT/origMax)
-
+            # ax[i, 1].plot(xf, FFT/origMax)
+            ax[i, 1].plot(xf, FFT)
             ax[i, 1].vlines([spinFreq * (i + 1) for i in range(50)], ymin=0, ymax=1, alpha=0.5, color='red')
-
             ax[i, 1].set_xlim(-0.1, 15)
             ax[i, 1].set_ylim(0, 1)
 
         plt.show()
 
         fig, ax = plt.subplots(ncols=2, nrows=3)
-        ax[0, 0].plot([i for i in range(len(plotThisData))], origData[0]/np.abs(max(origData[0])))
+        # ax[0, 0].plot([i for i in range(len(plotThisData))], origData[0]/np.abs(max(origData[0])))
+        ax[0, 0].plot([i for i in range(len(plotThisData))], origData[0] )
         ax[0, 0].set_ylabel('orignal')
-        ax[0, 1].plot(xf, origData[1]/max(origData[1]))
+        # ax[0, 1].plot(xf, origData[1]/max(origData[1]))
+        ax[0, 1].plot(xf, origData[1])
         ax[0, 1].set_ylabel('$f_{n}$')
 
-        ax[1, 0].plot([i for i in range(len(plotThisData))], physData[0]/np.abs(max(origData[0])))
+        # ax[1, 0].plot([i for i in range(len(plotThisData))], physData[0]/np.abs(max(origData[0])))
+        ax[1, 0].plot([i for i in range(len(plotThisData))], physData[0] )
         ax[1, 0].set_ylabel('Phys. \nSignal')
-        ax[1, 1].plot(xf, physData[1]/max(origData[1]))
+        # ax[1, 1].plot(xf, physData[1]/max(origData[1]))
+        ax[1, 1].plot(xf, physData[1])
         ax[1, 1].set_ylabel('$f_{n}$')
 
-        ax[2, 0].plot([i for i in range(len(plotThisData))], (origData[0]-physData[0])/np.abs(max(origData[0])))
+        # ax[2, 0].plot([i for i in range(len(plotThisData))], (origData[0]-physData[0])/np.abs(max(origData[0])))
+        ax[2, 0].plot([i for i in range(len(plotThisData))], (origData[0] - physData[0]))
         ax[2, 0].set_ylabel('Difference')
-        ax[2, 1].plot(xf, (origData[1]-physData[1])/max(origData[1]))
+        # ax[2, 1].plot(xf, (origData[1]-physData[1])/max(origData[1]))
+        ax[2, 1].plot(xf, (origData[1] - physData[1]))
         ax[2, 1].set_ylabel('$f_{n}$')
         for k in range(3):
             ax[k, 0].set_xlim(startPoint,endPoint)

@@ -23,9 +23,9 @@ start_time = time.time()
 justPrintFileNames = False
 wRocket = 4
 # inputPath_modifier = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier = 'L3\deltaB' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 
-wFiles = [5, 6]
+wFiles = [2]
 refAlt = 150 # represents 150 km reference altitude that everything is tied to
 # ---------------------------
 generateILatILong = False # Calculates and Stores the ILat and ILong variables as a .cdf File
