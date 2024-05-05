@@ -77,7 +77,7 @@ class dispersionAttributes(object):
     keyDispersionTimes = [
         [dt.datetime(2022, 11, 20, 17, 24, 56, 000000), dt.datetime(2022, 11, 20, 17, 24, 57, 600000)],# s1
         [dt.datetime(2022, 11, 20, 17, 24, 57, 630000), dt.datetime(2022, 11, 20, 17, 24, 59, 186000)],# s2
-        [dt.datetime(2022, 11, 20, 17, 24, 58, 700000), dt.datetime(2022, 11, 20, 17, 25, 00, 50000)],# s3
+        [dt.datetime(2022, 11, 20, 17, 24, 58, 800000), dt.datetime(2022, 11, 20, 17, 25, 00, 50000)],# s3
         [dt.datetime(2022, 11, 20, 17, 24, 59, 965000), dt.datetime(2022, 11, 20, 17, 25, 00, 758000)],# s4  right before Inverted V
         [dt.datetime(2022, 11, 20, 17, 25, 00, 501000), dt.datetime(2022, 11, 20, 17, 25, 1, 350000)], # s5 inside inverted V's left edge
         [dt.datetime(2022, 11, 20, 17, 25, 0, 850000),  dt.datetime(2022, 11, 20, 17, 25, 2, 0000)], # s6 under V, it's faint
@@ -217,19 +217,7 @@ class dispersionAttributes(object):
         # --- DIAGONAL REMOVE ---
         # remove upper Right stuff (COARSE)
         upper = True
-        EnergyStartPoint, TimeStart, TimeEnd = 80, 0.85, 1.6
-        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
-
-        # --- DIAGONAL REMOVE ---
-        # remove upper Right stuff (COARSE)
-        upper = True
-        EnergyStartPoint, TimeStart, TimeEnd = 62, 0.8, 1.6
-        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
-
-        # --- DIAGONAL REMOVE ---
-        # remove upper Right stuff (COARSE)
-        upper = False
-        EnergyStartPoint, TimeStart, TimeEnd = 46, 0.445, 1.6
+        EnergyStartPoint, TimeStart, TimeEnd = 80, 1.1, 1.6
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         return newData
@@ -240,8 +228,14 @@ class dispersionAttributes(object):
 
         # --- BOX REMOVE ---
         # remove lower left
-        # EnergyMin, EnergyMax, TimeMin, TimeMax = 0, 75, -0.1, 0.58
-        # newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
+        EnergyMin, EnergyMax, TimeMin, TimeMax = 236, 10000, -0.1, 0.6
+        newData = boxRemove(newData, EnergyMin, EnergyMax, TimeMin, TimeMax,Energy,Time)
+
+        # --- DIAGONAL REMOVE ---
+        # remove lower left stuff (COARSE)
+        upper = False
+        EnergyStartPoint, TimeStart, TimeEnd = 155, -0.05, 0.2
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove lower left stuff (COARSE)
@@ -264,19 +258,25 @@ class dispersionAttributes(object):
         # --- DIAGONAL REMOVE ---
         # remove bottom left stuff (COARSE)
         upper = False
-        EnergyStartPoint, TimeStart, TimeEnd = 290, -0.1, 1
+        EnergyStartPoint, TimeStart, TimeEnd = 200, -0.1, 1
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove bottom left stuff (COARSE)
         upper = True
-        EnergyStartPoint, TimeStart, TimeEnd = 135, 0.4, 1
+        EnergyStartPoint, TimeStart, TimeEnd = 150, 0.4, 1
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+        # --- DIAGONAL REMOVE ---
+        # remove bottom left stuff (COARSE)
+        upper = True
+        EnergyStartPoint, TimeStart, TimeEnd = 116, 0.45, 1
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove bottom left stuff (COARSE)
         upper = False
-        EnergyStartPoint, TimeStart, TimeEnd = 100, 0.44, 1
+        EnergyStartPoint, TimeStart, TimeEnd = 55, 0.5, 1
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
 

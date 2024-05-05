@@ -69,7 +69,7 @@ class BgeoToggles:
 class EToggles:
     Z0_wave = (20000*m_to_km) # initial altitude of the wave (in meters)
     lambdaPerp0 = 2 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
-    waveFreq_Hz = 2 # in Hz
+    waveFreq_Hz = 4 # in Hz
     Eperp0 = 0.005  # V/m
     waveFraction = 2 # What fraction of the initial bipolar wave we want to keep. e.g. 2 --> Half the wave, 3 --> 1/3 of wave etc
     lambdaPerp_Rez = 11 # resolution of the x-direction (MUST BE ODD)

@@ -41,11 +41,15 @@ sliceEpochIndicies = {
     's5':[6014, 6018 + 1, 6021 + 3],
     's10':[6139, 6142, 6145]  # s10 The Big One on the poleward side of the aurora
 }
-figure_height = (11.5)
-figure_width = (9.9318)
+# figure_height = (11.5)
+# figure_width = (9.9318)
+figure_height = (13)
+figure_width = (10)
+
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 cmap = apl_rainbow_black0_cmap()
+
 labelPadding = -0.25
 textFontSize = 10
 titleFontSize = 18
@@ -66,7 +70,7 @@ cbarLow_diffEFlux, cbarHigh_diffEFlux = 5E6, 1E9
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time plot
 # colors = ['red', 'green', 'black','red', 'green', 'black','red', 'green', 'black']
-sliceLineColors = np.array([['red', 'red', 'red'] for i in range(len(wDispersions))]).flatten()
+sliceLineColors = np.array([['black', 'black', 'black'] for i in range(len(wDispersions))]).flatten()
 # sliceLineColors = ['red', 'green', 'black','red', 'green', 'black','red', 'green', 'black']
 Energy_yLimit = 1350
 
@@ -152,6 +156,7 @@ Done(start_time)
 # define (in time) where the STEBS occur, this has been done already
 
 dispersionTimes = dispersionAttributes.keyDispersionTimes
+# dispersionTimes = dispersionAttributes.keyDispersionDeltaT
 
 # the slices in time for each dispersion used
 sliceTimes = {key:[data_dict_eepaa_high['Epoch'][0][val] for val in sliceEpochIndicies[key]] for key,val in sliceEpochIndicies.items()}
@@ -194,9 +199,9 @@ for colIndx in range(len(wDispersions)):
                 dataToPlot = deepcopy(np.transpose(dataArray[:, wPitch_Engy_vs_Time, :]))
 
 
-            dispersionTitleTime = pycdf.lib.tt2000_to_datetime(pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) + int((pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) - pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][1]))/2)).strftime("%H:%M:%S.%f")[:-3]
+            dispersionTitleTime = pycdf.lib.tt2000_to_datetime(pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]) + int((pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][1]) - pycdf.lib.datetime_to_tt2000(dispersionTimes[wDispersions[colIndx]][0]))/2)).strftime("%H:%M:%S.%f")[:-3]
 
-            ax[rowIndx,colIndx].set_title(f'STEB {wDispersions[colIndx]+1}\n' + dispersionTitleTime  + ' UTC',fontsize=titleFontSize-4)
+            ax[rowIndx,colIndx].set_title(f'STEB {wDispersions[colIndx]+1}\n' + dispersionTitleTime  + ' UTC',fontsize=titleFontSize-4, weight='bold')
             alfSigPlot = ax[rowIndx,colIndx].pcolormesh(Epoch, Energy, dataToPlot, cmap=cmap, shading='nearest',norm='log', vmin=cbarLow, vmax=cbarHigh)
 
             # format the plot
@@ -243,7 +248,7 @@ for colIndx in range(len(wDispersions)):
             ax[rowIndx,colIndx].invert_yaxis()
 
             # add a verical line on the Alfvenic signature plot
-            ax[0,colIndx].axvline(x=timeTag, color=sliceLineColors[rowIndx-1], linewidth=lineWidth)
+            ax[0, colIndx].axvline(x=timeTag, color=sliceLineColors[rowIndx-1], linewidth=lineWidth, linestyle='--',alpha=0.6)
 
 
         else:
@@ -297,21 +302,21 @@ for colIndx in range(len(wDispersions)):
 
 
 
-plt.tight_layout(w_pad=-0.5,h_pad=0.15,rect=[0,0,0.8,1])
+plt.tight_layout(w_pad=-0.5,h_pad=0.15,rect=[0,0,0.91,1])
 
 prgMsg('Creating Colorbar Plot')
 
 # --- Counts Colorbar ---
-cax = fig.add_axes([0.90, 0.23, 0.025, 0.718])
+cax = fig.add_axes([0.9, 0.23, 0.025, 0.723])
 cbar = plt.colorbar(alfSigPlot, cax=cax)
 cbar.ax.minorticks_on()
 cbar.ax.tick_params(labelsize=tickFontSize)
 if useCounts:
     cbar.set_label('Counts', fontsize=labelsFontSize+10, rotation=270)
 else:
-    cbar.set_label('cm$^{-2}$str$^{-1}$s$^{-1}$eV/eV', fontsize=labelsFontSize + 10, rotation=270)
+    cbar.set_label('cm$^{-2}$str$^{-1}$s$^{-1}$eV/eV', fontsize=labelsFontSize + 8, rotation=270)
 
-cbar.ax.get_yaxis().labelpad = 16
+cbar.ax.get_yaxis().labelpad = 17
 for l in cbar.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbarFont)
@@ -327,7 +332,7 @@ for l in cbar.ax.yaxis.get_ticklabels():
 #     l.set_fontsize(40)
 
 # Histogram Colorbar
-caxH = fig.add_axes([0.90, 0.044, 0.025, 0.155])
+caxH = fig.add_axes([0.9, 0.040, 0.025, 0.158])
 cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
 cbar_hist.set_label(f'Median Pitch Angle', fontsize=labelsFontSize+8, rotation=270)
 cbar_hist.ax.get_yaxis().labelpad = 22

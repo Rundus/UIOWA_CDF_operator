@@ -72,9 +72,13 @@ targetILats = [[71.15, 71.25], # Quiet Time
                [71.86, 71.912]] # spatially alignedZ
 
 # OTHER regions of alfven activity
-extraILats = [[72.1, 72.136],
-              [72.5458, 72.6787],
-              [72.75, 72.8]]
+# extraILats = [[72.1, 72.136],
+#               [72.5458, 72.6787],
+#               [72.75, 72.8]]
+
+# targetILats = [[72.1, 72.136],
+#               [72.61, 72.68],
+#               [72.75, 72.8]]
 
 targetVar = targetILats
 targetVarName = 'ILat'
@@ -324,7 +328,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
     for wKeySet in kSets:
 
         prgMsg('Plotting Data')
-        fig, ax = plt.subplots(nrows=5, ncols=len(targetVar))
+        fig, ax = plt.subplots(nrows=4, ncols=len(targetVar))
         fig.set_size_inches(figure_width, figure_height)
 
         wWaveSetKeys = waveSetKeys[wKeySet]
@@ -466,57 +470,57 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             #########################
             # --- PHASE HISTOGRAM ---
             #########################
-
-            # B-Field
-            f_B, t_B, Sxx_B = spectrogram(data_dicts[0][wWaveSetKeys[0]][0],
-                                          fs=128,
-                                          window=windowType,
-                                          nperseg=npersegN,  # note: if ==None default size is 256
-                                          noverlap=overlap,
-                                          scaling=scalingType,
-                                          mode='angle')  # scaling = density or scaling = spectrum
-            # E-Field
-            f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[1][wWaveSetKeys[1]][0],
-                                          fs=128,
-                                          window=windowType,
-                                          nperseg=npersegN,  # note: if ==None default size is 256
-                                          noverlap=overlap,
-                                          scaling=scalingType,
-                                          mode='angle')  # scaling = density or scaling = spectrum
-
-            phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
-
-            # --- Create the Histogram ---
-            phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
-            plotBins = [-180 + 15 * i for i in range(25)]
-            phaseHistogram = np.zeros(shape=(len(f_B), len(phaseDiffBins) - 1))
-            medianPhase = []
-
-            for frq in range(len(phaseDiff)):
-                hist, bin_edges = np.histogram(phaseDiff[frq], bins=phaseDiffBins)
-                phaseHistogram[frq] = hist
-
-                # Get the median value for each frequency
-                # if i == 2:
-                #     print(f_B[frq],np.median(phaseDiff[frq]))
-
-                medianPhase.append(np.median(phaseDiff[frq]))
-
-
-
-            # Normalize the histogram
-            phaseHistogram = 100 * phaseHistogram / phaseHistogram.max()
-            cmap = ax[4][i].pcolormesh(f_B, plotBins, phaseHistogram.T, vmin=0, vmax=50, cmap=matlab_parula_cmap())
-            ax[4][i].plot(f_B,medianPhase, color='white', linewidth=plotLineWidth+0.5)
-
-
-            ax[4][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
-            ax[4][i].set_xlim(0, freqLimit)
-            ax[4][i].set_yticks([-180, -90, 0, 90, 180])
-            ax[4][i].minorticks_on()
-            ax[4][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
-            ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
-            ax[4][i].set_ylim(-180, 180)
+            #
+            # # B-Field
+            # f_B, t_B, Sxx_B = spectrogram(data_dicts[0][wWaveSetKeys[0]][0],
+            #                               fs=128,
+            #                               window=windowType,
+            #                               nperseg=npersegN,  # note: if ==None default size is 256
+            #                               noverlap=overlap,
+            #                               scaling=scalingType,
+            #                               mode='angle')  # scaling = density or scaling = spectrum
+            # # E-Field
+            # f_E, t_E, Sxx_E = spectrogram(mod * data_dicts[1][wWaveSetKeys[1]][0],
+            #                               fs=128,
+            #                               window=windowType,
+            #                               nperseg=npersegN,  # note: if ==None default size is 256
+            #                               noverlap=overlap,
+            #                               scaling=scalingType,
+            #                               mode='angle')  # scaling = density or scaling = spectrum
+            #
+            # phaseDiff = np.degrees(Sxx_B) - np.degrees(Sxx_E)
+            #
+            # # --- Create the Histogram ---
+            # phaseDiffBins = [-187.5 + 15 * i for i in range(26)]
+            # plotBins = [-180 + 15 * i for i in range(25)]
+            # phaseHistogram = np.zeros(shape=(len(f_B), len(phaseDiffBins) - 1))
+            # medianPhase = []
+            #
+            # for frq in range(len(phaseDiff)):
+            #     hist, bin_edges = np.histogram(phaseDiff[frq], bins=phaseDiffBins)
+            #     phaseHistogram[frq] = hist
+            #
+            #     # Get the median value for each frequency
+            #     # if i == 2:
+            #     #     print(f_B[frq],np.median(phaseDiff[frq]))
+            #
+            #     medianPhase.append(np.median(phaseDiff[frq]))
+            #
+            #
+            #
+            # # Normalize the histogram
+            # phaseHistogram = 100 * phaseHistogram / phaseHistogram.max()
+            # cmap = ax[4][i].pcolormesh(f_B, plotBins, phaseHistogram.T, vmin=0, vmax=50, cmap=matlab_parula_cmap())
+            # ax[4][i].plot(f_B,medianPhase, color='white', linewidth=plotLineWidth+0.5)
+            #
+            #
+            # ax[4][i].set_xlabel('Frequency [Hz]', fontsize=PlotLabelSize)
+            # ax[4][i].set_xlim(0, freqLimit)
+            # ax[4][i].set_yticks([-180, -90, 0, 90, 180])
+            # ax[4][i].minorticks_on()
+            # ax[4][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
+            # ax[4][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize - 2)
+            # ax[4][i].set_ylim(-180, 180)
 
             # for k in range(3):
             #     ax[4][i].axvline(0.55 * (k + 1), color='green', linestyle='--', alpha=0.5)
@@ -533,7 +537,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                 ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
                 axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
                 ax[3][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[4][i].set_ylabel('Phase Difference', fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
+                # ax[4][i].set_ylabel('Phase Difference', fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
 
                 if NORMALIZE:
                     ax[3][i].set_ylabel('$E_{\perp}(t)/B_{\perp}(t)$', fontsize=PlotLabelSize)
@@ -543,7 +547,8 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
 
 
         ### OUTPUT THE DATA ###
-        plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)
+        # plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)
+        plt.tight_layout()
         fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
 

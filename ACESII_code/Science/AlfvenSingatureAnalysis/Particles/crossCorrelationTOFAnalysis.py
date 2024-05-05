@@ -27,10 +27,13 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [1,2,3,4,5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [2,3,4,5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
+from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
+mycmap = apl_rainbow_black0_cmap()
+cbar_low, cbar_high = 0, 30
 # ---------------------------
 applyMaskVal = True
 maskVal = 2 # apply a single mask to the dispersion feature
@@ -44,9 +47,12 @@ DetectorEnergyResolution = 0.18
 correlationAnalysis = True
 showErrorBars = False
 weightLinearFitByCounts = False
-outputCorrelationPlot = True
+outputCorrelationPlot = False
 # ---------------------------
 outputData = False
+# ---------------------------
+LambdaPerpPlot = False
+LambdaPerpFit = True
 
 
 
@@ -57,6 +63,8 @@ from scipy.signal import correlate, correlation_lags
 from itertools import combinations
 from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
 from ACESII_code.class_var_func import Re
+
+
 
 def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames,wDis):
 
@@ -75,6 +83,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
     # --- --- --- --- --- --- ----
     # --- Isolate a Dispersion ---
     # --- --- --- --- --- --- ----
+
     wDispersion_key = f's{wDis}'
     Energy = data_dict['Energy'][0]
     Pitch = data_dict['Pitch_Angle'][0]
@@ -115,10 +124,10 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         fig.set_figwidth(figure_width)
         fig.set_figheight(figure_height)
         fig.suptitle(f'STEB {wDis}\n Pitch = {Pitch[wPitch]}deg\n {data_dict["Epoch"][0][lowCut].strftime("%H:%M:%S.%f")} to {data_dict["Epoch"][0][highCut].strftime("%H:%M:%S.%f")}')
-        cmap = ax[0].pcolormesh(Epoch_dis, Energy, np.array(eepaa_dis[:, wPitch, :]).T, cmap='turbo', vmin=0, vmax=np.array(eepaa_dis[:, wPitch, :]).max())
+        cmap = ax[0].pcolormesh(Epoch_dis, Energy, np.array(eepaa_dis[:, wPitch, :]).T, cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
         ax[0].set_yscale('log')
         ax[0].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][1]).argmin()-1])
-        ax[1].pcolormesh(Epoch_dis, Energy, np.array(data_dict['eepaa'][0][lowCut:highCut+1,wPitch,:]).T, cmap='turbo', vmin=0, vmax=np.array(eepaa_dis[:, wPitch, :]).max())
+        ax[1].pcolormesh(Epoch_dis, Energy, np.array(data_dict['eepaa'][0][lowCut:highCut+1,wPitch,:]).T, cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
         ax[1].set_yscale('log')
         ax[1].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis - 1][1]).argmin() - 1])
         cbar = plt.colorbar(cmap,ax=ax.ravel().tolist())
@@ -190,7 +199,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
                 fig.set_figwidth(figure_width)
                 fig.set_figheight(figure_height)
                 fig.suptitle(f'High Energy {Energy[higherEnergyIndex]} \n Low Energy {Energy[lowerEnergyIndex]}')
-                ax[0].pcolormesh(Epoch_dis,Energy,np.array(eepaa_dis[:,wPitch,:]).T,cmap='turbo',vmin=0,vmax=40)
+                ax[0].pcolormesh(Epoch_dis,Energy,np.array(eepaa_dis[:,wPitch,:]).T,cmap='turbo',vmin=cbar_low,vmax=cbar_high)
                 ax[0].set_yscale('log')
                 ax[0].set_ylim(Energy[-1],Energy[higherEnergyIndex-1])
                 ax[0].axhline(Energy[lowerEnergyIndex], color='green')
@@ -263,28 +272,11 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
         # --- CORRELATION ---
         # # linear
-        # corLongCal = np.zeros(shape=(len(covLin), len(covLin[0])))
-        # for row in range(len(covLin)):
-        #     for col in range(len(covLin[0])):
-        #         corLongCal[row][col] = covLin[row][col]/np.sqrt(covLin[row][row]*covLin[col][col])
-        #
-        # diagX = np.diag(covLin) ** (-0.5)
-        # vec1 = diagX.reshape(-1, 1)
-        # stdDevMatrix = np.dot(vec1, vec1.T)
-        # corrLin = covLin*stdDevMatrix
+
         fitData = fitFunc_linear(deltaVs, *paramsLin)
         r_corr_linear = np.corrcoef([deltaTs,fitData])[0][1]
 
         # Polynomial
-        diagX = np.diag(covPoly) ** (-0.5)
-        vec1 = diagX.reshape(-1, 1)
-        stdDevMatrix = np.dot(vec1, vec1.T)
-        corr = covPoly * stdDevMatrix
-        corLongCal = np.zeros(shape=(len(covPoly), len(covPoly[0])))
-        for row in range(len(covPoly)):
-            for col in range(len(covPoly[0])):
-                corLongCal[row][col] = covPoly[row][col] / np.sqrt(covPoly[row][row] * covPoly[col][col])
-
         fitData_poly = fitFunc_polynomial(deltaVs, *paramsPoly)
         r_corr_poly = np.corrcoef([deltaTs,fitData_poly])[0][1]
 
@@ -349,7 +341,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ########################################
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
         errorZ_avg = sum(errorZ) / len(errorZ)
-        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr_linear]
+        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr_linear,paramsPoly,deltaVs,deltaTs]
 
 
 # --- --- --- ---
@@ -374,7 +366,72 @@ else:
             results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDispersions[i])
             STEBfitResults.append(results)
 
-    STEBfitResults = np.array(STEBfitResults)
+    if LambdaPerpFit:
+
+        Tanaka_XDat = [1,3,9]
+        Tanaka_YDat = [-2.77E7,-9.71E6,-8.29E6]
+
+
+        def fitFunc(x, a0, a2):
+            return a0*np.log(x+1) + a2
+
+        guess = [1E6,-1.04E7]
+        paramsFit,cov = curve_fit(fitFunc,Tanaka_XDat,Tanaka_YDat, p0=guess)
+
+
+        x_s = np.linspace(min(Tanaka_XDat),max(Tanaka_XDat),200)
+        fitDat = fitFunc(x_s,*paramsFit)
+        fig,ax = plt.subplots()
+        ax.scatter(Tanaka_XDat,Tanaka_YDat)
+        ax.plot(x_s,fitDat)
+        plt.show()
+
+        def inverseFunc(x,a,c):
+            return np.exp((x-c)/a)+1
+        print(paramsFit)
+
+        for data in STEBfitResults:
+            if data[0] in [2, 3, 4, 5]:
+                params = data[6]
+                deltaV = data[7]
+                deltaT = data[8]
+
+                a2_param = params[2]
+
+                print(data[0],a2_param,inverseFunc(a2_param,*paramsFit))
+
+
+
+
+
+
+
+    if LambdaPerpPlot:
+
+        fig, ax = plt.subplots()
+
+        for data in STEBfitResults:
+            if data[0] in [2, 3, 4, 5]:
+                params = data[6]
+                deltaV = data[7]
+                deltaT = data[8]
+
+                x_s = np.linspace(deltaV.min(), deltaV.max(), 20)
+                # x_s = np.linspace(deltaV.min(), 3E-4, 20)
+
+                def fitFunc_polynomial(x, a0, a1, a2):
+                    return a0 + a1 * x + a2 * (x ** 2)
+                fitData_poly = fitFunc_polynomial(x_s, *params)
+
+                ax.plot(x_s, fitData_poly,label=f'STEB {data[0]}')
+
+        ax.set_ylabel('Delay time [s]')
+        ax.set_xlabel('1/v [s/km]')
+        ax.set_xlim(0,3E-4)
+        plt.legend()
+        plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\STEB_LambdaPerp.png')
+
+
     if outputData:
         ########################################
         # --- Return results of the Analysis ---
@@ -398,12 +455,12 @@ else:
                            'SCALETYP': 'linear'}
 
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
-        data_dict_output = {'wDis': [STEBfitResults[:,0], deepcopy(ExampleVarAttrs)],
-                            'whenSTEBoccured_time': [STEBfitResults[:,1], deepcopy(ExampleVarAttrs)],
-                            'whenSTEBoccured_Alt': [STEBfitResults[:,2], deepcopy(ExampleVarAttrs)],
-                            'Z_acc': [STEBfitResults[:,3], deepcopy(ExampleVarAttrs)],
-                            'Z_acc_error': [STEBfitResults[:,4], deepcopy(ExampleVarAttrs)],
-                            'r_corr': [STEBfitResults[:,5], deepcopy(ExampleVarAttrs)],
+        data_dict_output = {'wDis': [np.array(STEBfitResults[:,0]), deepcopy(ExampleVarAttrs)],
+                            'whenSTEBoccured_time': [np.array(STEBfitResults[:,1]), deepcopy(ExampleVarAttrs)],
+                            'whenSTEBoccured_Alt': [np.array(STEBfitResults[:,2]), deepcopy(ExampleVarAttrs)],
+                            'Z_acc': [np.array(STEBfitResults[:,3]), deepcopy(ExampleVarAttrs)],
+                            'Z_acc_error': [np.array(STEBfitResults[:,4]), deepcopy(ExampleVarAttrs)],
+                            'r_corr': [np.array(STEBfitResults[:,5]), deepcopy(ExampleVarAttrs)],
                             }
 
         prgMsg('Creating output file')
@@ -413,3 +470,6 @@ else:
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\{fileoutName}'
         outputCDFdata(outputPath, data_dict_output)
         Done(start_time)
+
+
+
