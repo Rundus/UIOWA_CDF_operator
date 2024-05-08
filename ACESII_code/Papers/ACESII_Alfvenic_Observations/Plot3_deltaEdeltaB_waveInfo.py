@@ -33,13 +33,13 @@ from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
 # --- --- --- ---
 # figure_width = 7.5 # in inches
 figure_width = 9.5 # in inches
-figure_height = 12 # in inches
+figure_height = 4.3*(12/5) # in inches
 dpi = 500
 PlotLabelSize = 11
 PlotTitleSize = 12
 PlotLegendSize = 10
 PlotTickLabelSize = 10
-PlotLabelPad = -0.75
+PlotLabelPad = 1
 freqLimit = 15
 plotLineWidth = 1
 TitlePadding = 10
@@ -67,9 +67,9 @@ targetTimes = [[dt.datetime(2022, 11, 20, 17, 24, 31, 500), dt.datetime(2022, 11
 #                [71.86, 71.912]] # spatially alignedZ
 
 # trying to make it fit
-targetILats = [[71.15, 71.25], # Quiet Time
-               [71.59, 71.64], # temporally Time
-               [71.86, 71.912]] # spatially alignedZ
+targetILats = [[71.17, 71.25], # Quiet Time
+               [71.615, 71.67], # temporally Time
+               [71.865, 71.905]] # spatially alignedZ
 
 # OTHER regions of alfven activity
 # extraILats = [[72.1, 72.136],
@@ -385,28 +385,28 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             ax[0][i].minorticks_on()
 
             # fix the xticks
-            newTicks = data_dicts[1]['ILat'][0][::int(len(data_dicts[1]['ILat'][0])/2)]
-            newTicks = [round(tick, 2) for tick in newTicks]
-            newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
-            newTickStr = [str(tick) for tick in newTicks]
-            ax[0][i].set_xticks(newTicks, newTickStr)
+            # newTicks = data_dicts[1]['ILat'][0][::int(len(data_dicts[1]['ILat'][0])/2)]
+            # newTicks = [round(tick, 2) for tick in newTicks]
+            # newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
+            # newTickStr = [str(tick) for tick in newTicks]
+            # ax[0][i].set_xticks(newTicks, newTickStr)
 
             ############################
             # --- Poynting Flux plot ---
             ############################
-            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]), plotColors[2], label='$\delta S_{p}$ [Ergs/$cm^{2}$s]',linewidth=plotLineWidth)
+            ax[1][i].plot(data_dicts[2]['ILat'][0], PoyntingScale*np.array(data_dicts[2]['S_p'][0]), plotColors[2], label='$\delta S_{p}$ [erg/$cm^{2}$s]',linewidth=plotLineWidth)
             ax[1][i].set_xlabel('ILat [deg]',fontsize=PlotLabelSize, labelpad=PlotLabelPad+1)
             ax[1][i].set_ylim(-0.005, 0.03)
             ax[1][i].set_xmargin(0)
             # ax[1][i].invert_yaxis()
             ax[1][i].tick_params(axis='both', which='major', labelsize=PlotTickLabelSize)
             ax[1][i].tick_params(axis='both', which='minor', labelsize=PlotTickLabelSize-2)
-            newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
-            newTicks = [round(tick, 2) for tick in newTicks]
-            newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
-            newTickStr = [str(tick) for tick in newTicks]
-            ax[1][i].set_xticks(newTicks, newTickStr)
-            ax[1][i].minorticks_on()
+            # newTicks = data_dicts[1]['ILat'][0][:-1:int(len(data_dicts[1]['ILat'][0])/2)]
+            # newTicks = [round(tick, 2) for tick in newTicks]
+            # newTicks.append(round(data_dicts[1]['ILat'][0][-1], 2))
+            # newTickStr = [str(tick) for tick in newTicks]
+            # ax[1][i].set_xticks(newTicks, newTickStr)
+            # ax[1][i].minorticks_on()
 
             ######################
             # --- FFT E, FFT B ---
@@ -530,9 +530,9 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
             lns = ln1 + ln2
             labs = [l.get_label() for l in lns]
             if i == 0:
-                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.7 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad-1)
+                ax[0][i].set_ylabel(f'{wWaveSetLabels[0]} and {wWaveSetLabels[1]}' + "\n 0.7 Hz HighPass", fontsize=PlotLabelSize,labelpad=PlotLabelPad)
                 ax[0][i].legend(loc='upper right', prop={'size': PlotLegendSize})
-                ax[1][i].set_ylabel('Field-Aligned\n Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad-0.5)
+                ax[1][i].set_ylabel('Poynting Flux', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
                 ax[1][i].legend(loc='upper right', prop={'size': PlotLegendSize})
                 ax[2][i].set_ylabel('Amplitude Spectra', fontsize=PlotLabelSize,labelpad=PlotLabelPad+2)
                 axFFT_E.legend(lns, labs, loc='upper right', prop={'size': PlotLegendSize})
@@ -543,22 +543,28 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
                     ax[3][i].set_ylabel('$E_{\perp}(t)/B_{\perp}(t)$', fontsize=PlotLabelSize)
                 else:
                     ax[3][i].set_ylabel(f'{wWaveSetLabels[1]}/{wWaveSetLabels[0]} [m/s]', fontsize=PlotLabelSize)
+            else:
+                ax[0][i].set_yticklabels([])
+                ax[1][i].set_yticklabels([])
+                ax[2][i].set_yticklabels([])
+                ax[3][i].set_yticklabels([])
 
 
 
         ### OUTPUT THE DATA ###
         # plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)
-        plt.tight_layout()
+        # plt.tight_layout()
+        plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.1, hspace=0.3)
         fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
 
         # spectrogram colorbar
-        cax = fig.add_axes([0.932, 0.0325, 0.0155, 0.158])
-        cbar = plt.colorbar(cmap, cax=cax)
-        cbar.ax.minorticks_on()
-        cbar.set_label('Histogram Occurance (%)', labelpad=5)
+        # cax = fig.add_axes([0.932, 0.0325, 0.0155, 0.158])
+        # cbar = plt.colorbar(cmap, cax=cax)
+        # cbar.ax.minorticks_on()
+        # cbar.set_label('Histogram Occurance (%)', labelpad=5)
 
-        plt.savefig(outputPath, dpi=dpi)
+        plt.savefig(outputPath, dpi=dpi,bbox_inches='tight')
         Done(start_time)
 
 

@@ -27,7 +27,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [2,3,4,5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
@@ -47,12 +47,12 @@ DetectorEnergyResolution = 0.18
 correlationAnalysis = True
 showErrorBars = False
 weightLinearFitByCounts = False
-outputCorrelationPlot = False
+outputCorrelationPlot = True
 # ---------------------------
 outputData = False
 # ---------------------------
 LambdaPerpPlot = False
-LambdaPerpFit = True
+LambdaPerpFit = False
 
 
 
@@ -263,10 +263,14 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         paramsLin, covLin = curve_fit(fitFunc_linear, deltaVs, deltaTs)
 
         # Polynomial Fitted Model
-        def fitFunc_polynomial(x, a0, a1, a2):
-            return a0 + a1 * x + a2 * (x ** 2)
+        # def fitFunc_polynomial(x, a0, a1, a2):
+        #     return a0 + a1 * x + a2 * (x ** 2)
 
-        p0 = [-9.113E-1, 7.350E3, -1.108E7]
+        def fitFunc_polynomial(x, a1, a2):
+            return  a1 * x + a2 * (x ** 2)
+
+        # p0 = [-9.113E-1, 7.350E3, -1.108E7]
+        p0 = [7.350E3, -1.108E7]
         paramsPoly, covPoly = curve_fit(fitFunc_polynomial, deltaVs, deltaTs, p0=p0, maxfev=int(1E6))
 
 
@@ -327,7 +331,8 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             ax.set_ylabel('Delay time [s]')
             ax.set_xlabel('1/v [s/km]')
             ax.plot(x_s, fitData, color="red",label=f'd ={paramsLin[0]/6371}Re\n t_0={paramsLin[1]}\n r_corr_lin = {r_corr_linear}')
-            ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}\n r_corr_poly = {r_corr_poly}')
+            # ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}\n r_corr_poly = {r_corr_poly}')
+            ax.plot(x_s, fitData_poly, color='black', label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {0}\n r_corr_poly = {r_corr_poly}')
 
             xticks = np.linspace(0, deltaVs.max(), 6)
             xtick_labels = [f'{x:.2e}' for x in xticks]

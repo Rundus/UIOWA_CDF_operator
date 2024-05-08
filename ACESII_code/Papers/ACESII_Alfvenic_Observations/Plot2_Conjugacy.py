@@ -9,6 +9,9 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import matplotlib.pyplot as plt
+
 from ACESII_code.myImports import *
 from scipy.signal import spectrogram
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -33,7 +36,7 @@ dpi = 800
 
 # --- Cbar ---
 # cbarMin, cbarMax = 5E6, 3E9
-cbarMin, cbarMax = 5E6, 3E9
+cbarMin, cbarMax = 5E6, 5E9
 cbarTickLabelSize = 14
 my_cmap = apl_rainbow_black0_cmap()
 my_cmap.set_bad(color=(1, 1, 1))
@@ -44,7 +47,7 @@ Escale = 1000 # what to scale the deltaE field by
 # --- HF/LF General ---
 plot_General = False
 General_figure_width = 7.5 # in inches
-General_figure_height =9 # in inches
+General_figure_height =10# in inches
 General_targetILat = [71.35, 72.85]
 General_targetEpoch = [dt.datetime(2022,11,20,17,24,54,000000), dt.datetime(2022,11,20,17,25,11,00000)]
 General_LabelFontSize = 12
@@ -59,8 +62,9 @@ plot_Dispersive = True
 Dispersive_figure_width = 7.5
 Dispersive_figure_height = 5.5
 Disp_targetILat = [71.91, 72.03]
-Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,800000), dt.datetime(2022,11,20,17,25,9,000)]
+Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,000000), dt.datetime(2022,11,20,17,25,9,000000)]
 Dispersive_wPitch = 2 # 10deg pitch
+PAengyLimits = [17, 40] # determines in the P.A. panel which energies to count
 Dispersive_LabelFontSize = 14.5
 Dispersive_TickFontSize = 11.5
 Dispersive_TickLength = 5
@@ -145,20 +149,34 @@ if plot_General:
     omniDirFlux_low = np.zeros(shape=(len(data_dict_eepaa_low['Differential_Energy_Flux'][0]), len(data_dict_eepaa_low['Energy'][0])))
     for tme in range(len(data_dict_eepaa_low['Epoch'][0])):
         for engy in range(len(data_dict_eepaa_low['Energy'][0])):
-            sumValues = data_dict_eepaa_low['Differential_Energy_Flux'][0][tme, :, engy]
-            sumValues = sum(sumValues[sumValues>0])
-            omniDirFlux_low[tme][engy] = sumValues
+
+            sumVal = 0
+
+            for ptch in range(2, 18+1):
+                val = data_dict_eepaa_low['Differential_Energy_Flux'][0][tme, ptch, engy]
+                if val > 0:
+                    sumVal += val
+
+            # Average the Omni-flux by the number of bins. ONLY include bins 10deg - 170 since they have full coverage
+            omniDirFlux_low[tme][engy] = sumVal/len(range(2,18+1))
 
     omniDirFlux_high = np.zeros(shape=(len(data_dict_eepaa_high['Differential_Energy_Flux'][0]), len(data_dict_eepaa_high['Energy'][0])))
     for tme in range(len(data_dict_eepaa_high['Epoch'][0])):
         for engy in range(len(data_dict_eepaa_high['Energy'][0])):
-            sumValues = data_dict_eepaa_high['Differential_Energy_Flux'][0][tme, :, engy]
-            sumValues = sum(sumValues[sumValues > 0])
-            omniDirFlux_high[tme][engy] = sumValues
+            sumVal = 0
+
+            for ptch in range(2, 18 + 1):
+                val = data_dict_eepaa_high['Differential_Energy_Flux'][0][tme, ptch, engy]
+                if val > 0:
+                    sumVal += val
+
+            # Average the Omni-flux by the number of bins. ONLY include bins 10deg - 170 since they have full coverage
+            omniDirFlux_high[tme][engy] = sumVal / len(range(2, 18 + 1))
+
 
     Done(start_time)
 
-    fig, ax = plt.subplots(7, sharex=True, height_ratios=[2, 1, 0.75, 0.1, 2, 1, 0.75])
+    fig, ax = plt.subplots(7, sharex=True, height_ratios=[2, 1, 0.75, 0.3, 2, 1, 0.75])
     fig.set_figwidth(General_figure_width)
     fig.set_figheight(General_figure_height)
     fig.subplots_adjust(hspace=0) # remove the space between plots
@@ -190,7 +208,6 @@ if plot_General:
     # --- BREAK AXIS ---
     ax[3].spines[['left', 'right']].set_visible(False)
     ax[3].set_yticks(ticks=[],labels=[])
-
 
     # --- LF EEPAA---
     cmap = ax[4].pcolormesh(data_dict_eepaa_low['ILat'][0], data_dict_eepaa_low['Energy'][0], omniDirFlux_low.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
@@ -241,15 +258,18 @@ if plot_General:
     cbar.ax.minorticks_on()
     cbar.ax.tick_params(labelsize=cbarTickLabelSize + 5)
 
+
+    fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.0, hspace=0.0)  # remove the space between plots
+    # plt.tight_layout()
     plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot2\Plot2_ConjugacyStack.png', dpi=dpi)
 
 
 if plot_Dispersive:
 
     for wRocket in [4, 5]:
-        magDicts = [data_dict_mag_high,data_dict_mag_low]
+        magDicts = [data_dict_mag_high, data_dict_mag_low]
         magDict = magDicts[wRocket-4]
-        eepaaDicts = [data_dict_eepaa_high,data_dict_eepaa_low]
+        eepaaDicts = [data_dict_eepaa_high, data_dict_eepaa_low]
         eepaaDict = eepaaDicts[wRocket-4]
 
         # --- Calculate Spectrogram ---
@@ -276,9 +296,12 @@ if plot_Dispersive:
         totalDirFlux = np.zeros(shape=(len(eepaaDict['Differential_Energy_Flux'][0]), len(eepaaDict['Pitch_Angle'][0])))
         for tme in range(len(eepaaDict['Epoch'][0])):
             for ptch in range(len(eepaaDict['Pitch_Angle'][0])):
-                sumValues = eepaaDict['Differential_Energy_Flux'][0][tme, ptch, :]
-                sumValues = sum(sumValues[sumValues > 0])
-                totalDirFlux[tme][ptch] = sumValues
+                sumVal = 0
+                for engy in range(PAengyLimits[0],PAengyLimits[1]+1):
+                    val = eepaaDict['Differential_Energy_Flux'][0][tme][ptch][engy]
+                    if val >0:
+                        sumVal += val
+                totalDirFlux[tme][ptch] = sumVal
 
         # --- PLOT EVERYTHING ---
         fig, ax = plt.subplots(4, sharex=True, height_ratios=[2,2,1,1])
@@ -295,7 +318,7 @@ if plot_Dispersive:
 
         # --- EEPAA Data All Pitch ---
         ax[1].pcolormesh(eepaaDict['ILat'][0], eepaaDict['Pitch_Angle'][0], totalDirFlux.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
-        ax[1].set_ylabel('P. A.\n[deg]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
+        ax[1].set_ylabel(f'{round(eepaaDict["Energy"][0][PAengyLimits[1]])}-{round(eepaaDict["Energy"][0][PAengyLimits[0]])} eV \nP. A. [deg]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
         ax[1].set_ylim(0, 181)
         ax[1].margins(0)
         ax[1].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
