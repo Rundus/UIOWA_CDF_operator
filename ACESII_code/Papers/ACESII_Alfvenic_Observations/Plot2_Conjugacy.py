@@ -60,9 +60,9 @@ GeneralCmap = my_cmap
 # --- HF/LF Dispersive Region ---
 plot_Dispersive = True
 Dispersive_figure_width = 7.5
-Dispersive_figure_height = 5.5
+Dispersive_figure_height = 5.5*(2.2)
 Disp_targetILat = [71.91, 72.03]
-Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,000000), dt.datetime(2022,11,20,17,25,9,000000)]
+Dis_targetEpoch = [dt.datetime(2022,11,20,17,24,53,750000), dt.datetime(2022,11,20,17,25,8,000000)]
 Dispersive_wPitch = 2 # 10deg pitch
 PAengyLimits = [17, 40] # determines in the P.A. panel which energies to count
 Dispersive_LabelFontSize = 14.5
@@ -266,7 +266,18 @@ if plot_General:
 
 if plot_Dispersive:
 
+    # --- PLOT EVERYTHING ---
+    fig, ax = plt.subplots(9, height_ratios=[2, 2, 1, 1,     0.6,   2, 2, 1, 1 ])
+    fig.set_figwidth(Dispersive_figure_width)
+    fig.set_figheight(Dispersive_figure_height)
+
+
     for wRocket in [4, 5]:
+
+        idxAdjust = 0 if wRocket == 4 else 5
+
+
+
         magDicts = [data_dict_mag_high, data_dict_mag_low]
         magDict = magDicts[wRocket-4]
         eepaaDicts = [data_dict_eepaa_high, data_dict_eepaa_low]
@@ -304,85 +315,113 @@ if plot_Dispersive:
                 totalDirFlux[tme][ptch] = sumVal
 
         # --- PLOT EVERYTHING ---
-        fig, ax = plt.subplots(4, sharex=True, height_ratios=[2,2,1,1])
-        fig.set_figwidth(Dispersive_figure_width)
-        fig.set_figheight(Dispersive_figure_height)
-        fig.subplots_adjust(top=0.97, hspace=0.1)  # remove the space between plots
+        # fig, ax = plt.subplots(4, sharex=True, height_ratios=[2,2,1,1])
+        # fig.set_figwidth(Dispersive_figure_width)
+        # fig.set_figheight(Dispersive_figure_height)
+        # fig.subplots_adjust(top=0.97, hspace=0.1)  # remove the space between plots
 
         # --- EEPAA Data 10deg ---
-        cmap = ax[0].pcolormesh(eepaaDict['ILat'][0], eepaaDict['Energy'][0], eepaaDict['Differential_Energy_Flux'][0][:,Dispersive_wPitch,:].T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
-        ax[0].set_ylabel(rf'P.A. = {eepaaDict["Pitch_Angle"][0][Dispersive_wPitch]}$^\circ$' + '\n Energy [eV]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
-        ax[0].set_yscale('log')
-        ax[0].set_ylim(33, 1150)
-        ax[0].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        cmap = ax[0+idxAdjust].pcolormesh(eepaaDict['Epoch'][0], eepaaDict['Energy'][0], eepaaDict['Differential_Energy_Flux'][0][:,Dispersive_wPitch,:].T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+        ax[0+idxAdjust].set_ylabel(rf'P.A. = {eepaaDict["Pitch_Angle"][0][Dispersive_wPitch]}$^\circ$' + '\n Energy [eV]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
+        ax[0+idxAdjust].set_yscale('log')
+        ax[0+idxAdjust].set_ylim(33, 1150)
+        ax[0+idxAdjust].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
 
         # --- EEPAA Data All Pitch ---
-        ax[1].pcolormesh(eepaaDict['ILat'][0], eepaaDict['Pitch_Angle'][0], totalDirFlux.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
-        ax[1].set_ylabel(f'{round(eepaaDict["Energy"][0][PAengyLimits[1]])}-{round(eepaaDict["Energy"][0][PAengyLimits[0]])} eV \nP. A. [deg]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
-        ax[1].set_ylim(0, 181)
-        ax[1].margins(0)
-        ax[1].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        ax[1+idxAdjust].pcolormesh(eepaaDict['Epoch'][0], eepaaDict['Pitch_Angle'][0], totalDirFlux.T, cmap=GeneralCmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+        ax[1+idxAdjust].set_ylabel(f'{round(eepaaDict["Energy"][0][PAengyLimits[1]])}-{round(eepaaDict["Energy"][0][PAengyLimits[0]])} eV \nP. A. [deg]', fontsize=Dispersive_LabelFontSize,labelpad=Dispersive_LabelPadding)
+        ax[1+idxAdjust].set_ylim(0, 181)
+        ax[1+idxAdjust].margins(0)
+        ax[1+idxAdjust].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
         yticks = [0, 60, 120, 180]
-        ax[1].set_yticks(yticks)
-        ax[1].set_yticklabels([str(tick) for tick in yticks])
+        ax[1+idxAdjust].set_yticks(yticks)
+        ax[1+idxAdjust].set_yticklabels([str(tick) for tick in yticks])
 
-        cax = fig.add_axes([0.91, 0.415, 0.02, 0.556])
+        if wRocket == 4:
+            # HF EEPAA colorbar
+            cax = fig.add_axes([0.91, 0.71, 0.02, 0.281])
+        elif wRocket == 5:
+            # LF EEPAA colorbar
+            cax = fig.add_axes([0.91, 0.215, 0.02, 0.28])
         cbar = plt.colorbar(cmap, cax=cax)
         cbar.ax.minorticks_on()
         cbar.ax.tick_params(labelsize=cbarTickLabelSize+4)
 
         # --- Be/Er ---
-        ax[2].plot(magDict['ILat'][0], magDict['B_e'][0], color='blue', linewidth=Disp_PlotLineWidth)
-        ax[2].set_ylabel('$\delta B_{e}$\n[nT]', fontsize=Dispersive_LabelFontSize, color='blue',labelpad=Dispersive_LabelPadding+10)
-        ax[2].tick_params(axis='y', colors='blue')
-        ax[2].set_ylim(-8, 8)
-        ax[2].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        ax[2+idxAdjust].plot(magDict['Epoch'][0], magDict['B_e'][0], color='blue', linewidth=Disp_PlotLineWidth)
+        ax[2+idxAdjust].set_ylabel('$\delta B_{e}$\n[nT]', fontsize=Dispersive_LabelFontSize, color='blue',labelpad=Dispersive_LabelPadding+10)
+        ax[2+idxAdjust].tick_params(axis='y', colors='blue')
+        ax[2+idxAdjust].set_ylim(-8, 8)
+        ax[2+idxAdjust].tick_params(axis='both', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        ax[2+idxAdjust].margins(0)
 
         # Er
         if wRocket == 4:
-            axEr = ax[2].twinx()
+            axEr = ax[2+idxAdjust].twinx()
             axEr.set_ylabel('E-Field\nN/A', fontsize=Dispersive_LabelFontSize, color='red', rotation=-90, labelpad=Dispersive_LabelPadding+25)
             axEr.tick_params(axis='y', colors='red',labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
             axEr.set_ylim(-8, 8)
         elif wRocket == 5:
-            axEr = ax[2].twinx()
-            axEr.plot(data_dict_Efield_low['ILat'][0],data_dict_Efield_low['E_r'][0], color='red', linewidth=Disp_PlotLineWidth)
+            axEr = ax[2+idxAdjust].twinx()
+            axEr.plot(data_dict_Efield_low['Epoch'][0],data_dict_Efield_low['E_r'][0], color='red', linewidth=Disp_PlotLineWidth)
             axEr.set_ylabel('$\delta E_{r}$\n[mV/m]', fontsize=Dispersive_LabelFontSize, color='red', rotation=-90,labelpad=Dispersive_LabelPadding+25)
             axEr.tick_params(axis='y', colors='red',labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
             axEr.set_ylim(-8, 8)
+            axEr.margins(0)
 
         # --- Be Spectrogram ---
-        cmap = ax[3].pcolormesh(specILats, f, Sxx, shading='nearest', vmin=specCbarMin, vmax=specCbarMax, cmap=spectrogramCmap, norm='log')
-        ax[3].set_ylabel('$\delta B_{e}$ Freq.\n[Hz]', fontsize=Dispersive_LabelFontSize, labelpad=Dispersive_LabelPadding+5)
-        ax[3].set_xlabel('ILat [deg]\nAlt [km]\ntime (UTC)', fontsize=Dispersive_TickFontSize, weight='bold')
-        ax[3].xaxis.set_label_coords(-0.09, -0.14)
-        ax[3].set_ylim(DispersiveFreqlimits[0], DispersiveFreqlimits[1])
+        cmap = ax[3+idxAdjust].pcolormesh(specTimes, f, Sxx, shading='nearest', vmin=specCbarMin, vmax=specCbarMax, cmap=spectrogramCmap, norm='log')
+        ax[3+idxAdjust].set_ylabel('$\delta B_{e}$ Freq.\n[Hz]', fontsize=Dispersive_LabelFontSize, labelpad=Dispersive_LabelPadding+5)
+        ax[3+idxAdjust].set_xlabel('time [UTC]\nAlt [km]\nILat [deg]', fontsize=Dispersive_TickFontSize, weight='bold')
+        ax[3+idxAdjust].xaxis.set_label_coords(-0.09, -0.14)
+        ax[3+idxAdjust].set_ylim(DispersiveFreqlimits[0], DispersiveFreqlimits[1])
 
-        # spectrogram Ticks
-        yticks = [0, 4, 8, 12]
-        ax[3].set_yticks(yticks)
-        ax[3].set_yticklabels([str(tick) for tick in yticks])
 
-        xticks_iLat = ax[3].get_xticks()
-        xtick_indicies = np.array([np.abs(magDict['ILat'][0] - tick).argmin() for tick in xticks_iLat])
-        ILat_ticks = [str(round(tick, 2)) for tick in xticks_iLat]
-        Alt_ticks = [str(round(tick, 1)) for tick in magDict['Alt'][0][xtick_indicies]]
-        time_ticks = [tick.strftime("%H:%M:%S") for tick in magDict['Epoch'][0][xtick_indicies]]
-        tickLabels = [f'{ILat_ticks[k]}\n{Alt_ticks[k]}\n{time_ticks[k]}' for k in range(len(xtick_indicies))]
-        ax[3].set_xticklabels(tickLabels)
-        ax[3].tick_params(axis='y', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
-        ax[3].tick_params(axis='x', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        if wRocket ==4 :
+            # spectrogram colorbar HF
+            cax = fig.add_axes([0.91, 0.554, 0.02, 0.0682])
+        elif wRocket == 5:
+            # spectrogram colorbar LF
+            cax = fig.add_axes([0.91, 0.06, 0.02, 0.0682])
 
-        # spectrogram colorbar
-        cax = fig.add_axes([0.91, 0.11, 0.02, 0.135])
         cbar = plt.colorbar(cmap, cax=cax)
         cbar.ax.minorticks_on()
         cbar.ax.tick_params(labelsize=cbarTickLabelSize)
 
-        # output the figure
-        outputMod = 'HF' if wRocket==4 else 'LF'
-        timeSpace = 'space' if alignByILat else 'time'
-        plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot2\Plot2_{outputMod}dispersive_{timeSpace}.png', dpi=dpi)
+
+        # spectrogram Ticks
+        yticks = [0, 4, 8, 12]
+        ax[3+idxAdjust].set_yticks(yticks)
+        ax[3+idxAdjust].set_yticklabels([str(tick) for tick in yticks])
+        xtickTimes = [dt.datetime(2022,11,20,17,24,55),
+                    dt.datetime(2022,11,20,17,24,57),
+                    dt.datetime(2022,11,20,17,24,59),
+                    dt.datetime(2022,11,20,17,25,1),
+                    dt.datetime(2022,11,20,17,25,3),
+                    dt.datetime(2022,11,20,17,25,5),
+                      dt.datetime(2022,11,20,17,25,7)]
+
+        xtick_indicies = np.array([np.abs(magDict['Epoch'][0] - tick).argmin() for tick in xtickTimes])
+        ILat_ticks = [str(round(tick, 2)) for tick in magDict['ILat'][0][xtick_indicies]]
+        Alt_ticks = [str(round(tick, 1)) for tick in magDict['Alt'][0][xtick_indicies]]
+        time_ticks = [tick.strftime("%H:%M:%S") for tick in magDict['Epoch'][0][xtick_indicies]]
+        tickLabels = [f'{time_ticks[k]}\n{Alt_ticks[k]}\n{ILat_ticks[k]}' for k in range(len(xtick_indicies))]
+        ax[3+idxAdjust].set_xticks(xtickTimes)
+        ax[3+idxAdjust].set_xticklabels(tickLabels)
+        ax[3+idxAdjust].tick_params(axis='y', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+        ax[3+idxAdjust].tick_params(axis='x', labelsize=Dispersive_TickFontSize, length=Dispersive_TickLength, width=Dispersive_TickWidth)
+
+
+    # turn off center axis
+    ax[4].axis('off')
+
+    fig.subplots_adjust(top=0.97, hspace=0.1)  # remove the space between plots
+    fig.subplots_adjust(left=0.13, bottom=0.06, right=0.90, top=0.99, wspace=None,hspace=0.1)  # remove the space between plots
+
+    # output the figure
+    outputMod = 'HF' if wRocket==4 else 'LF'
+    timeSpace = 'space' if alignByILat else 'time'
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot2\Plot2_dispersive_{timeSpace}.png', dpi=dpi)
 
 
 
