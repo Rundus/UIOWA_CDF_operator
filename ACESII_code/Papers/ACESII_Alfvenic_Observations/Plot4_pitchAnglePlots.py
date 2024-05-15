@@ -43,6 +43,8 @@ sliceEpochIndicies = {
 }
 dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,57,600000),
                               dt.datetime(2022,11,20,17,25,2,750000)]
+# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
+#                               dt.datetime(2022,11,20,17,25,2,000000)]
 
 figure_height = (15)
 figure_width = (12.5)
@@ -168,7 +170,7 @@ ax00.tick_params(axis='x', which='minor', labelsize=tickFontSize, width=tickWidt
 for disIdx in wDispersions:
     for i in range(NoOfSlices):
         timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{disIdx + 1}'][i]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
-        ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle='--',alpha=0.45)
+        ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle='--',alpha=0.55)
 
 
 

@@ -27,7 +27,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
@@ -160,9 +160,11 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
         validEngyIndicies = np.array(validEngyIndicies)
         minEnergy = validEngyIndicies.max() # remember: LOWER index --> Higher energy
-        maxEnergy = validEngyIndicies.min()
         # energyPairs = [comb for comb in combinations(validEngyIndicies,2) if minEnergy in comb]
+
+        maxEnergy = validEngyIndicies.min()
         energyPairs = [comb for comb in combinations(validEngyIndicies, 2) if maxEnergy in comb]
+        print(energyPairs)
 
 
         # for each pair of Energies, perform the cross-correlation analysis:
@@ -188,7 +190,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             if not np.any(eepaa_dis_onePitch[higherEnergyIndex]) or not np.any(eepaa_dis_onePitch[lowerEnergyIndex]):
                 continue
             else:
-                corr = np.array(correlate(eepaa_dis_onePitch[higherEnergyIndex], eepaa_dis_onePitch[lowerEnergyIndex]))
+                corr = np.array(correlate(eepaa_dis_onePitch[lowerEnergyIndex],eepaa_dis_onePitch[higherEnergyIndex]))
                 corr_norm = corr/np.max(corr)
                 lags = correlation_lags(len(eepaa_dis_onePitch[higherEnergyIndex]), len(eepaa_dis_onePitch[lowerEnergyIndex]))
 
@@ -217,7 +219,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             try:
                 # Find the x,y value of the peak in the correlation output
                 indexMax = np.where(corr == np.max(corr))[0][0]
-                delayTime = -1*DetectorTimeResolution*lags[indexMax]
+                delayTime = DetectorTimeResolution*lags[indexMax]
                 velDiff = 1000*(np.sqrt(m_e) / (np.cos(np.radians(Pitch[wPitch]))*(np.sqrt(2)))) * (1/(np.sqrt(EnergySlow)) - 1/(np.sqrt(EnergyFast)))
 
                 if weightLinearFitByCounts:
