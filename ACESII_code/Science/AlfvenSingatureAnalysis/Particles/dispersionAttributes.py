@@ -148,7 +148,8 @@ class dispersionAttributes(object):
         [dt.datetime(2022, 11, 20, 17, 24, 56, 205000), dt.datetime(2022, 11, 20, 17, 24, 57, 610000)],  # s1
         [dt.datetime(2022, 11, 20, 17, 24, 57, 710000), dt.datetime(2022, 11, 20, 17, 24, 59, 160000)],  # s2
         [dt.datetime(2022, 11, 20, 17, 24, 59, 55000), dt.datetime(2022, 11, 20, 17, 25, 0, 10000)],  # s3
-        [dt.datetime(2022, 11, 20, 17, 25, 00, 60000), dt.datetime(2022, 11, 20, 17, 25, 00, 552000)], # s4  right before Inverted V
+        # [dt.datetime(2022, 11, 20, 17, 25, 00, 60000), dt.datetime(2022, 11, 20, 17, 25, 00, 552000)], # s4  right before Inverted V
+        [dt.datetime(2022, 11, 20, 17, 25, 00, 60000), dt.datetime(2022, 11, 20, 17, 25, 0, 700000)], # s4  right before Inverted V
         [dt.datetime(2022, 11, 20, 17, 25, 00, 563000), dt.datetime(2022, 11, 20, 17, 25, 1, 312000)], # s5 inside inverted V's left edge
         [dt.datetime(2022, 11, 20, 17, 25, 1, 10000), dt.datetime(2022, 11, 20, 17, 25, 1, 462000)], # s6 under V, it's faint
         [dt.datetime(2022, 11, 20, 17, 25, 4, 8000), dt.datetime(2022, 11, 20, 17, 25, 4, 412000)], # s7 in choatic region
@@ -258,7 +259,7 @@ class dispersionAttributes(object):
         # --- DIAGONAL REMOVE ---
         # remove bottom left stuff (COARSE)
         upper = False
-        EnergyStartPoint, TimeStart, TimeEnd = 200, -0.1, 1
+        EnergyStartPoint, TimeStart, TimeEnd = 150, -0.1, 0.47
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
@@ -267,17 +268,18 @@ class dispersionAttributes(object):
         EnergyStartPoint, TimeStart, TimeEnd = 150, 0.4, 1
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
-        # --- DIAGONAL REMOVE ---
-        # remove bottom left stuff (COARSE)
-        upper = True
-        EnergyStartPoint, TimeStart, TimeEnd = 116, 0.45, 1
-        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
+        # # --- DIAGONAL REMOVE ---
+        # # remove bottom left stuff (COARSE)
+        # upper = True
+        # EnergyStartPoint, TimeStart, TimeEnd = 116, 0.45, 1
+        # newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
         # --- DIAGONAL REMOVE ---
         # remove bottom left stuff (COARSE)
-        upper = False
-        EnergyStartPoint, TimeStart, TimeEnd = 55, 0.5, 1
-        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+        # upper = False
+        # EnergyStartPoint, TimeStart, TimeEnd = 55, 0.5, 1
+        # newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
 
         return newData

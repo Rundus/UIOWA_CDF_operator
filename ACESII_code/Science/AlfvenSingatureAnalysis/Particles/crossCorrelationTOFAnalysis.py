@@ -27,10 +27,10 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [2] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
-justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
+justPlotKeyDispersions = True #IF ==TRUE no cross-correlation will occur
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 mycmap = apl_rainbow_black0_cmap()
 cbar_low, cbar_high = 0, 30
@@ -164,7 +164,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
         maxEnergy = validEngyIndicies.min()
         energyPairs = [comb for comb in combinations(validEngyIndicies, 2) if maxEnergy in comb]
-        print(energyPairs)
+
 
 
         # for each pair of Energies, perform the cross-correlation analysis:

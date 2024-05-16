@@ -37,14 +37,15 @@ sliceEpochIndicies = {
     's1':[5934, 5940, 5946],
     's2':[5959, 5966, 5974],
     's3':[5987 - 3, 5990 - 1, 5995],
-    's4':[6003 - 1, 6006 - 1, 6009 - 1],
+    # 's4':[6002 , 6005 , 6008 ],
+    's4':[6003, 6007, 6011],
     's5':[6014, 6018 + 1, 6021 + 3],
     's10':[6139, 6142, 6145]  # s10 The Big One on the poleward side of the aurora
 }
-dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,57,600000),
-                              dt.datetime(2022,11,20,17,25,2,750000)]
-# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
-#                               dt.datetime(2022,11,20,17,25,2,000000)]
+# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,57,600000),
+#                               dt.datetime(2022,11,20,17,25,2,750000)]
+dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,56,500000),
+                              dt.datetime(2022,11,20,17,25,2,000000)]
 
 figure_height = (15)
 figure_width = (12.5)
@@ -68,7 +69,7 @@ dpi = 200
 # plot toggles - Show STEB itself ----------
 cbarLow, cbarHigh = 5E6, 1E9
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
-wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time plot
+wPitch_Engy_vs_Time = [0,1,2] # the pitch angle index to plot for the Energy vs time plot
 Energy_yLimit = 1350
 
 # plot toggles - Slices pitch angle ------------------
@@ -155,7 +156,25 @@ gs01 = gs0[1].subgridspec(3, 4, hspace=0.08,wspace=0.08)
 ###################
 # --- EEPAA Pitch Slice ---
 ax00 = fig.add_subplot(gs0[0,:])
-eepaaPitchSlice = ax00.pcolormesh(Epoch, Energy, dataArray[:, wPitch_Engy_vs_Time, :].T, cmap=cmap,norm='log', vmin=cbarLow, vmax=cbarHigh)
+
+# Sum and average the lowest 3 bins
+pitchSlices = [dataArray[:,slice,:] for slice in wPitch_Engy_vs_Time]
+
+summedData = np.zeros(shape=(len(pitchSlices[0]),len(pitchSlices[0][0])))
+
+for tme in range(len(pitchSlices[0])):
+    for engy in range(len(pitchSlices[0][0])):
+        values = np.array([slice[tme][engy] for slice in pitchSlices])
+        rmvFILL = values[values>0]
+        if len(rmvFILL) == 0:
+            summedData[tme][engy]= 0
+        else:
+            summedData[tme][engy] = sum(rmvFILL)/len(rmvFILL)
+
+
+eepaaPitchSlice = ax00.pcolormesh(Epoch, Energy, summedData.T, cmap=cmap,norm='log', vmin=cbarLow, vmax=cbarHigh)
+
+
 ax00.set_yscale('log')
 ax00.set_ylabel('Energy [eV]',fontsize=labelsFontSize, weight='bold')
 ax00.set_ylim(28, Energy_yLimit)
