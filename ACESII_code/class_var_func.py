@@ -527,6 +527,50 @@ def ENUtoECEF(Lat,Long):
 
     return R
 
+
+def ECEF_to_Geodedic(x,y,z):
+    from math import sqrt,pow,atan2,cos,sin
+    '''
+    Function to convert xyz ECEF to llh
+    convert cartesian coordinate into geographic coordinate
+    ellipsoid definition: WGS84
+      a= 6,378,137m
+      f= 1/298.257
+
+    Input
+      x: coordinate X meters
+      y: coordinate y meters
+      z: coordinate z meters
+    Output
+      lat: latitude rad
+      lon: longitude rad
+      h: height meters
+    '''
+    # --- WGS84 constants
+    a = 6378137.0
+    f = 1.0 / 298.257223563
+    # --- derived constants
+    b = a - f*a
+    e = sqrt(pow(a,2.0)-pow(b,2.0))/a
+    clambda = atan2(y,x)
+    p = sqrt(pow(x,2.0)+pow(y,2))
+    h_old = 0.0
+    # first guess with h=0 meters
+    theta = atan2(z,p*(1.0-pow(e,2.0)))
+    cs = cos(theta)
+    sn = sin(theta)
+    N = pow(a,2.0)/sqrt(pow(a*cs,2.0)+pow(b*sn,2.0))
+    h = p/cs - N
+    while abs(h-h_old) > 1.0e-6:
+        h_old = h
+        theta = atan2(z,p*(1.0-pow(e,2.0)*N/(N+h)))
+        cs = cos(theta)
+        sn = sin(theta)
+        N = pow(a,2.0)/sqrt(pow(a*cs,2.0)+pow(b*sn,2.0))
+        h = p/cs - N
+    llh = {'lon':clambda, 'lat':theta, 'height': h}
+    return llh
+
 def sphereToCartesian(r,theta,phi):
     thetaRad = np.radians(theta)
     phiRad = np.radians(phi)

@@ -48,6 +48,7 @@ from ACESII_code.class_var_func import color, L0_TRICE_Quick
 from glob import glob
 from os.path import getsize
 import pygmt
+import matplotlib.pyplot as plt
 import pandas as pd
 
 data_dicts = []
@@ -98,7 +99,7 @@ for wflyer in [0,1]:
 fig = pygmt.Figure()
 region_rocket = [8, 20, 65, 76, 0, 400] #
 perspective = [-120, 35]  # azimuth, elevation (in deg)
-resolution = "15s"
+resolution = "15m"
 # projection = "G16.020833/69.294167/12c+a0+t45+v60/80+w0+z400"
 projection = "M15c"
 styleR1 = "3p,red,-"
@@ -150,8 +151,8 @@ fig.plot3d(
     label = 'Low Flyer'
 )
 
-
-fig.savefig(r"D:\Data\ACESII\trajectories\trajectory_plots\testfig.png")
+plt.show()
+# fig.savefig(r"D:\Data\ACESII\trajectories\trajectory_plots\testfig.png")
 
 
 
