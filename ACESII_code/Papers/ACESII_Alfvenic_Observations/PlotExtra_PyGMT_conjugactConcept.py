@@ -27,28 +27,26 @@ outputPath_modifier = 'science\CHAOSBgeoProjections' # e.g. 'L2' or 'Langmuir'. 
 
 
 
-tTimes_high = [dt.datetime(2022,11,20,17,21,00,000000),
-               dt.datetime(2022,11,20,17,23,00,000000),
+tTimes_high = [dt.datetime(2022,11,20,17,24,45,000000),
                dt.datetime(2022,11,20,17,25,00,000000),
-               dt.datetime(2022,11,20,17,27,00,000000),
-               dt.datetime(2022,11,20,17,29,00,000000)]
+               dt.datetime(2022,11,20,17,25,15,000000) ]
 
-tTimes_low = [dt.datetime(2022,11,20,17,21,00,000000),
-               dt.datetime(2022,11,20,17,23,00,000000),
+tTimes_low = [
+               dt.datetime(2022,11,20,17,24,45,000000),
                dt.datetime(2022,11,20,17,25,00,000000),
-               dt.datetime(2022,11,20,17,27,00,000000),
-               dt.datetime(2022,11,20,17,29,00,000000)]
+               dt.datetime(2022,11,20,17,25,15,000000)]
 tTimes = [tTimes_high,tTimes_low]
-refAlts = [0 + 100*i*1000 for i in range(10)]
+t_Params = [-1000 + 200*i for i in range(10)]
 # ---------------------------
-outputData = False
+outputData = True
 # ---------------------------
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from ACESII_code.class_var_func import CHAOS,long_to_meter,lat_to_meter,ENUtoECEF
-
+from ACESII_code.class_var_func import CHAOS,ENUtoECEF,Re,ECEF_to_Geodedic
+from spacepy import coordinates as coord
+from spacepy.time import Ticktock #used to determine the time I'm choosing the reference geomagentic field
 
 def PlotExtra_conjugactconcept(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -84,9 +82,9 @@ def PlotExtra_conjugactconcept(wRocket, rocketFolderPath, justPrintFileNames):
     # --- --- --- --- --- --- --
     prgMsg('Calculating Bgeo Lines')
 
-    B_geo_line_data = []
+    pointsOfInterest_Geographic = [[] for tme in targetTimes]
 
-    for tme in targetTimes:
+    for tIDX, tme in enumerate(targetTimes):
 
         # STEP 1: Get B_geo in ENU coordinates
         idx = np.abs(data_dict_attitude['Epoch'][0] - tme).argmin()
@@ -96,50 +94,47 @@ def PlotExtra_conjugactconcept(wRocket, rocketFolderPath, justPrintFileNames):
 
         B_model = CHAOS(lat=np.array([rktLat]),
                         long=np.array([rktLong]),
-                        alt=np.array([rktLAlt]),
+                        alt=np.array([rktLAlt/1000]),
                         times=np.array([tme]))  # CHAOS in ENU coordinates
 
         b = np.array(B_model[0]) / np.linalg.norm(B_model[0])
+        print(b)
+
 
 
         # STEP 2: Get B_geo in ECEF coordinates
         b_ECEF = np.matmul(b, ENUtoECEF(rktLat, rktLong))
+        print(b_ECEF)
+
 
         # STEP 3: Get Position of Rocket in ECEF coordinates
-        rkt0_ECEF = np.matmul(b, ENUtoECEF(rktLat, rktLong))
+        coord.DEFAULTS.set_values(use_irbem=False, itol=5)
+        rkt0_geodetic = np.array([rktLAlt/1000, rktLat, rktLong])
+        ISOtime = tme.isoformat()
+        cvals_GDZ = coord.Coords(rkt0_geodetic, 'GDZ', 'sph')
+        cvals_GDZ.ticks = Ticktock(ISOtime, 'ISO')
+        cvals_GEO = cvals_GDZ.convert('GEO', 'car')
+        rkt0_ECEF = np.array([cvals_GEO.x[0],cvals_GEO.y[0],cvals_GEO.z[0]]) # In units of Earth Radii measured from Earth's Center
+
+        # STEP 4: Get B_geo points of interest in ECEF coordinates
+        # note: With b being a unit vector in ECEF space --> each movement in b_ECEF is 1 kilometer! But this is 1kilometer in the direction of hat{b}
+        pointsOfInterest_ECEF = []
+        for t in t_Params:
+            pointsOfInterest_ECEF.append(t*b_ECEF/Re + rkt0_ECEF)
 
 
+        # STEP 5: Convert points of interest to Geodedic coordinates and store them
 
-        # STEP 4: Get B_geo in ECEF coordinates
+        for point_set in pointsOfInterest_ECEF:
+            convertedData = ECEF_to_Geodedic(point_set[0]*Re*1000,point_set[1]*Re*1000,point_set[2]*Re*1000)
+            pointsOfInterest_Geographic[tIDX].append(
+                [(2*rktLat-(180/np.pi)*convertedData['lat']), (2*rktLong - (180/np.pi)*convertedData['lon']),convertedData['height']]
+            )
+            # print([(180/np.pi)*convertedData['lat'],(180/np.pi)*convertedData['lon'],convertedData['height']/1000])
 
-        # STEP 5: Get B_geo points of interest in ECEF coordinates
-
-        # STEP 6: Convert points of interest to Geodedic coordinates and store them
-
-
-
-
-
-
-        B_model_Lat = []
-        B_model_Long = []
-        B_model_Alt = []
-
-        Latkm = lat_to_meter * rktLat
-        Longkm = long_to_meter(rktLong, rktLat)
-
-        for refAlt in refAlts:
-            t = (refAlt - rktLAlt) / b[2]
-            El = Longkm + b[0] * t
-            Nl = Latkm + b[1] * t
-
-            B_model_Lat.append(Nl / lat_to_meter)
-            B_model_Long.append(meter_to_long(long_km=El, lat_km=Nl))
-            B_model_Alt.append(refAlt)
-
-        B_geo_line_data.append([B_model_Lat,B_model_Long,B_model_Alt])
 
     Done(start_time)
+
 
 
 
@@ -151,9 +146,8 @@ def PlotExtra_conjugactconcept(wRocket, rocketFolderPath, justPrintFileNames):
         prgMsg('Creating output file')
 
         data_dict_output={}
-        for tme in range(len(B_geo_line_data)):
-            data_dict_output = {**data_dict_output, **{f'Line {tme}': [np.array(B_geo_line_data[tme]),deepcopy(exampleAttrs)]}}
-
+        for tme in range(len(pointsOfInterest_Geographic)):
+            data_dict_output = {**data_dict_output, **{f'Line {tme}': [np.array(pointsOfInterest_Geographic[tme]),deepcopy(exampleAttrs)]}}
 
 
         outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wRocket-4]}\\{fileoutName}'

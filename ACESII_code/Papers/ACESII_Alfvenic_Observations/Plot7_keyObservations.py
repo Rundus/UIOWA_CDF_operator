@@ -27,8 +27,8 @@ print(color.UNDERLINE + f'Plot7_keyObservations' + color.END)
 #################
 # --- TOGGLES ---
 #################
-figure_height = (15)
-figure_width = (11)
+figure_height = (16)
+figure_width = (12)
 
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -39,12 +39,14 @@ plot_LineWidth = 3
 plot_textFontSize = 20
 plot_MarkerSize = 20
 plot_Colors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green', 'tab:purple', 'tab:olive', 'black']
+text_FontSize = 25
 title_FontSize = 14
-labels_FontSize = 20
-labels_Padding = 1
+labels_FontSize = 22
+labels_subplot_fontsize = 19
 legend_FontSize = 15
+legend_SubAxes_FontSize = 15
 tick_LabelSize = 15
-tick_SubplotLabelSize = 10
+tick_SubplotLabelSize = 15
 tick_Width = 2
 tick_Length = 4
 cbar_FontSize = 15
@@ -171,7 +173,7 @@ S_est = VA_t*(dBperp**2)/ (u0) # calculate Estimated Poynting Flux
 prgMsg('Beginning Plot')
 fig = plt.figure()
 fig.set_size_inches(figure_width, figure_height)
-gs0 = gridspec.GridSpec(2,1,figure=fig, height_ratios=[2/3,1/3],hspace=0.1)
+gs0 = gridspec.GridSpec(2,1,figure=fig, height_ratios=[0.58,0.42],hspace=0.12)
 
 gs00 = gs0[0].subgridspec(3, 1)
 axPeakE = fig.add_subplot(gs00[2])
@@ -180,7 +182,7 @@ axPoynting = fig.add_subplot(gs00[1],sharex=axPeakE)
 
 mainThreeAxes = [axPitchHist, axPoynting, axPeakE]
 
-gs01 = gs0[1].subgridspec(2, 2)
+gs01 = gs0[1].subgridspec(2, 2,hspace=0.1,wspace=0.2)
 axS1 = fig.add_subplot(gs01[0,0])
 axS2 = fig.add_subplot(gs01[0,1])
 axS3 = fig.add_subplot(gs01[1,0])
@@ -225,14 +227,15 @@ for tme in range(len(rktTime_counts)):
 cmapHist = axPitchHist.pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm)
 axPitchHist.set_yscale('log')
 axPitchHist.set_ylim(Energy[-1], Energy_yLimit)
-axPitchHist.set_ylabel('Energy [eV]', fontsize=labels_FontSize)
+axPitchHist.set_ylabel('Energy  [eV]', fontsize=labels_FontSize)
 axPitchHist.tick_params(axis='x', which='major', labelbottom=False)
+axPitchHist.set_xmargin(0)
 
 # --- --- --- --- --- --- --
 # --- FLUX ESTIMATE PLOT ---
 # --- --- --- --- --- --- --
 axPoynting.plot(rktTime_deltaB, PoyntingScale*S_est, plot_Colors[2],linewidth=plot_LineWidth,zorder=2)
-axPoynting.set_ylabel('$\delta$ S$_{p}$ [ergs/cm$^{2}$s]',fontsize=labels_FontSize)
+axPoynting.set_ylabel('$\delta$ S$_{p}$\n [ergs/cm$^{2}$s]',fontsize=labels_FontSize)
 axPoynting.set_ylim(-0.1E-2, 5.3E-2)
 axPoynting.set_xmargin(0)
 axPoynting.tick_params(axis='both', which='major', labelsize=tick_LabelSize)
@@ -247,17 +250,14 @@ for k,tme in enumerate(STEBtimes_rkt):
     textPlacement = (STEBtimes_rkt[k][0]+STEBtimes_rkt[k][1])/2
     axPoynting.text(textPlacement, 0.048, f'S{wSTEBtoPlot[k]}', ha='center', weight='bold',fontsize=plot_textFontSize)
 
-# axPoynting.set_xticklabels([])
+axPoynting.grid(alpha=0.5)
+
 
 
 
 # --- --- --- --- --- --- --- --- ---
 # --- PEAK COUNTS AND ENERGY PLOTS ---
 # --- --- --- --- --- --- --- --- ---
-
-outside_peakFlux = []
-outside_peakEnergy_atpeakFlux = []
-outside_avgtimes = []
 
 for idx, ptchVal in enumerate(wPitchs_to_plot):
 
@@ -310,25 +310,19 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
         engyIdx, tmeIdx = np.where(pitchSlice == pitchSlice.max())
         peakEnergy_atPeakFlux.append(Energy[Energy_yLimit_Idx+engyIdx[0]])
         peakFlux.append(pitchSlice.max())
-        outside_peakEnergy_atpeakFlux.append(pitchSlice.max())
+
 
     # plot the results
     axPeakE.plot(avgTimes, peakEnergy, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize)
-    # ax[3].plot(avgTimes, peakFlux, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize)
 
-    outside_peakFlux.append(peakFlux)
-    outside_peakEnergy_atpeakFlux.append(peakEnergy_atPeakFlux)
-    outside_avgtimes.append(avgTimes)
 
-axPeakE.set_ylabel('Peak Energy [eV]',fontsize=labels_FontSize)
+axPeakE.set_xmargin(0)
+axPeakE.set_ylabel('Peak Energy\n [eV]',fontsize=labels_FontSize)
 axPeakE.legend(fontsize=legend_FontSize)
-axPeakE.set_ylim(0,Energy[Energy_yLimit_Idx])
-axPeakE.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize)
-# ax[3].set_ylabel('Peak Flux',fontsize=labels_FontSize)
-# ax[3].legend(fontsize=legend_FontSize)
-# ax[3].set_ylim(1E7, 2E9)
-# ax[3].set_xlabel('Time Since Launch [s]', fontsize=labels_FontSize, labelpad=labels_Padding)
-# ax[3].set_yscale('log')
+axPeakE.set_ylim(-50,1200)
+axPeakE.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
+axPeakE.grid(alpha=0.5)
+
 
 # set the ticks for all plots
 for ax in mainThreeAxes:
@@ -336,21 +330,8 @@ for ax in mainThreeAxes:
     ax.tick_params(axis='y', which='minor', labelsize=tick_LabelSize, width=tick_Width, length=tick_Length / 2)
     ax.tick_params(axis='x', which='major', labelsize=tick_LabelSize, width=tick_Width, length=tick_Length)
     ax.tick_params(axis='x', which='minor', labelsize=tick_LabelSize, width=tick_Width, length=tick_Length / 2)
-    # ax.margins(0)
 
-
-# Histogram Colorbar
-caxH = fig.add_axes([0.91,  0.81, 0.025, 0.22])
-cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
-cbar_hist.set_label(f'Median Pitch Angle', fontsize=labels_FontSize, rotation=270)
-cbar_hist.ax.get_yaxis().labelpad = 22
-cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
-for l in cbar_hist.ax.yaxis.get_ticklabels():
-    l.set_weight("bold")
-    l.set_fontsize(cbar_FontSize)
-
-
-fig.align_ylabels(mainThreeAxes)
+fig.align_ylabels(mainThreeAxes+[subAxes[0],subAxes[2]])
 
 # --- Calculate Flux vs energy graphs ---
 
@@ -362,12 +343,11 @@ for t, tme in enumerate(STEBtimes[1:]):
     Epoch_dis = deepcopy(dateTimetoTT2000(data_dict_eepaa_high['Epoch'][0][lowCut:highCut + 1], inverse=False))
     eepaa_dis_pre = deepcopy(diffEFlux[lowCut:highCut + 1])
     eepaa_dis = deepcopy(np.array(dispersionAttributes.isolationFunctions[wDispersion_key](eepaa_dis_pre, Energy, Epoch_dis)))  # pply the isolation functions found in dispersionAttributes.py
+
     # prepare the data by removing fillvals and applying the mask
     STEBdata = deepcopy(eepaa_dis)
     STEBdata[STEBdata < 0] = 0  # set anything below 0 = 0
-    # STEBdata -= fluxMask
-    # STEBdata[STEBdata < 0] = 0  # set anything below 0 = 0
-    # STEBdata += fluxMask
+
 
     for idx, ptchVal in enumerate(wPitchs_to_plot):
 
@@ -377,36 +357,41 @@ for t, tme in enumerate(STEBtimes[1:]):
         subAxes[t].plot(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize-7)
 
     # set the labels and such
-    subAxes[t].legend()
+    if t in [0]:
+        subAxes[t].legend(prop={'size': legend_SubAxes_FontSize})
     if t in [0,2]:
-        subAxes[t].set_ylabel('Avg. Flux',fontsize=labels_FontSize,)
+        # subAxes[t].set_ylabel(r'Avg. diffEFlux\n [cm$^-2$str$^-1s$^-1$eV/eV]',fontsize=labels_FontSize)
+        subAxes[t].set_ylabel('Avg. Diff. E. Flux \n [cm$^{-2}$ str$^{-1}$ s$^{-1}$ eV/eV]', fontsize=labels_subplot_fontsize )
     if t in [2,3]:
-        subAxes[t].set_xlabel('Energy',fontsize=labels_FontSize,)
+        subAxes[t].set_xlabel('Energy [eV]',fontsize=labels_FontSize)
     if t in [0,1]:
         subAxes[t].set_xticklabels([])
-    subAxes[t].set_yscale('log')
-    subAxes[t].set_ylim(1E6, 1E9)
-    subAxes[t].tick_params(axis='y', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)
+
+    props = dict(boxstyle='round', facecolor='white', alpha=1)
+    subAxes[t].text(600, 4.5E8, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black',bbox=props, ha='center')
+
+    # subAxes[t].set_yscale('log')
+    subAxes[t].set_ylim(5E5, 8E8)
+    subAxes[t].tick_params(axis='y', which='major', labelsize=tick_SubplotLabelSize+4, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='y', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
     subAxes[t].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='x', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
 
+
+# Histogram Colorbar
+caxH = fig.add_axes([0.91,  0.828, 0.025, 0.162])
+cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
+cbar_hist.set_label(f'Median Pitch Angle', fontsize=labels_FontSize, rotation=270)
+cbar_hist.ax.get_yaxis().labelpad = 22
+cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
+for l in cbar_hist.ax.yaxis.get_ticklabels():
+    l.set_weight("bold")
+    l.set_fontsize(cbar_FontSize)
+
 # output the figure
-plt.subplots_adjust(left=0.12, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)
-fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot7\\Plot7_KeyObservations_base.png'
+plt.subplots_adjust(left=0.13, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)
+fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\\Plot8_DistributionFunctions.png'
 plt.savefig(fileOutName)
 Done(start_time)
 plt.close()
 
-
-# fig, ax = plt.subplots()
-# wSTEB = 2
-# for i in range(len(outside_peakEnergy_atCounts)):
-# # for i in range(1):
-#     # ax.plot(outside_peakEnergy_atCounts[i][wSTEB],outside_peakCounts[i][wSTEB], color=plot_Colors[i], label=rf'$\alpha = {Pitch[i]}^\circ$', marker='.', ms=plot_MarkerSize)
-#     ax.plot(outside_avgtimes[i], outside_peakEnergy_atCounts[i], color=plot_Colors[i], label=rf'$\alpha = {Pitch[i]}^\circ$', marker='.', ms=plot_MarkerSize)
-# plt.legend()
-# fig.suptitle(f'STEB {wSTEB+1}')
-# ax.set_xlabel('time')
-# ax.set_ylabel('Energy at Peak Counts')
-# plt.show()
