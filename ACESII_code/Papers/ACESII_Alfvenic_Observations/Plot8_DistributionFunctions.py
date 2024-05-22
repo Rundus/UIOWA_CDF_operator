@@ -10,6 +10,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from ACESII_code.myImports import *
@@ -32,15 +33,13 @@ print(color.UNDERLINE + f'Plot8_Conjugacy' + color.END)
 # Physics Toggles
 disR_TargetTime = [dt.datetime(2022,11, 20, 17, 24, 54, 000000), dt.datetime(2022,11,20,17,25,3,000000)]
 targetVar = [disR_TargetTime, 'Epoch']
-# plasmaSheet_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 54, 762000), dt.datetime(2022,11,20,17,24,56,212000)]
-plasmaSheet_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 55, 000000), dt.datetime(2022,11,20,17,24,55,900000)]
-invertedV_targetTimes = [dt.datetime(2022,11, 20, 17, 25, 1, 512000), dt.datetime(2022,11,20,17,25,1,570000)]
-# ptchRange = [2 + i for i in range(17)] # determines which pitchs to include in the parallel distribution functions
-ptchRange = [2,17] # determines which pitchs to include in the parallel distribution functions
+plasmaSheet_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 55, 446000), dt.datetime(2022,11,20,17,24,56,000000)]
+invertedV_targetTimes = [dt.datetime(2022,11, 20, 17, 25, 1, 396000), dt.datetime(2022,11,20,17,25,1,596000)]
+ptchRange = [2] # determines which pitchs to include in the parallel distribution functions
 
 
 # --- Cbar ---
-cbarMin, cbarMax = 1E-20, 1E-14
+cbarMin, cbarMax = 1E-18, 1E-14
 cbarTickLabelSize = 14
 cmap = apl_rainbow_black0_cmap()
 cmap.set_bad(color=(1, 1, 1))
@@ -50,17 +49,18 @@ normalizeByTime = True
 figure_width = 10 # in inches
 figure_height =14# in inches
 Label_FontSize = 20
-Tick_FontSize = 5
+Label_Padding = 8
+Tick_FontSize = 12
 Tick_Length = 1
 Tick_Width = 1
-Tick_FontSize_minor = 2
+Tick_FontSize_minor = 10
 Tick_Length_minor = 1
 Tick_Width_minor = 1
 Plot_LineWidth = 0.5
-Label_Padding = 8
+legend_fontSize = 15
 dpi = 800
 distLimits = [1E-20, 1E-14]
-xAxis_energyLimits = [28, 3E3]
+xAxis_energyLimits = [28, 1E4]
 
 
 
@@ -74,8 +74,6 @@ prgMsg('Loading Data')
 rocketAttrs, b, c = ACES_mission_dicts()
 
 # EEPAA Distribution Data
-inputEEPAA_low = glob('C:\Data\ACESII\L3\DistFunc\low\*ACESII_36364_distFunc_eepaa_fullCal*')[0]
-data_dict_dist_low = loadDictFromFile(inputFilePath=inputEEPAA_low, targetVar=targetVar, wKeys_Reduce=['Distribution_Function', 'Epoch', 'Alt'])
 inputEEPAA_high = glob('C:\Data\ACESII\L3\DistFunc\high\*ACESII_36359_distFunc_eepaa_fullCal*')[0]
 data_dict_dist_high = loadDictFromFile(inputFilePath=inputEEPAA_high, targetVar=targetVar, wKeys_Reduce=['Distribution_Function', 'Epoch', 'Alt'])
 
@@ -114,79 +112,73 @@ for tme in range(len(Epoch)):
         omniDist_high[tme][engy] = sumVal / len(range(2, 18 + 1))
 
 
-
-# --- PLASMASHEET - parallel distribution function over pitch angle ---
-low_idx, high_idx = np.abs(Epoch-plasmaSheet_targetTimes[0]).argmin(), np.abs(Epoch-plasmaSheet_targetTimes[1]).argmin()
-parallel_Dist_plasmaSheet = []
-parallel_energy_plasmaSheet = []
-for tme in range(len(Epoch[low_idx:high_idx])):
-    for engy in range(len(Energy)):
-        for ptchIdx in ptchRange:
-            val = distFunc[tme][ptchIdx][engy]*np.abs(np.cos(np.radians(Pitch[ptchIdx])))
-            modifier = -1 if Pitch[ptchIdx] >= 90 else 1
-            parEngy = modifier*Energy[engy] * (np.cos(np.radians(Pitch[ptchIdx])))**2
-
-            if val > 0:
-                parallel_Dist_plasmaSheet.append(val)
-                parallel_energy_plasmaSheet.append(parEngy)
+# --- Get the Distribution Function data as Parallel Distribution vs Energy [eV] ---
+paraDist = [[],[]]
+paraEngy = [[],[]]
+regionTimes = [plasmaSheet_targetTimes,invertedV_targetTimes]
 
 
-# Sort the data based on velocity
-paraEngy_PS,paraDist_PS = zip(*sorted(zip(parallel_energy_plasmaSheet,parallel_Dist_plasmaSheet)))
-paraEngy_PS, paraDist_PS = np.array(paraEngy_PS),np.array(paraDist_PS)
+for regionIdx in range(len(paraDist)):
 
-# sum all points at the same velocity
-uniqueEneries = set(paraEngy_PS)
-uniqueDist = []
-for engyIdx,uEngy in enumerate(uniqueEneries):
-    indicies = np.where(paraEngy_PS==uEngy)[0]
+    rTime = regionTimes[regionIdx]
+    low_idx, high_idx = np.abs(Epoch - rTime[0]).argmin(), np.abs(Epoch - rTime[1]).argmin()
+    tempDist = []
+    tempEngy = []
 
-    if normalizeByTime:
-        uniqueDist.append(sum(paraDist_PS[indicies]) / len(Epoch[low_idx:high_idx]))
-    else:
-        uniqueDist.append(sum(paraDist_PS[indicies]))
+    # collect all the data in the pitch angle range here and store in in temp variables
+    for tme in range(low_idx,high_idx):
+        for engy in range(len(Energy)):
+            for ptchIdx in ptchRange:
+                val = distFunc[tme][ptchIdx][engy] * np.abs(np.cos(np.radians(Pitch[ptchIdx])))
+                modifier = -1 if Pitch[ptchIdx] > 90 else 1
+                parallel_value = modifier * Energy[engy] * (np.cos(np.radians(Pitch[ptchIdx]))) ** 2
 
-paraEngy_PS = np.array(list(uniqueEneries))
-paraDist_PS = np.array(uniqueDist)
+                if val > 0:
+                    tempDist.append(val)
+                    tempEngy.append(parallel_value)
+
+    # Sort the data based on velocity
+    tempEngy_sorted, tempDist_sorted = zip(*sorted(zip(tempEngy, tempDist)))
+    tempEngy_sorted, tempDist_sorted = np.array(tempEngy_sorted), np.array(tempDist_sorted)
 
 
+    # sum all points at the same velocity
+    uEngies = set(tempEngy_sorted)
+    uDist = []
+    for engyIdx, uVal in enumerate(uEngies):
+        indicies = np.where(tempEngy_sorted==uVal)[0]
 
+        if normalizeByTime:
+            uDist.append(sum(tempDist_sorted[indicies]) / len(Epoch[low_idx:high_idx]))
+        else:
+            uDist.append(sum(tempDist_sorted[indicies]))
 
+    paraDist[regionIdx] = np.array(uDist)
+    paraEngy[regionIdx] = np.array(list(uEngies))
 
-# --- INVERTED-V parallel distribution function over pitch angle ---
-low_idx, high_idx = np.abs(Epoch - invertedV_targetTimes[0]).argmin(), np.abs(Epoch - invertedV_targetTimes[1]).argmin()
-parDist_InV = []
-parEngy_InV = []
-for tme in range(len(Epoch[low_idx:high_idx])):
-    for engy in range(len(Energy)):
-        for ptchIdx in ptchRange:
-            val = distFunc[tme][ptchIdx][engy] * np.abs(np.cos(np.radians(Pitch[ptchIdx])))
-            modifier = -1 if Pitch[ptchIdx] >= 90 else 1
-            parEngy = modifier * Energy[engy] * (np.cos(np.radians(Pitch[ptchIdx]))) ** 2
-
-            if val > 0:
-                parDist_InV.append(val)
-                parEngy_InV.append(parEngy)
-
-# Sort the data based on velocity
-parEngy_InV, parDist_InV = zip(*sorted(zip(parEngy_InV,parDist_InV)))
-parEngy_InV, parDist_InV = np.array(parEngy_InV),np.array(parDist_InV)
-# sum all points at the same velocity
-uniqueEnergies = set(parEngy_InV)
-uniqueDist = []
-runningSum = 0
-
-for engyIdx, uEngy in enumerate(uniqueEnergies):
-    indicies = np.where(parEngy_InV == uEngy)[0]
-    runningSum += len(indicies)
-    if normalizeByTime:
-        uniqueDist.append(sum(parDist_InV[indicies])/len(Epoch[low_idx:high_idx]))
-    else:
-        uniqueDist.append(sum(parDist_InV[indicies]))
-
-parEngy_InV = np.array(list(uniqueEnergies))
-parDist_InV = np.array(uniqueDist)
 Done(start_time)
+
+
+
+###############################
+# --- --- --- --- --- --- --- -
+# --- FIT THE DISTRIBUTIONS ---
+# --- --- --- --- --- --- --- -
+###############################
+
+
+def MaxwellianDist(x, n, T):  # Fits the NATURAL LOG of a Maxwellian for a Uniform/Thermalized Plasma
+    return 4 * pi * n * ((m_e / (2 * pi * q0 * T)) ** 1.5) * (2 * x / m_e) * exp(-x / (T))
+
+
+def KappaDist(x, kappa, n, T):
+    return n * gamma(kappa + 1) * (
+                (1 + 2 * q0 * x / (m_e * kappa * ((sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e))) ** 2))) ** (
+                    -kappa - 1)) / (((sqrt(pi) * (sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e)))) ** 3) * (
+                (kappa ** 1.5) * gamma(kappa - 0.5)))
+
+
+
 
 ############################
 # --- --- --- --- --- --- --
@@ -198,20 +190,16 @@ prgMsg('Plotting Figure')
 # DETERMINE THE PLOT DIMESNIONS
 fig = plt.figure()
 fig.set_size_inches(figure_width, figure_height)
-gs0 = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[0.25, 0.75], hspace=0.12)
+gs0 = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[0.5, 0.5], hspace=0.12)
 
 # Top Pllot
 gs00 = gs0[0].subgridspec(1, 1)
 axDistOverview = fig.add_subplot(gs00[0])
 
 # Subplots
-gs01 = gs0[1].subgridspec(2, 2)
-ax_PS_ParDist = fig.add_subplot(gs01[0, 0])
-ax_InV_ParDist = fig.add_subplot(gs01[0, 1])
-axS3 = fig.add_subplot(gs01[1, 0])
-axS4 = fig.add_subplot(gs01[1, 1])
-subAxes = [ax_PS_ParDist, ax_InV_ParDist, axS3, axS4]
-
+gs01 = gs0[1].subgridspec(1, 1)
+ax_Compare = fig.add_subplot(gs01[0,0])
+subAxes = [ax_Compare]
 
 
 # ---Distribution Data Overview---
@@ -225,46 +213,28 @@ axDistOverview.set_title(r'Distribution Function, $\alpha = 10^{\circ}$')
 axDistOverview.axvspan(invertedV_timeSince[0], invertedV_timeSince[1], color='gray', alpha=0.25,zorder=1)
 axDistOverview.axvspan(plasmaSheet_timeSince[0], plasmaSheet_timeSince[1], color='gray', alpha=0.25,zorder=1)
 
-
-# --- PLASMA SHEET - PARALLEL DISTRIBUTION ---
-ax_PS_ParDist.set_title('"Plasma Sheet" Distribution',fontsize=Label_FontSize)
-ax_PS_ParDist.scatter(paraEngy_PS,paraDist_PS)
-ax_PS_ParDist.set_yscale('log')
-ax_PS_ParDist.set_ylim(distLimits[0],distLimits[1])
-ax_PS_ParDist.set_xlim(xAxis_energyLimits[0],xAxis_energyLimits[1])
-ax_PS_ParDist.set_xscale('symlog')
-ax_PS_ParDist.grid()
-
-# --- INVERTEDV - PARALLEL DISTRIBUTION ---
-ax_InV_ParDist.set_title('Inverted-V Distribution',fontsize=Label_FontSize)
-ax_InV_ParDist.scatter(parEngy_InV, parDist_InV)
-ax_InV_ParDist.set_yscale('log')
-ax_InV_ParDist.set_ylim(distLimits[0],distLimits[1])
-ax_InV_ParDist.set_xlim(xAxis_energyLimits[0],xAxis_energyLimits[1])
-ax_InV_ParDist.set_xscale('symlog')
-ax_InV_ParDist.grid()
-
 # --- INVERTED-V parallel overlap ---
-axS4.scatter(paraEngy_PS,paraDist_PS,label='Plasma Sheet Ambient',color='blue')
-axS4.scatter(parEngy_InV,parDist_InV,label='Inverted-V',color='red')
-axS4.set_yscale('log')
-axS4.set_ylim(distLimits[0],distLimits[1])
-axS4.set_xlim(xAxis_energyLimits[0],xAxis_energyLimits[1])
-axS4.set_xscale('symlog')
-axS4.grid()
-axS4.set_title('Comparison',fontsize=Label_FontSize)
-axS4.set_ylabel(r'Distribution Function, $\alpha = 10^{\circ}$',fontsize=Label_FontSize)
-
+ax_Compare.set_title('Plasma Sheet and Inverted-V',fontsize=Label_FontSize)
+ax_Compare.scatter(paraEngy[0], paraDist[0], label='Plasma Sheet Ambient', color='blue')
+ax_Compare.scatter(paraEngy[1], paraDist[1], label='Inverted-V', color='red')
+ax_Compare.set_yscale('log')
+ax_Compare.set_ylim(distLimits[0],distLimits[1])
+ax_Compare.set_xlim(xAxis_energyLimits[0],xAxis_energyLimits[1])
+ax_Compare.set_xscale('symlog')
+ax_Compare.grid()
+ax_Compare.set_ylabel(r'Parallel Distribution Function',fontsize=Label_FontSize)
+ax_Compare.legend(prop={'size': legend_fontSize})
 
 # --- cbar ---
-cax = fig.add_axes([0.91, 0.288, 0.02, 0.592])
-cbar = plt.colorbar(cmap, cax=cax)
+# cax = fig.add_axes([0.91, 0.288, 0.02, 0.592])
+cbar = plt.colorbar(cmap)
 # cbar.set_label('Omni-Dir. diff E. Flux \n' + '[cm$^{-2}$str$^{-1}$eV/eV]', rotation=-90, labelpad=20, fontsize=General_LabelFontSize)
 cbar.ax.minorticks_on()
 cbar.ax.tick_params(labelsize=cbarTickLabelSize + 5)
 
 
-fig.subplots_adjust(left=None, bottom=0.3, right=None, top=0.99, wspace=None, hspace=None)  # remove the space between plots
+fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=None)  # remove the space between plots
+plt.tight_layout()
 plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_base.png', dpi=dpi)
 Done(start_time)
 

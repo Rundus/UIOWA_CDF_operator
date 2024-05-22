@@ -23,21 +23,23 @@ start_time = time.time()
 
 # Just print the names of files
 justPrintFileNames = False
-printMagFiles = True
+printMagFiles = False
 printElecFiles = True
 
 # --- Select the Rocket ---
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 4
+wRocket = 5
 
 modifier = ''
-inputPath_modifier_mag = 'L3\deltaB'
-wMagFile = 2
+inputPath_modifier_mag = 'L2'
+# inputPath_modifier_mag = 'L3\deltaB'
+wMagFile = 5
 Bscale = 1E-9 # what to multiply B-Field data to get into SI units
 
-inputPath_modifier_elec = 'L3\deltaE' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wEFIFile = 1
+# inputPath_modifier_elec = 'L3\deltaE' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_elec = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+wEFIFile = 2
 Escale = 1
 
 inputPath_modifier_langmuir = 'L3\Langmuir'

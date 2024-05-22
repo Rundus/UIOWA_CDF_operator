@@ -1,7 +1,7 @@
 # # --- RingCore_L1_to_L2_despin.py ---
 # # --- Author: C. Feltman ---
-# # DESCRIPTION: Just interpolate the attitude solution data and apply the wallops DCM to the magnetometer data, getting it in ENU coordinates.
-# Apply it over the entire journey of the flight
+# # DESCRIPTION: Just interpolate the attitude solution data and apply the wallops DCM
+# to the magnetometer data, getting it in ENU coordinates. Apply it over the entire journey of the flight
 
 
 
@@ -51,6 +51,18 @@ find_time_offset = False
 find_DC_offset = False
 replaceNANS = True
 
+# --- --- --- Apply Kenton/Antonio T0 correction --- --- ---
+# Description: Antontio worked with kenton to determine how to best
+# determine the T0 for the internal magnetometer timer and the rocket T0. This matters
+# When trying to determine the deltat between E-Field and B-Field measurements.
+# For similar events observed in the E/B fields, two linear fits were done to try to bring the epochs into alignment
+# based on the peaks of the two waveforms:
+KentonAntonio_T0_Correction = True
+EB_East = [0.999994, 0.03374] # slope, intercept (in seconds)
+EB_North = [0.999986, 0.03294]
+# The fits are done by finding 5 deltaT
+
+
 # --- --- --- output Data --- --- ---
 outputData = True # plots RKT XYZ and CHAOS model Spun-up XYZ
 
@@ -77,7 +89,7 @@ spinFreq = sum([fitResults['Bz']['Spin Freq'], fitResults['By']['Spin Freq'], fi
 # --- --- --- ---
 from ACESII_code.myImports import *
 from scipy.interpolate import CubicSpline
-from ACESII_code.class_var_func import CHAOS
+from ACESII_code.class_var_func import CHAOS, EpochTo_T0_Rocket
 
 
 def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
@@ -134,6 +146,8 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         Epoch_attitude_tt2000 = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_attitude['Epoch'][0]])
         Epoch_mag_tt2000 = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in data_dict_mag['Epoch'][0]])
         Done(start_time)
+
+
 
         #################################################
         # --- Determine CHAOS model on Attitude Epoch ---
@@ -292,7 +306,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                 if ChiSquare < bestChi[1]:
                     bestChi = [deltaB,ChiSquare]
             print('Best ChiSquare B: ', bestChi)
-
         else:  # apply the temporal offset
             # offsetDC = np.array([[5.714285714285714, -0.5306122448979592, 0.346938775510204], [175.78947368421052, 3.183673469387755, -183.6326530612245]])
             offsetDC = np.array([[0.10010010010010717,-1.2901290129012892,4.590459045904595], [0,0,0]])
@@ -304,7 +317,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         #####################################
         # --- Interpolate DCM to mag time ---
         #####################################
-
 
         # --- GET THE DCM FOR THE RKT with No time adjustments ---
         data_dict_attitude_temp = {}
@@ -318,7 +330,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # --- evaluate the interpolation at all the epoch_mag points ---
             data_dict_attitude_temp = {**data_dict_attitude_temp, **{key:np.array([splCub(timeVal) for timeVal in Epoch_mag_tt2000])}}
 
-
         DCM_magEpoch_forRKT = np.array(
             [[ [data_dict_attitude_temp['a11'][i], data_dict_attitude_temp['a12'][i], data_dict_attitude_temp['a13'][i]],
                [data_dict_attitude_temp['a21'][i], data_dict_attitude_temp['a22'][i], data_dict_attitude_temp['a23'][i]],
@@ -329,7 +340,6 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
         # apply DCM to modified CHAOS data
         B_rkt_ENU = np.array([np.matmul(DCM_magEpoch_forRKT[i], B_rkt[i]) for i in range(len(Epoch_mag_tt2000))])
-
 
         # --- GET THE DCM FOR CHAOS WITH time adjustments ---
         data_dict_attitude_temp = {}
@@ -353,25 +363,12 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         B_CHAOS_ENU_magTime = np.array([np.matmul(DCM_magEpoch_forCHAOS[i], B_CHAOS_rkt_magTime[i]) for i in range(len(Epoch_mag_tt2000))])
 
 
-        # fig,ax = plt.subplots(3)
-        # for i in range(3):
-        #     ax[i].plot(data_dict_mag['Epoch'][0],B_CHAOS_ENU_magTime[:,i],label='CHAOS')
-        #     ax[i].plot(data_dict_mag['Epoch'][0],B_rkt_ENU[:,i],label='RKT')
-        #     ax[i].legend()
-        #
-        # plt.show()
-
 
         #####################################
         # --- Subtract B_Model from B_Rkt ---
         #####################################
-
         DeltaB_ENU = B_rkt_ENU - B_CHAOS_ENU_magTime
 
-        # fig, ax = plt.subplots(3)
-        # for i in range(3):
-        #     ax[i].plot(data_dict_mag['Epoch'][0], DeltaB_ENU[:, i])
-        # plt.show()
 
         ###################################
         # --- Handle NAN values in data ---
@@ -413,7 +410,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             prgMsg('Creating model subtracted output file')
 
             # create the output data_dict
-            data_dict = deepcopy(data_dict_mag)
+            data_dict_output = deepcopy(data_dict_mag)
             comps = ['Bx', 'By', 'Bz']
             newComps = ['B_East', 'B_North', 'B_Up', 'Bmag']
             data_for_output_despin = np.array([[data_for_output[i][0], data_for_output[i][1], data_for_output[i][2]] for i in range(len(data_for_output))])
@@ -421,18 +418,47 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # --- Magnetic Components ---
             # get the attributes of the old components and replace them
             for i, key in enumerate(comps):
-                newAttrs = deepcopy(data_dict[key][1])
+                newAttrs = deepcopy(data_dict_output[key][1])
                 newAttrs['LABLAXIS'] = newComps[i]
 
                 # remove the old key
-                del data_dict[key]
+                del data_dict_output[key]
 
                 # append the new key
-                data_dict = {**data_dict, **{newComps[i]: [data_for_output_despin[:, i], newAttrs]}}
+                data_dict_output = {**data_dict_output, **{newComps[i]: [data_for_output_despin[:, i], newAttrs]}}
 
-            outputPath = f'{rocketFolderPath}{outputPath_modifier_despin}\{fliers[wflyer]}\\{fileoutName_despin}.cdf'
+            #####################################################
+            # --- APPLY T0 KENTON/ANTONIO CORRECTION TO B_ENU ---
+            #####################################################
+            # [1] Create a new Epoch variable through multiplication
+            # [2] Interpolate the B-Field data onto the old time-base?
+            # [3] export the newly interpolated B-Field data
+            if KentonAntonio_T0_Correction:
+                if wRocket == 5:
+                    prgMsg('Applying Kenton/Antonio T0 correction')
+                    # Calculate old timebase
+                    T0_time = dt.datetime(2022, 11, 20, 17, 20, 00, 000000)
+                    oldEpoch_TSL = EpochTo_T0_Rocket(InputEpoch=data_dict_output['Epoch'][0],
+                                                     T0=T0_time)
+                    slope = EB_East[0]
+                    interscept = EB_East[1]
+                    newEpoch = np.array([ pycdf.lib.tt2000_to_datetime(int((slope * val + interscept)*1E9 + pycdf.lib.datetime_to_tt2000(T0_time))) for val in oldEpoch_TSL])
 
-            outputCDFdata(outputPath, data_dict, instrNam='RingCore')
+                    # Interpolate onto old timebase
+                    data_dict_output_interp = InterpolateDataDict(InputDataDict=data_dict_output,
+                                                                  InputEpochArray=newEpoch,
+                                                                  targetEpochArray=deepcopy(data_dict_output['Epoch'][0]),
+                                                                  wKeys=[])
+
+                    data_dict_output = deepcopy(data_dict_output_interp)
+                    Done(start_time)
+
+            if KentonAntonio_T0_Correction:
+                outputPath = f'{rocketFolderPath}{outputPath_modifier_despin}\{fliers[wflyer]}\\{fileoutName_despin}_KentonCorrection.cdf'
+            else:
+                outputPath = f'{rocketFolderPath}{outputPath_modifier_despin}\{fliers[wflyer]}\\{fileoutName_despin}.cdf'
+
+            outputCDFdata(outputPath, data_dict_output, instrNam='RingCore')
 
             Done(start_time)
 

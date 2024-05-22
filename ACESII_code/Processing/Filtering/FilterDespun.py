@@ -20,17 +20,17 @@ start_time = time.time()
 # --- TOGGLES ---
 # --- --- --- ---
 justPrintFileNames = False
-wRocket = 4
+wRocket = 5
 modifier = ''
 inputPath_modifier = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder inside data\ACESII
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder inside data\ACESII\ACESII_matlab
-wFiles = [6]
+wFiles = [10]
 # ----------------------------
-lowcutoff, highcutoff = 1, 15
+lowcutoff, highcutoff = 0.7, 0.7
 fs = 128
 order = 4
 # filtertype = 'HighPass'
-filtertype = 'BandPass'
+filtertype = 'HighPass'
 # -----------------------------
 outputData = True
 
