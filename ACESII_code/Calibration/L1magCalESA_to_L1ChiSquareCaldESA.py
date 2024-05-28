@@ -257,7 +257,19 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
                             for engy in range(len(esaData_fullCal[0][0])):
 
                                 if esaData_fullCal[tme][uncalPad][engy] >= 0:
-                                    esaData_fullCal[tme][uncalPad][engy] = round(esaData_fullCal[tme][uncalPad][engy] * params[0])
+
+                                    if esaData_fullCal[tme][uncalPad][engy] == 0:
+                                        calibratedValue = 0
+                                    elif esaData_fullCal[tme][uncalPad][engy] <= 3:
+                                        if params[0] <= 2/3:
+                                            calibratedValue = 0
+                                        else:
+                                            calibratedValue = 3
+                                    else:
+                                        calibratedValue = round(esaData_fullCal[tme][uncalPad][engy] * params[0])
+
+                                    esaData_fullCal[tme][uncalPad][engy] = calibratedValue
+
                                 else:
                                     esaData_fullCal[tme][uncalPad][engy] = rocketAttrs.epoch_fillVal
 
@@ -303,7 +315,7 @@ def L1magCalESA_to_L1ChiSquareCaldESA(wRocket, wFile, rocketFolderPath, justPrin
             # --- --- --- --- --- --- ---
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
-            outputCDFdata(outputPath, data_dict_esa, outputModelData, globalAttrsMod, wInstr[1])
+            outputCDFdata(outputPath, data_dict_esa,ModelData= outputModelData, globalAttrsMod= globalAttrsMod,instrNam= wInstr[1])
 
             Done(start_time)
 

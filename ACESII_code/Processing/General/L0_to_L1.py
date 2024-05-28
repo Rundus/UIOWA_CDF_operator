@@ -41,7 +41,7 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files in
-justPrintFileNames = True
+justPrintFileNames = False
 
 # --- Select the Rocket ---
 # 0 -> Integration High Flier
@@ -59,6 +59,7 @@ wFiles = [[1, 2, 3], [1, 2]]
 
 # EEPAA: how many energy values not to keep, starting from the lowest values e.g. adjusts = 8 --> remove the bottom 8 values
 energy_adjusts = [8, 0, 0] #  [EEPAA,IEPAA,LEESA]
+countNoiseThresh = 2
 
 # Truncates all data to everything past 17:20:00 or whatever you wish
 truncateData = True
@@ -231,6 +232,14 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
         else:
             counts = np.array(counts)
 
+
+
+        # --- Apply a Counts treshold to the data so that only counts > 3 exist ---
+        finder = np.where(np.abs(counts) <= countNoiseThresh)
+        counts[finder] = 0
+
+
+
         data_dict['Epoch_esa'][0] = np.array(data_dict['Epoch_esa'][0])
         data_dict = {**data_dict, **{rocketAttrs.InstrNames_LC[wInstr[0]]:
                                          [counts, {'LABLAXIS': rocketAttrs.InstrNames_LC[wInstr[0]],
@@ -321,7 +330,7 @@ def L0_to_L1(wRocket, wFile, rocketFolderPath, justPrintFileNames,wflyer):
 
             outputPath = f'{rocketFolderPath}L1\{fliers[wflyer]}\\{fileoutName}'
 
-            outputCDFdata(outputPath, data_dict, L1ModelData, globalAttrsMod, wInstr[1])
+            outputCDFdata(outputPath, data_dict,ModelData=  L1ModelData, globalAttrsMod= globalAttrsMod, instrNam= wInstr[1])
 
         Done(start_time)
     elif wInstr[0] in [3]:

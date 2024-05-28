@@ -36,7 +36,7 @@ dpi = 800
 
 # --- Cbar ---
 # cbarMin, cbarMax = 5E6, 3E9
-cbarMin, cbarMax = 5E6, 5E9
+cbarMin, cbarMax = 2E7, 3E9
 cbarTickLabelSize = 14
 my_cmap = apl_rainbow_black0_cmap()
 my_cmap.set_bad(color=(1, 1, 1))
@@ -285,8 +285,8 @@ if plot_Dispersive:
 
         # --- Calculate Spectrogram ---
         spectrogramData = magDict['B_e'][0]
-        windowType, npersegN, scalingType = 'hann', 64, 'spectrum'  # spectrogram toggles
-        overlap = int(npersegN * (7 / 8))  # hanning filter overlap
+        windowType, npersegN, scalingType = 'hann', 128, 'spectrum'  # spectrogram toggles
+        overlap = int(npersegN * (1 / 2))  # hanning filter overlap
         f, t, Sxx = spectrogram(spectrogramData,
                                 fs=128,
                                 window=windowType,

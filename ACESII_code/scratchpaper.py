@@ -1,8 +1,11 @@
+import numpy as np
+
 from ACESII_code.myImports import *
-from ACESII_code.class_var_func import Re
 
-from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
+a = np.array([[5,2,3],[0,0,3],[3,5,3]]).T
 
-for time in dispersionAttributes.keyDispersionDeltaT:
+print(np.where(np.abs(a) < 2))
+finder = np.where(np.abs(a) < 4)
+a[finder] = 0
+print(a)
 
-    print( (pycdf.lib.datetime_to_tt2000(time[1]) - pycdf.lib.datetime_to_tt2000(time[0]))/1E9)

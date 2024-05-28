@@ -40,7 +40,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [[0, 2, 4],[0, 3]]
+wFiles = [[0, 2, 4], [0, 3]]
 
 inputPath_modifier = 'L1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 outputPath_modifier = 'L2' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder

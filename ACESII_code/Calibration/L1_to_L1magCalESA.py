@@ -17,6 +17,8 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import numpy as np
+
 from ACESII_code.myImports import *
 
 start_time = time.time()
@@ -41,7 +43,7 @@ wRocket = 4
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [[1, 3, 5],[1, 4]]
+wFiles = [[1,3,5], [1, 4]]
 
 inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
 inputPath_modifier_magPitch = 'calibration\ESA_magPitch_calibration' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
@@ -203,7 +205,18 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
         prgMsg('Reducing DataSet')
         for tme, ptch, engy in itertools.product(*esaRanges): # take the average of all the lists in the data
             if len(esaDataSorted[tme][ptch][engy]) != 0:
-                esaDataSorted[tme][ptch][engy] = int(sum(esaDataSorted[tme][ptch][engy])/len(esaDataSorted[tme][ptch][engy]))
+                # remove zeros from the average
+                dataToAverage = np.array(esaDataSorted[tme][ptch][engy])
+                dataToAverage= dataToAverage[np.where(dataToAverage !=0)]
+
+                if len(dataToAverage) == 0:
+                    esaDataSorted[tme][ptch][engy] = 0
+                else:
+                    esaDataSorted[tme][ptch][engy] = int(round(sum(dataToAverage) / len(dataToAverage)))
+
+                    if 0 < int(round(sum(dataToAverage)/len(dataToAverage))) <= 2:
+                        print(tme, ptch, engy, int(round(sum(dataToAverage)/len(dataToAverage))), esaDataSorted[tme][ptch][engy])
+
             else:
                 esaDataSorted[tme][ptch][engy] = rocketAttrs.epoch_fillVal
 
@@ -236,7 +249,7 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             prgMsg('Creating output file')
             outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
+            outputCDFdata(outputPath, data_dict,ModelData= outputModelData,globalAttrsMod= globalAttrsMod,instrNam= wInstr[1])
 
             Done(start_time)
 
@@ -259,7 +272,8 @@ def L1_to_L1magCalESA(wRocket, wFile, rocketFolderPath, justPrintFileNames, wfly
             fileoutName = f'ACESII_{rocketID}_{wInstr[1]}_ChiSquareData.cdf'
             outputPath = f'{rocketFolderPath}{outputPath_modifier_chiCal}\{fliers[wflyer]}\\{fileoutName}'
             globalAttrsMod['Descriptor'] = rocketAttrs.InstrNames_Full[wInstr[0]]
-            outputCDFdata(outputPath, data_dict, outputModelData, globalAttrsMod, wInstr[1])
+
+            outputCDFdata(outputPath, data_dict,ModelData=  outputModelData, globalAttrsMod= globalAttrsMod, instrNam= wInstr[1])
 
 
 # --- --- --- ---

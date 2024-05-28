@@ -77,13 +77,14 @@ bounds = 10*np.array([-1.5+i for i in range(11)])
 histNorm = mpl.colors.BoundaryNorm(bounds,tempCmap.N)
 
 # --- plot Poynting Flux Toggles ---
-wSTEBtoPlot = [1,2, 3, 4, 5] # STEB number NOT index. Don't -1
+wSTEBtoPlot = [1, 2, 3, 4, 5] # STEB number NOT index. Don't -1
 PoyntingScale = 1000# convert from W/m^2 to ergs/cm^2
 
 # --- plot COUNTS and ENERGY  toggles ---
 wPitchs_to_plot = [2, 3, 4, 5] # decide which pitch angles to get the peak energy for
 # countsMask = 3
-fluxMask = 5E7
+# fluxMask = 5E7
+fluxMask = 0
 Energy_yLimit_Idx = 15 # ONLY consider energies above this index -> energies BELOW ~ 1345 eV
 
 
@@ -205,7 +206,7 @@ for tme in range(len(rktTime_counts)):
 
         # Find errors in data and eliminate them from the median calculation
         for k, val in enumerate(pitchData):
-            if val < Histogram_countsthresh: # theshold away small COUNT values
+            if val <= Histogram_countsthresh: # theshold away small COUNT values
                 pitchData[k] = 0
             elif val > 1E14: # for extremely large outlier values
                 pitchData[k] = 0
@@ -235,7 +236,7 @@ axPitchHist.set_xmargin(0)
 # --- FLUX ESTIMATE PLOT ---
 # --- --- --- --- --- --- --
 axPoynting.plot(rktTime_deltaB, PoyntingScale*S_est, plot_Colors[2],linewidth=plot_LineWidth,zorder=2)
-axPoynting.set_ylabel('$\delta$ S$_{p}$\n [ergs/cm$^{2}$s]',fontsize=labels_FontSize)
+axPoynting.set_ylabel('$\delta$ S$_{\parallel}$\n [ergs/cm$^{2}$s]',fontsize=labels_FontSize)
 axPoynting.set_ylim(-0.1E-2, 5.3E-2)
 axPoynting.set_xmargin(0)
 axPoynting.tick_params(axis='both', which='major', labelsize=tick_LabelSize)
@@ -266,7 +267,7 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
     peakEnergy_atPeakFlux = []
     avgTimes = []
 
-    for t,tme in enumerate(STEBtimes_rkt):
+    for t, tme in enumerate(STEBtimes_rkt):
         # determine the x-value for the point (i.e. the average time)
         lowIdx = np.abs(rktTime_counts - tme[0]).argmin()
         highIdx = np.abs(rktTime_counts - tme[1]).argmin()
@@ -275,7 +276,6 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
         # Isolate the dispersion Feature
         wDis = wSTEBtoPlot[t]
         wDispersion_key = f's{wDis}'
-
         lowCut, highCut = np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][0]).argmin(), np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][1]).argmin()
         Epoch_dis = deepcopy(dateTimetoTT2000(data_dict_eepaa_high['Epoch'][0][lowCut:highCut + 1], inverse=False))
         eepaa_dis_pre = deepcopy(diffEFlux[lowCut:highCut + 1])
@@ -310,7 +310,6 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
         engyIdx, tmeIdx = np.where(pitchSlice == pitchSlice.max())
         peakEnergy_atPeakFlux.append(Energy[Energy_yLimit_Idx+engyIdx[0]])
         peakFlux.append(pitchSlice.max())
-
 
     # plot the results
     axPeakE.plot(avgTimes, peakEnergy, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize)
@@ -348,13 +347,13 @@ for t, tme in enumerate(STEBtimes[1:]):
     STEBdata = deepcopy(eepaa_dis)
     STEBdata[STEBdata < 0] = 0  # set anything below 0 = 0
 
-
     for idx, ptchVal in enumerate(wPitchs_to_plot):
 
         ptchSlice = STEBdata[:, ptchVal, Energy_yLimit_Idx:].T
         Energies = Energy[Energy_yLimit_Idx+1:]
         fluxSum = [sum(ptchSlice[engy])/len(ptchSlice[engy]) for engy in range(len(Energies))]
         subAxes[t].plot(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize-7)
+        # subAxes[t].scatter(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.')
 
     # set the labels and such
     if t in [0]:
@@ -370,7 +369,7 @@ for t, tme in enumerate(STEBtimes[1:]):
     props = dict(boxstyle='round', facecolor='white', alpha=1)
     subAxes[t].text(600, 4.5E8, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black',bbox=props, ha='center')
 
-    # subAxes[t].set_yscale('log')
+    subAxes[t].set_yscale('log')
     subAxes[t].set_ylim(5E5, 8E8)
     subAxes[t].tick_params(axis='y', which='major', labelsize=tick_SubplotLabelSize+4, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='y', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
@@ -390,7 +389,7 @@ for l in cbar_hist.ax.yaxis.get_ticklabels():
 
 # output the figure
 plt.subplots_adjust(left=0.13, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)
-fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\\Plot8_DistributionFunctions.png'
+fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot7\\Plot7_keyObservations_base.png'
 plt.savefig(fileOutName)
 Done(start_time)
 plt.close()

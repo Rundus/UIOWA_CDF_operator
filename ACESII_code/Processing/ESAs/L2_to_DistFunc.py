@@ -35,12 +35,12 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
 # [#0,#1,#2,...etc] --> only specific files. Follows python indexing. use justPrintFileNames = True to see which files you need.
-wFiles = [[0, 2, 4], [0, 2]]
+wFiles = [[0, 2, 4], [0, 4]]
 
 IsElectron = True
 wIon = 0

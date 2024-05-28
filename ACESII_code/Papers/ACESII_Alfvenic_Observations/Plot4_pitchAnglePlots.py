@@ -67,7 +67,7 @@ dpi = 200
 
 
 # plot toggles - Show STEB itself ----------
-cbarLow, cbarHigh = 5E6, 1E9
+cbarLow, cbarHigh = 2E7, 1E9
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = [0,1,2] # the pitch angle index to plot for the Energy vs time plot
 Energy_yLimit = 1350
@@ -186,10 +186,12 @@ ax00.tick_params(axis='x', which='major', labelsize=tickFontSize, width=tickWidt
 ax00.tick_params(axis='x', which='minor', labelsize=tickFontSize, width=tickWidth, length=tickLength/2)
 
 # plot the black vertical lines
-for disIdx in wDispersions:
+vertical_lineStyles = ['dotted','dashdot','dotted','dashdot']
+
+for k,disIdx in enumerate(wDispersions):
     for i in range(NoOfSlices):
         timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{disIdx + 1}'][i]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
-        ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle='--',alpha=0.55)
+        ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle=vertical_lineStyles[k],alpha=0.6)
 
 
 
@@ -245,7 +247,7 @@ for rowIdx in range(NoOfSlices):
 cax = fig.add_axes([0.93, 0.05, 0.025, 0.94])
 cbar = plt.colorbar(eepaaPitchSlice, cax=cax)
 cbar.ax.minorticks_on()
-cbar.ax.tick_params(labelsize=tickFontSize)
+cbar.ax.tick_params(labelsize=tickFontSize,length=tickLength)
 
 cbar.ax.get_yaxis().labelpad = 17
 for l in cbar.ax.yaxis.get_ticklabels():
