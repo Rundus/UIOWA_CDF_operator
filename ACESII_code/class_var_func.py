@@ -268,9 +268,6 @@ def loadDictFromFile(inputFilePath, **kwargs):
     else:
         return output_data_dict
 
-
-
-
 def outputCDFdata(outputPath, data_dict, **kwargs):
 
     ModelData = kwargs.get('ModelData', [])
@@ -703,6 +700,24 @@ def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
 #############################
 # ----- MODEL FUNCTIONS -----
 #############################
+
+
+# --- Dipole Magnetic Field ---
+def Bdip_mag(Alt_km, Lat_deg):
+    B0 = 3.12E-5
+
+    try: # if input data is arrays
+        test1 = len(Alt_km)
+        test2 = len(Lat_deg)
+        colat = [np.radians(90 - lat) for lat in Lat_deg]
+        Bdip = [B0 * np.power(Re / (Re + alt), 3) * np.sqrt(1 + 3 * np.power(np.cos(clat), 2)) for alt, clat in zip(Alt_km, colat)]
+
+    except: # if input data is single values
+        colat = np.radians(90 - Lat_deg)
+        Bdip = B0 * np.power(Re / (Re + Alt_km), 3) * np.sqrt(1 + 3 * np.power(np.cos(colat), 2))
+
+    return Bdip
+
 
 # --- Model Ionosphere ---
 # Inputs: list containing altitudes of interest
