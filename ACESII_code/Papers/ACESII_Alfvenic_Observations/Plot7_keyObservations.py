@@ -64,7 +64,7 @@ wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time p
 Energy_yLimit = 1350
 
 # plot toggles - Histogram ---------------------------
-Histogram_countsthresh = 2
+Histogram_countsthresh = 5
 # consider only the pitch angles between -10 and 90
 # [  0 1  2  3  4  5  6  7  8  9 10 ...]
 # [-10 0 10 20 30 40 50 60 70 80 90 ...]
