@@ -64,7 +64,7 @@ wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time p
 Energy_yLimit = 1350
 
 # plot toggles - Histogram ---------------------------
-Histogram_countsthresh = 5
+Histogram_countsthresh = 4
 # consider only the pitch angles between -10 and 90
 # [  0 1  2  3  4  5  6  7  8  9 10 ...]
 # [-10 0 10 20 30 40 50 60 70 80 90 ...]
@@ -78,7 +78,7 @@ histNorm = mpl.colors.BoundaryNorm(bounds,tempCmap.N)
 
 # --- plot Poynting Flux Toggles ---
 wSTEBtoPlot = [1, 2, 3, 4, 5] # STEB number NOT index. Don't -1
-PoyntingScale = 1000# convert from W/m^2 to ergs/cm^2
+PoyntingScale = 1E3# convert from W/m^2 to ergs/cm^2
 
 # --- plot COUNTS and ENERGY  toggles ---
 wPitchs_to_plot = [2, 3, 4, 5] # decide which pitch angles to get the peak energy for
@@ -236,7 +236,7 @@ axPitchHist.set_xmargin(0)
 # --- FLUX ESTIMATE PLOT ---
 # --- --- --- --- --- --- --
 axPoynting.plot(rktTime_deltaB, PoyntingScale*S_est, plot_Colors[2],linewidth=plot_LineWidth,zorder=2)
-axPoynting.set_ylabel('$\delta$ S$_{\parallel}$\n [ergs/cm$^{2}$s]',fontsize=labels_FontSize)
+axPoynting.set_ylabel('$\delta$ S$_{\parallel}$\n [erg/cm$^{2}$s]',fontsize=labels_FontSize)
 axPoynting.set_ylim(-0.1E-2, 5.3E-2)
 axPoynting.set_xmargin(0)
 axPoynting.tick_params(axis='both', which='major', labelsize=tick_LabelSize)
@@ -318,7 +318,7 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
 axPeakE.set_xmargin(0)
 axPeakE.set_ylabel('Peak Energy\n [eV]',fontsize=labels_FontSize)
 axPeakE.legend(fontsize=legend_FontSize)
-axPeakE.set_ylim(-50,1200)
+axPeakE.set_ylim(-50, 1200)
 axPeakE.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
 axPeakE.grid(alpha=0.5)
 

@@ -43,7 +43,7 @@ PlotLabelPad = 1
 freqLimit = 15
 plotLineWidth = 1
 TitlePadding = 10
-PoyntingScale = 1000# convert from W/m^2 to ergs/cm^2
+PoyntingScale = 1E3# convert from W/m^2 to ergs/cm^2
 Escale = 1000 # convert V/m to mV/m
 EB_ratio_limits = [1E5, 1E7]
 plotColors = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green']
@@ -304,10 +304,9 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         spectraLabels = [['$B_{e}(t)/|B_{0}(t)|$', '$E_{r}(t)/|B_{0}(t)||V_{A}(t)|$'],
                          ['$B_{r}(t)/|B_{0}(t)|$', '$E_{e}(t)/|B_{0}(t)||V_{A}(t)|$']]
 
-        alfvenData = [ [ np.array(spectraData[0][1][i])/np.array(spectraData[0][0][i])  for i in range(len(targetVar))],
+        alfvenData = [ [ np.array(spectraData[0][1][i])/np.array(spectraData[0][0][i]) for i in range(len(targetVar))],
                        [ np.array(spectraData[1][1][i])/np.array(spectraData[1][0][i]) for i in range(len(targetVar))],
                        ]
-
     else:
         spectraFreqs = [data_dict_FFT['xf_deltaB'], data_dict_FFT['xf_deltaE']]
         spectraData = [  [data_dict_FFT['Be_fft'], data_dict_FFT['Er_fft']],
@@ -318,8 +317,6 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         alfvenData = [[(1E6)*np.array(spectraData[0][1][i]) / np.array(spectraData[0][0][i]) for i in range(len(targetVar))],
                       [(1E6)*np.array(spectraData[1][1][i]) / np.array(spectraData[1][0][i]) for i in range(len(targetVar))],
                       ]
-
-
 
     #############################
     ### DO THE PLOTTING LOOPS ###
@@ -555,7 +552,7 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         # plt.tight_layout(rect=[0, 0.0, 0.93, 0.99], pad=-0.2)
         # plt.tight_layout()
         plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.1, hspace=0.3)
-        fileOutName = "Plot3_WaveAnalysis_BeEr.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe.png"
+        fileOutName = "Plot3_WaveAnalysis_BeEr_base.png" if wWaveSetKeys[0] == 'B_e' and wWaveSetKeys[1] =='E_r' else "Plot3_WaveAnalysis_mBrEe_base.png"
         outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot3\{fileOutName}'
 
         # spectrogram colorbar

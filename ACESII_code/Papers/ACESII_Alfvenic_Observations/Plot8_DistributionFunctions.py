@@ -10,6 +10,7 @@ __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from ACESII_code.myImports import *
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -29,18 +30,17 @@ print(color.UNDERLINE + f'Plot8_Conjugacy' + color.END)
 # --- --- --- ---
 
 # --- Physics Toggles ---
-datasetReduction_TargetTime = [dt.datetime(2022,11, 20, 17, 24, 23, 000000), dt.datetime(2022,11,20,17,25,10,000000)]
+datasetReduction_TargetTime = [dt.datetime(2022,11, 20, 17, 24, 50, 000000), dt.datetime(2022,11,20,17,25,15,000000)]
 targetVar = [datasetReduction_TargetTime, 'Epoch']
 
 plasmaSheet_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 21, 000000), dt.datetime(2022,11,20,17,24,48,000000)]
-plasmaSheet_TargetTimes_data = [  [dt.datetime(2022, 11, 20, 17, 24, 24, 000000), dt.datetime(2022,11,20,17,24,30,500000)],
-                             [dt.datetime(2022, 11, 20, 17, 24, 39, 500000), dt.datetime(2022,11,20,17,24,45,000000)]
+plasmaSheet_TargetTimes_data = [
+                            [dt.datetime(2022, 11, 20, 17, 26, 22, 500000), dt.datetime(2022,11,20,17,26,28,500000)],
+                            [dt.datetime(2022, 11, 20, 17, 27, 0, 000000), dt.datetime(2022,11,20,17,27,10,000000)]
                              ]
 
 invertedV_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 56, 000000), dt.datetime(2022,11,20,17,25,3,000000)]
-invertedV_TargetTimes_data = [[dt.datetime(2022,11, 20, 17, 25, 1, 396000), dt.datetime(2022,11,20,17,25,1,596000)],
-                         [dt.datetime(2022,11, 20, 17, 25, 1, 462000), dt.datetime(2022,11,20,17,25,1,512000)]
-                         ]
+invertedV_TargetTimes_data = [[dt.datetime(2022,11, 20, 17, 25, 1, 396000), dt.datetime(2022,11,20,17,25,1,712000)]]
 
 # --- Plot toggles - General ---
 figure_width = 10 # in inches
@@ -57,7 +57,7 @@ Tick_Width_minor = 1
 Plot_LineWidth = 0.5
 plot_MarkerSize = 14
 legend_fontSize = 15
-dpi = 800
+dpi = 200
 
 # --- Cbar ---
 mycmap = apl_rainbow_black0_cmap()
@@ -65,11 +65,20 @@ cbarMin, cbarMax = 1E-18, 1E-14
 cbarTickLabelSize = 14
 # cmap.set_bad(color=(1, 1, 1))
 
-# --- Distribution Fit toggles---
+
+##################################
+Fit_FITDATA = True
+
+# --- Distribution Fit (AVERAGE) toggles---
+Fit_AverageDistributionFit = False # outputs a sets of slices in pitch angle vs distrubution function
 fit_figure_width = 10 # in inches
 fit_figure_height =10 # in inches
-Plot_DistributionFit = True # outputs a sets of slices in pitch angle vs distrubution function
 DistributionFit_wPtchSlice = 2
+
+# --- Distribution Fit - Density, Temperature and Potential ---
+Fit_DistributionDensityTempPotental = True
+wPitchToFit = 2
+
 
 # --- Dist Overview toggles ---
 show_OverviewPlot = False
@@ -77,10 +86,10 @@ OverviewPlot_ptchRange = [2] # determines which pitch to include in the parallel
 
 # --- Comparison Plot toggles ---
 show_ComparisonPlot = False
-ComparisonPlot_distLimits = [1E-19, 1E-13]
-ComparisonPlot_xAxis_energyLimits = [10, 1E4]
+ComparisonPlot_distLimits = [1E-21, 1E-9]
+ComparisonPlot_xAxis_energyLimits = [1E-2, 1E4]
 ComparisonPlot_ptchRange = [1]
-ComparisonPlot_countNoiseLevel = 1
+ComparisonPlot_countNoiseLevel = 4
 
 # --- Backmapped toggles ---
 show_BackmappedPlot = False
@@ -103,10 +112,14 @@ inputEEPAA_dist_high = glob('C:\Data\ACESII\L3\DistFunc\high\*ACESII_36359_distF
 data_dict_dist = loadDictFromFile(inputFilePath=inputEEPAA_dist_high, targetVar=targetVar, wKeys_Reduce=['Distribution_Function', 'Epoch'])
 inputEEPAA_counts_high = glob('C:\Data\ACESII\L1\high\*eepaa_fullCal*')[0]
 data_dict_counts = loadDictFromFile(inputFilePath=inputEEPAA_counts_high, targetVar=targetVar, wKeys_Reduce=['eepaa', 'Epoch'])
+inputEEPAA_diffFlux_high = glob('C:\Data\ACESII\L2\high\*eepaa_fullCal*')[0]
+data_dict_diffFlux = loadDictFromFile(inputEEPAA_diffFlux_high, targetVar=targetVar, wKeys_Reduce=['Differential_Energy_Flux','Differential_Number_Flux', 'Epoch'])
 
 # Define the data
 counts = deepcopy(data_dict_counts['eepaa'][0])
 distFunc = deepcopy(data_dict_dist['Distribution_Function'][0])
+diffEFlux = deepcopy(data_dict_diffFlux['Differential_Energy_Flux'][0])
+diffNFlux = deepcopy(data_dict_diffFlux['Differential_Number_Flux'][0])
 Epoch = deepcopy(data_dict_dist['Epoch'][0])
 Energy = deepcopy(data_dict_dist['Energy'][0])
 Pitch = deepcopy(data_dict_dist['Pitch_Angle'][0])
@@ -198,7 +211,7 @@ if show_BackmappedPlot:
     Epoch_timeSince = EpochTo_T0_Rocket(InputEpoch=Epoch, T0=LaunchDateTime)
     plasmaSheet_timeSince = EpochTo_T0_Rocket(InputEpoch=plasmaSheet_targetTimes, T0=LaunchDateTime)
     invertedV_timeSince = EpochTo_T0_Rocket(InputEpoch=invertedV_targetTimes, T0=LaunchDateTime)
-    regionTimes = [plasmaSheet_targetTimes,invertedV_targetTimes]
+    regionTimes = [plasmaSheet_targetTimes, invertedV_targetTimes]
     mappedCounts_output = [[], []]
 
     # loop over altitudes
@@ -306,110 +319,252 @@ if show_BackmappedPlot:
 # --- FIT THE DISTRIBUTIONS ---
 # --- --- --- --- --- --- --- -
 ###############################
-from numpy import pi, exp, sqrt
-from math import gamma
 
-if Plot_DistributionFit:
 
-    ##################################
-    # --- DEFINE THE FIT FUNCTIONS ---
-    ##################################
-    def MaxwellianDist(x, n, T):  # Fits the NATURAL LOG of a Maxwellian for a Uniform/Thermalized Plasma
-        return 4 * pi * n * ((m_e / (2 * pi * q0 * T)) ** 1.5) * (2 * x / m_e) * exp(-x / (T))
+if Fit_FITDATA:
 
-    def KappaDist(x, kappa, n, T):
-        w = (2 * q0 * T / m_e) * ((kappa - 3 / 2) / kappa)
-        term1 = n / (2 *(pi**1.5)* (w**1.5) )
-        term2 = gamma(kappa+1) / ((kappa**1.5)*gamma(kappa + 0.5))
-        term3 = (1 + (x**2) /(kappa * w))**(-kappa - 1)
-        func = term1 * term2*term3
+    if Fit_AverageDistributionFit:
 
-        # term1 = n / (power(pi, 3/2)*power(w,3))
-        # term2 = gamma(kappa+1)/(power(kappa,3/2)*gamma(kappa-1/2))
-        # term3 = (1 + power(x,2)/(kappa*power(w,2)) )**(-kappa-1)
+        from numpy import pi, exp, sqrt
+        from math import gamma
 
-        # term1 = n * gamma(kappa + 1)
-        # term2 = (1 / (((sqrt(pi) * (sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e)))) ** 3) * ((kappa ** 3 / 2) * gamma(kappa - 0.5))))
-        # term3 = ((1 + 2 * q0 * x / (m_e * kappa * ((sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e))) ** 2))) ** (-kappa - 1))
-        return func
+        ##################################
+        # --- DEFINE THE FIT FUNCTIONS ---
+        ##################################
+        def MaxwellianDist(x, n, T):  # Fits the NATURAL LOG of a Maxwellian for a Uniform/Thermalized Plasma
+            return 4 * pi * n * ((m_e / (2 * pi * q0 * T)) ** 1.5) * (2 * x / m_e) * exp(-x / (T))
 
-    def collectDistData(datasetTimes, datasetPitchRange):
+        def KappaDist(x, kappa, n, T):
+            w = (2 * q0 * T / m_e) * ((kappa - 3 / 2) / kappa)
+            term1 = n / (2 *(pi**1.5)* (w**1.5) )
+            term2 = gamma(kappa+1) / ((kappa**1.5)*gamma(kappa + 0.5))
+            term3 = (1 + (2*x*q0) /(m_e*kappa * w))**(-kappa - 1)
+            func = term1 * term2*term3
 
-        ###### PARALLEL DISTRIBUTION FUNCTION VS ENERGY ######
-        distributionVals= []
-        energyVals = []
-        pitchVals = []
-        low_idx, high_idx = np.abs(Epoch - datasetTimes[0]).argmin(), np.abs(Epoch - datasetTimes[1]).argmin()
+            # term1 = n / (power(pi, 3/2)*power(w,3))
+            # term2 = gamma(kappa+1)/(power(kappa,3/2)*gamma(kappa-1/2))
+            # term3 = (1 + power(x,2)/(kappa*power(w,2)) )**(-kappa-1)
 
-        for ptch in datasetPitchRange:
-            data = distFunc[low_idx:high_idx, ptch, :].T
-            data[np.where(data == rocketAttrs.epoch_fillVal)] = 0
-            average = np.array([np.average(arr[np.nonzero(arr)]) for arr in data])  # average over time for each energy bin
-            average = np.array([val if np.isnan(val) == False else 0 for val in average])  # remove the points where there was no distribution function for a specific enregy
+            # term1 = n * gamma(kappa + 1)
+            # term2 = (1 / (((sqrt(pi) * (sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e)))) ** 3) * ((kappa ** 3 / 2) * gamma(kappa - 0.5))))
+            # term3 = ((1 + 2 * q0 * x / (m_e * kappa * ((sqrt(q0 * T * (2 * kappa - 3) / (kappa * m_e))) ** 2))) ** (-kappa - 1))
+            return func
 
-            # remove all the zero values from average and from energy
-            zeroFinder = np.where(average != 0)
-            distributionVals.append(average[zeroFinder])
-            energyVals.append(Energy[zeroFinder])
-            pitchVals.append(ptch)
+        def collectDistData(datasetTimes, datasetPitchRange):
 
-        return distributionVals, energyVals, pitchVals
+            ###### PARALLEL DISTRIBUTION FUNCTION VS ENERGY ######
+            distributionVals= []
+            energyVals = []
+            pitchVals = []
+            low_idx, high_idx = np.abs(Epoch - datasetTimes[0]).argmin(), np.abs(Epoch - datasetTimes[1]).argmin()
 
-    ##############################
-    # --- COLLECT THE FIT DATA ---
-    ##############################
-    fitPtches = [2, 3, 4] # pitch angles 10deg, 20deg, 30deg
-    InvertedVData = [collectDistData(invertedV_TargetTimes_data[i], fitPtches) for i in range(len(invertedV_TargetTimes_data))]
-    PlasmaSheetData = [collectDistData(plasmaSheet_TargetTimes_data[i], fitPtches) for i in range(len(plasmaSheet_TargetTimes_data))]
+            for ptch in datasetPitchRange:
+                data = distFunc[low_idx:high_idx, ptch, :].T
+                data[np.where(data == rocketAttrs.epoch_fillVal)] = 0
+                average = np.array([np.average(arr[np.nonzero(arr)]) for arr in data])  # average over time for each energy bin
+                average = np.array([val if np.isnan(val) == False else 0 for val in average])  # remove the points where there was no distribution function for a specific enregy
 
-    # guess = [1.509 1.3E6, 500]
-    # NOTE: 1 cm^3 = 1E6 m^3. Magnetospheric particles from plasma sheet are around 1 cm^-3 at 500eV
-    # guess = [1.51, 1E6, 200]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
-    # boundVals = [[1.5000000001, 2], [1E4, 1E14], [0.001, 1E4]]  # kappa, n, T
-    # bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
-    # params, cov = curve_fit(KappaDist, paraEngy[0], paraDist[0], p0=guess, maxfev=int(1E9), bounds=bounds)
-    # xData_fit, yData_fit = np.array(paraEngy[0]), np.array([KappaDist(val, *params) for val in paraEngy[0]])
+                # remove all the zero values from average and from energy
+                zeroFinder = np.where(average != 0)
+                distributionVals.append(average[zeroFinder])
+                energyVals.append(Energy[zeroFinder])
+                pitchVals.append(ptch)
 
-    # --- PLOT THE DISTRIBUTION FIT---
-    dataTimes = [plasmaSheet_TargetTimes_data, invertedV_TargetTimes_data]
-    dataDists = [PlasmaSheetData,InvertedVData]
-    wRegionIdx = 0 # determines which region we're interested in
-    wTimeIdx = 0
-    wPtchIdx = 0
-    rLabels = ['Plasma Sheet', 'Inverted-V']
+            return distributionVals, energyVals, pitchVals
 
-    for wRegionIdx in [0, 1]:
-        for wTimeIdx in range(len(dataTimes[wRegionIdx])):
-            for wPtchIdx in range(len(fitPtches)):
-                fitTimes = dataTimes[wRegionIdx][wTimeIdx] # [timestart,timeend]
-                fitDist = dataDists[wRegionIdx][wTimeIdx][0][wPtchIdx]
-                fitEngy = dataDists[wRegionIdx][wTimeIdx][1][wPtchIdx]
-                fitPtch = dataDists[wRegionIdx][wTimeIdx][2][wPtchIdx]
+        ##############################
+        # --- COLLECT THE FIT DATA ---
+        ##############################
+        fitPtches = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                     18]  # pitch angles 10deg, 20deg, 30deg
+        InvertedVData = [collectDistData(invertedV_TargetTimes_data[i], fitPtches) for i in
+                         range(len(invertedV_TargetTimes_data))]
+        PlasmaSheetData = [collectDistData(plasmaSheet_TargetTimes_data[i], fitPtches) for i in
+                           range(len(plasmaSheet_TargetTimes_data))]
 
+        # --- PLOT THE DISTRIBUTION FIT---
+        dataTimes = [plasmaSheet_TargetTimes_data, invertedV_TargetTimes_data]
+        dataDists = [PlasmaSheetData, InvertedVData]
+        wRegionIdx = 0  # determines which region we're interested in
+        wTimeIdx = 0
+        wPtchIdx = 0
+        rLabels = ['Plasma Sheet', 'Inverted-V']
+
+        from matplotlib.widgets import Button, Slider
+
+        init_kappa = 1.572
+        init_Temp = 485
+        init_n = 9.56E6
+
+        for wRegionIdx in [0, 1]:
+            for wTimeIdx in range(len(dataTimes[wRegionIdx])):
+                for wPtchIdx in range(len(fitPtches)):
+                    fitTimes = dataTimes[wRegionIdx][wTimeIdx]  # [timestart,timeend]
+                    fitDist = dataDists[wRegionIdx][wTimeIdx][0][wPtchIdx]
+                    fitEngy = dataDists[wRegionIdx][wTimeIdx][1][wPtchIdx]
+                    fitPtch = dataDists[wRegionIdx][wTimeIdx][2][wPtchIdx]
+
+                    # NOTE: 1 cm^3 = 1E6 m^3. Magnetospheric particles from plasma sheet are around 1 cm^-3 at 500eV
+                    # guess = [1.55, 20000000, 100]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
+                    # boundVals = [[1.500001, 2], [1E4,1E6], [10, 100]]  # kappa, n, T
+                    # bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
+                    # # params, cov = curve_fit(KappaDist, fitEngy, fitDist, maxfev=int(1E9), bounds=bounds, p0=guess)
+                    # params, cov = curve_fit(KappaDist, fitEngy, fitDist, maxfev=int(1E9), bounds=bounds)
+                    # # params, cov = curve_fit(KappaDist, fitEngy, fitDist, maxfev=int(1E9), p0=guess)
+                    # xData_fit, yData_fit = np.array(fitEngy), np.array([KappaDist(val, *params) for val in fitEngy])
+
+                    # Calculate the ChiSquare value
+                    nu = 3 - 1
+                    # ChiSquared = (1/nu) * sum([ (yData_fit[i] - fitDist[i])**2 / (fitDist[i]**2) for i in range(len(xData_fit))])
+
+                    fig, ax = plt.subplots(2)
+                    fig.set_size_inches(fit_figure_width, fit_figure_height)
+
+                    # general overplot
+                    low_idx, high_idx = np.abs(Epoch - fitTimes[0]).argmin(), np.abs(Epoch - fitTimes[1]).argmin()
+                    fitEpoch = Epoch[low_idx:high_idx + 1]
+                    generaldata = distFunc[low_idx:high_idx + 1, fitPtch, :].T
+                    ax[0].set_title(rLabels[
+                                        wRegionIdx] + f'\n {fitTimes[0].strftime("%H:%M:%S")} to {fitTimes[1].strftime("%H:%M:%S")}' + f'\nPitch = {Pitch[fitPtch]}',
+                                    fontsize=Title_FontSize)
+                    ax[0].pcolormesh(fitEpoch, Energy, generaldata, cmap=mycmap, vmin=cbarMin, vmax=cbarMax,
+                                     norm='log')
+                    ax[0].set_yscale('log')
+                    ax[0].set_ylabel('Energy [eV]', fontsize=Label_FontSize)
+
+                    ax[1].plot(Energy, distFunc_NoiseCount, label=f'{ComparisonPlot_countNoiseLevel}-count level',
+                               color='red')
+                    ax[1].plot(fitEngy, fitDist, color='black', marker='.', ms=plot_MarkerSize - 7)
+                    fittedData, = ax[1].plot(fitEngy, KappaDist(fitEngy, init_kappa, init_n, init_Temp), lw=2)
+                    # ax[1].plot(xData_fit, yData_fit, color='green', alpha=0.8, label=rf'$\kappa = {params[0]}$' + f'\nn={params[1]}' + f'\nT={params[2]}' + '\n $\chi^{2}$ =' +f'{ChiSquared}')
+                    ax[1].set_yscale('log')
+                    ax[1].set_ylim(ComparisonPlot_distLimits[0], ComparisonPlot_distLimits[1])
+                    ax[1].set_xlim(ComparisonPlot_xAxis_energyLimits[0], ComparisonPlot_xAxis_energyLimits[1])
+                    ax[1].set_xscale('symlog')
+                    ax[1].legend(fontsize=legend_fontSize)
+
+                    # --- Create the Sliders ---
+
+                    # Kappa
+                    axKappa = fig.add_axes([0.75, 0.25, 0.0225, 0.63])
+                    kappa_slider = Slider(
+                        ax=axKappa,
+                        label="Kappa",
+                        valmin=1.5000001,
+                        valmax=3,
+                        valinit=init_kappa,
+                        orientation="vertical"
+                    )
+
+                    # Density
+                    axDensity = fig.add_axes([0.85, 0.25, 0.0225, 0.63])
+                    density_slider = Slider(
+                        ax=axDensity,
+                        label="density",
+                        valmin=1E3,
+                        valmax=1E8,
+                        valinit=init_n,
+                        orientation="vertical"
+                    )
+
+                    # temperature
+                    axTemp = fig.add_axes([0.95, 0.25, 0.0225, 0.63])
+                    Temp_slider = Slider(
+                        ax=axTemp,
+                        label="Temp",
+                        valmin=1,
+                        valmax=1000,
+                        valinit=init_Temp,
+                        orientation="vertical"
+                    )
+
+                    def update(val):
+                        fittedData.set_ydata(
+                            KappaDist(fitEngy, kappa_slider.val, density_slider.val, Temp_slider.val))
+                        fig.canvas.draw_idle()
+
+                    kappa_slider.on_changed(update)
+                    density_slider.on_changed(update)
+                    Temp_slider.on_changed(update)
+
+                    for i in range(2):
+                        ax[i].tick_params(axis='y', which='major', colors='black', labelsize=Tick_FontSize,
+                                          length=Tick_Length, width=Tick_Width)
+                        ax[i].tick_params(axis='y', which='minor', colors='black', labelsize=Tick_FontSize_minor,
+                                          length=Tick_Length_minor, width=Tick_Width_minor)
+                    plt.tight_layout()
+                    # plt.show()
+                    # plt.close()
+                    plt.savefig(
+                        rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\fitData\Plot8_distribution_fit_base{wRegionIdx}{wTimeIdx}{wPtchIdx}.png',
+                        dpi=dpi)
+
+    if Fit_DistributionDensityTempPotental:
+
+
+        def diffNFlux_for_mappedMaxwellian(x,n,T,beta,V,alpha):
+
+            
+
+
+            return alpha
+
+        # define my function at the specific pitch angle of interest
+        from functools import partial
+        fitFuncAtPitch = partial(mappedFluxMaxwellian, alpha=wPitchToFit)
+
+
+
+
+
+        ##############################
+        # --- COLLECT THE FIT DATA ---
+        ##############################
+
+
+        for timeset in invertedV_TargetTimes_data:
+            # collect the data
+            low_idx, high_idx = np.abs(Epoch - timeset[0]).argmin(), np.abs(Epoch - timeset[1]).argmin()
+            EpochFitData = Epoch[low_idx:high_idx + 1]
+            fitData = diffNFlux[low_idx:high_idx+1,wPitchToFit,:]
+
+
+            # for each slice in time, loop over the data and identify the peak differentialNumberFlux (This corresponds to the
+            # peak energy of the inverted-V since the location of the maximum number flux tells you what energy the low-energy BULk got accelerated to)
+            # Note: The peak in the number flux is very likely the maximum value AFTER 100 eV, just find this point
+
+            for tmeIdx in range(len(EpochFitData)):
+
+                # Determine the peak point based on a treshold limit
+                threshEngy = 100
+                EngyIdx = np.abs(Energy - threshEngy).argmin()
+                peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
+                peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
+
+
+                # Plot the result to see
                 fig, ax = plt.subplots(2)
-                fig.set_size_inches(fit_figure_width, fit_figure_height)
-
-                # general overplot
-                low_idx, high_idx = np.abs(Epoch - fitTimes[0]).argmin(), np.abs(Epoch - fitTimes[1]).argmin()
-                fitEpoch = Epoch[low_idx:high_idx+1]
-                generaldata = distFunc[low_idx:high_idx+1, fitPtch, :].T
-                ax[0].set_title(rLabels[wRegionIdx]+f'\n {fitTimes[0].strftime("%H:%M:%S")} to {fitTimes[1].strftime("%H:%M:%S")}' +f'\nPitch = {Pitch[fitPtch]}', fontsize=Title_FontSize)
-                ax[0].pcolormesh(fitEpoch,Energy,generaldata, cmap=mycmap, vmin=cbarMin, vmax=cbarMax, norm='log')
+                fig.suptitle(f'Pitch Angle = {Pitch[wPitchToFit]}')
+                ax[0].pcolormesh(EpochFitData,Energy,fitData.T, vmin=1E4, vmax=1E7,cmap='turbo', norm='log')
                 ax[0].set_yscale('log')
-                ax[0].set_ylabel('Energy [eV]', fontsize=Label_FontSize)
-
-                ax[1].plot(fitEngy, fitDist, color='black', marker='.', ms=plot_MarkerSize-7)
-                ax[1].plot(Energy, distFunc_NoiseCount, label=f'{ComparisonPlot_countNoiseLevel}-count level', color='black')
+                ax[0].set_ylabel('Energy [eV]')
+                ax[0].set_xlabel('Time')
+                ax[0].axvline(EpochFitData[tmeIdx],color='black', linestyle='--')
+                ax[0].set_ylim(28,1000)
+                ax[1].plot(Energy, fitData[tmeIdx][:],'-o')
+                ax[1].axvline(Energy[peakDiffNVal_index],color='red')
                 ax[1].set_yscale('log')
-                ax[1].set_ylim(ComparisonPlot_distLimits[0], ComparisonPlot_distLimits[1])
-                ax[1].set_xlim(ComparisonPlot_xAxis_energyLimits[0], ComparisonPlot_xAxis_energyLimits[1])
-                ax[1].set_xscale('symlog')
+                ax[1].set_ylim(1E4, 1E7)
+                ax[1].set_xscale('log')
+                ax[1].set_xlabel('Energy [eV]')
 
-                for i in range(2):
-                    ax[i].tick_params(axis='y', which='major', colors='black', labelsize=Tick_FontSize, length=Tick_Length, width=Tick_Width)
-                    ax[i].tick_params(axis='y', which='minor', colors='black', labelsize=Tick_FontSize_minor, length=Tick_Length_minor, width=Tick_Width_minor)
-                plt.tight_layout()
-                plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\fitData\Plot8_distribution_fit_base{wRegionIdx}{wTimeIdx}{wPtchIdx}.png',dpi=dpi)
+                plt.show()
+                plt.close()
+
+
+
+
+
 
 else:
     ############################

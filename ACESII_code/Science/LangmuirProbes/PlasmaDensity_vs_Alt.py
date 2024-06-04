@@ -14,7 +14,6 @@ __version__ = "1.0.0"
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal
-
 from ACESII_code.myImports import *
 
 start_time = time.time()
@@ -34,7 +33,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 # select which files to convert
 # [] --> all files
@@ -42,11 +41,14 @@ wRocket = 5
 wFiles = []
 
 modifier = ''
-inputPath_modifier = 'science/Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_attitude = 'attitude'
+inputPath_modifier_LP = 'L3\Langmuir' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+inputPath_modifier_EISCAT = r'science\EISCAT\tromso\UHF'
+wLP_File = 0
+wEISCAT_file = 0
 outputPath_modifier = '' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
-
 outputData = False
+
+EISCAT_targetTimes = [dt.datetime(2022,11,20,17,22,00,000000),dt.datetime(2022,11,20,17,27,00,000000)]
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -54,144 +56,112 @@ outputData = False
 from scipy.interpolate import CubicSpline
 
 
-def PlasmaDensity_vs_Alt(wRocket, wFile, rocketFolderPath, justPrintFileNames, wflyer):
+def PlasmaDensity_vs_Alt(wRocket, wFile, rocketFolderPath, justPrintFileNames):
 
     # --- ACES II Flight/Integration Data ---
     rocketAttrs, b, c = ACES_mission_dicts()
-    rocketID = rocketAttrs.rocketID[wflyer]
-    globalAttrsMod = rocketAttrs.globalAttributes[wflyer]
+    rocketID = rocketAttrs.rocketID[wRocket-4]
+    globalAttrsMod = rocketAttrs.globalAttributes[wRocket-4]
     globalAttrsMod['Logical_source'] = globalAttrsMod['Logical_source'] + 'L2'
-    outputModelData = L2_TRICE_Quick(wflyer)
 
-    inputFiles = glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\*Langmuir*')
-    inputFiles_attitude = glob(f'{rocketFolderPath}{inputPath_modifier_attitude}\{fliers[wflyer]}{modifier}\*.cdf')
+    inputFiles_LP = glob(f'{rocketFolderPath}{inputPath_modifier_LP}\{fliers[wRocket-4]}{modifier}\*langmuir_fixed_LowPass*')
+    inputFiles_EISCAT = r'C:\Data\ACESII\science\EISCAT\tromso\UHF\MAD6400_2022-11-20_beata_ant@uhfa.cdf'
 
-    input_names = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}{modifier}\\', '') for ifile in inputFiles]
-
-    input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier.lower() +'_', '').replace('_v00', '') for ifile in input_names]
-
-    fileoutName = f'ACESII_{rocketID}_PlasmaDensity_vs_Alt.cdf'
+    input_names_LP = [ifile.replace(f'{rocketFolderPath}{inputPath_modifier_LP}\{fliers[wRocket-4]}{modifier}\\', '') for ifile in inputFiles_LP]
+    input_names_searchable = [ifile.replace('ACES_', '').replace('36359_', '').replace('36364_', '').replace(inputPath_modifier_LP.lower() +'_', '').replace('_v00', '') for ifile in input_names_LP]
 
     if justPrintFileNames:
-        for i, file in enumerate(inputFiles):
+        for i, file in enumerate(inputFiles_LP):
             print('[{:.0f}] {:80s}{:5.1f} MB'.format(i, input_names_searchable[i], round(getsize(file) / (10 ** 6), 1)))
-    else:
-        print('\n')
-        print(color.UNDERLINE + f'Plotting Density vs Altutde information for ACESII_{rocketID}' + color.END)
-        print('[' + str(wFile) + ']   ' + str(round(getsize(inputFiles[wFile]) / (10 ** 6), 1)) + 'MiB')
+        return
 
-        # --- get the data from the tmCDF file ---
-        prgMsg(f'Loading data from {inputPath_modifier} Files')
-        data_dict_LP = loadDictFromFile(inputFiles[wFile], {})
-        Epoch_LP_fixed = np.array([pycdf.lib.datetime_to_tt2000(data_dict_LP['fixed_Epoch'][0][i]) for i in (range(len(data_dict_LP['fixed_Epoch'][0])))])
-        ni = np.array(data_dict_LP['fixed_ni_density'][0])
-        Done(start_time)
+    print('\n')
+    print(color.UNDERLINE + f'Plotting Density vs Altutde information for ACESII_{rocketID}' + color.END)
 
-        # --- get the data from the tmCDF file ---
-        prgMsg(f'Loading data from {inputPath_modifier_attitude} Files')
-        data_dict_attitude = loadDictFromFile(inputFiles_attitude[wFile], {})
-        data_dict_attitude['Epoch'][0] = np.array(data_dict_attitude['Epoch'][0])
-        Done(start_time)
+    # --- get LP file ---
+    data_dict_LP = loadDictFromFile(inputFiles_LP[wLP_File])
+    Epoch = np.array(data_dict_LP['Epoch'][0])
+    ni = np.array(data_dict_LP['ni'][0])
+    Alt = np.array(data_dict_LP['Alt'][0])
+    Done(start_time)
 
-        #########################################################
-        # --- Interpolate the Attitude data up to the LP data ---
-        #########################################################
+    # --- get the EISCAT file ---
+    data_dict_EISCAT = loadDictFromFile(inputFiles_EISCAT)
+    Done(start_time)
 
-        # Attitude
-        Epoch_attitude = np.array([pycdf.lib.datetime_to_tt2000(data_dict_attitude['Epoch'][0][i]) for i in range(len(data_dict_attitude['Epoch'][0]))])
-        Alt = np.array(data_dict_attitude['Alt'][0])  # in meters!
-        Lat = data_dict_attitude['Latgd'][0]
-        Long = data_dict_attitude['Long'][0]
+    # --- Split the data into upleg and downleg -LP DATA ---
+    splitIndex = np.abs(Alt - Alt.max()).argmin()
 
-        normalData = [Epoch_attitude, Alt / 1000, Lat, Long]
+    newAlt_upleg = Alt[:splitIndex]
+    newNi_upleg = ni[:splitIndex]
 
-        newData = {
-            'newEpoch': Epoch_LP_fixed,
-            'newAlt': [],
-            'newLat': [],
-            'newLong': [],
-        }
+    newAlt_downleg = Alt[splitIndex:]
+    newNi_downleg = ni[splitIndex:]
 
-        # --- DO THE INTERPOLATION ---
-        counter = 0
-        for key, newDataList in tqdm(newData.items()):
-            if key != 'newEpoch':
-                # --- cubic interpolation ---
-                splCub = CubicSpline(Epoch_attitude, normalData[counter])
+    # --- Average the EISCAT data over a series of times and altitude ---
+    lowIdx, highIdx = np.abs(data_dict_EISCAT['Epoch'][0]-EISCAT_targetTimes[0]).argmin(),np.abs(data_dict_EISCAT['Epoch'][0]-EISCAT_targetTimes[1]).argmin()
 
-                # evaluate the interpolation at all the epoch_mag points
-                newData[key] = np.array([splCub(timeVal) for timeVal in Epoch_LP_fixed])
-
-            counter += 1
-
-        Done(start_time)
-
-        # do some quality assurance steps
-        badIndicies = []
-        for i in range(len(ni)):
-            if np.abs(ni[i]) > 1E8:
-                badIndicies.append(i)
-
-            if np.abs(newData['newAlt'][i]) > 1E8:
-                badIndicies.append(i)
-
-        newAlt = np.delete(newData['newAlt'],badIndicies)
-        newNi = np.delete(ni,badIndicies)
+    alt_EISCAT = data_dict_EISCAT['range'][0]
+    ne_EISCAT_raw = data_dict_EISCAT['ne'][0][lowIdx:highIdx].T
+    ne_EISCAT_raw[np.where(np.isnan(ne_EISCAT_raw))] = 0
+    ne_EISCAT_avg = np.flip((1E-6)*np.array([np.average(arr[np.nonzero(arr)]) for arr in ne_EISCAT_raw]))
 
 
-        # --- Smooth the density data to remove spin effects ---
-        newNi = scipy.signal.savgol_filter(newNi, window_length=10000, polyorder=2, mode='nearest')
+    # --- Density Model ---
+    xDataModel = np.linspace(70,10000, 5000)
+    R_REF = 6378
+    h = 0.06 * (R_REF )  # in km from E's surface
+    n0 = 6E4
+    n1 = 1.34E7
+    z0 = 0.05 * (R_REF )  # in km from E's surface
+    n_density = np.array([(n0 * np.exp(-1 * (alt  - z0) / h) + n1 * ((alt ) ** (-1.55))) for alt in xDataModel])  # calculated density (in m^-3)
 
 
-        # --- Split the data into upleg and downleg ---
 
-        # find the max in the altitude
-        splitIndex = np.abs(newAlt -  newAlt.max()).argmin()
+    #################################
+    # --- Plot the Density vs Alt ---
+    #################################
 
-        newAlt_upleg = newAlt[:splitIndex]
-        newNi_upleg = newNi[:splitIndex]
+    xData = [newNi_upleg, newNi_downleg]
+    yData = [newAlt_upleg, newAlt_downleg]
 
-        newAlt_downleg = newAlt[splitIndex:]
-        newNi_downleg = newNi[splitIndex:]
+    labels= ['Upleg', 'Downleg']
+    fig, ax = plt.subplots(1)
+    fig.suptitle(f'ACESII {rocketID} {labels[0]}')
+    ax.scatter(xData[0], yData[0], color='red')
+    ax.scatter(ne_EISCAT_avg, alt_EISCAT, color='blue')
+    ax.plot(n_density, xDataModel,color='green')
+    ax.set_xlabel('Density [cm$^{-3}$]')
+    ax.set_ylabel('Altitude [km]')
+    ax.set_ylim(50, 3000)
+    ax.set_yscale('log')
+    ax.set_xlim(1E1, 1E7)
+    ax.set_xscale('log')
+    ax.grid(True)
+    plt.show()
 
-        #################################
-        # --- Plot the Density vs Alt ---
-        #################################
 
-
-        xData = [newNi_upleg,newNi_downleg]
-        yData = [newAlt_upleg,newAlt_downleg]
-        labels= ['Upleg','Downleg']
-        for i in range(2):
-            fig, ax = plt.subplots()
-            fig.suptitle(f'ACESII {rocketID} {labels[i]}\n'
-                         r'$T_{i}$ = 0.1eV')
-            ax.scatter(xData[i],yData[i])
-            ax.set_xlabel('Density [cm$^{-3}$]')
-            ax.set_ylabel('Altitude [km]')
-            ax.set_ylim(70, 410) if wRocket ==4 else ax.set_ylim(70, 200)
-            ax.set_xlim(1E1, 1E7)
-            ax.set_xscale('log')
-            ax.grid(True)
-        plt.show()
+    #    # for i in range(2):
+    #     fig.suptitle(f'ACESII {rocketID} {labels[i]}')
+    #     ax[i].scatter(xData[i], yData[i],color='red')
+    #     ax[i].scatter(ne_EISCAT_avg, alt_EISCAT,color='blue')
+    #     ax[i].set_xlabel('Density [cm$^{-3}$]')
+    #     ax[i].set_ylabel('Altitude [km]')
+    #     ax[i].set_ylim(70, 800) if wRocket ==4 else ax[i].set_ylim(70, 200)
+    #     ax[i].set_xlim(1E1, 1E7)
+    #     ax[i].set_xscale('log')
+    #     ax[i].grid(True)
+    # plt.show()
 
 
 
 
 
 
-        # --- --- --- --- --- --- ---
-        # --- WRITE OUT THE DATA ---
-        # --- --- --- --- --- --- ---
+    # --- --- --- --- --- --- ---
+    # --- WRITE OUT THE DATA ---
+    # --- --- --- --- --- --- ---
 
-        if outputData:
-            prgMsg('Creating output file')
-
-            outputPath = f'{rocketFolderPath}{outputPath_modifier}\{fliers[wflyer]}\\{fileoutName}'
-
-            outputCDFdata(outputPath, data_dict, L2_TRICE_Quick, globalAttrsMod, "Langmuir")
-
-            Done(start_time)
 
 
 
@@ -202,21 +172,10 @@ def PlasmaDensity_vs_Alt(wRocket, wFile, rocketFolderPath, justPrintFileNames, w
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
-if wRocket == 4:  # ACES II High
-    rocketFolderPath = ACES_data_folder
-    wflyer = 0
-elif wRocket == 5: # ACES II Low
-    rocketFolderPath = ACES_data_folder
-    wflyer = 1
+rocketFolderPath = ACES_data_folder
 
-if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')) == 0:
+
+if len(glob(f'{rocketFolderPath}{inputPath_modifier_LP}\{fliers[wRocket-4]}\*.cdf')) == 0:
     print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
 else:
-    if justPrintFileNames:
-        PlasmaDensity_vs_Alt(wRocket, 0, rocketFolderPath, justPrintFileNames,wflyer)
-    elif not wFiles:
-        for fileNo in (range(len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wflyer]}\*.cdf')))):
-            PlasmaDensity_vs_Alt(wRocket, fileNo, rocketFolderPath, justPrintFileNames,wflyer)
-    else:
-        for filesNo in wFiles:
-            PlasmaDensity_vs_Alt(wRocket, filesNo, rocketFolderPath, justPrintFileNames,wflyer)
+    PlasmaDensity_vs_Alt(wRocket, 0, rocketFolderPath, justPrintFileNames)

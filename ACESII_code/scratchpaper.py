@@ -1,5 +1,5 @@
 import numpy as np
 
-a = [1,2,3]
-b = [4,5,6]
-print([(a,b) for a,b in zip(a,b)])
+a = np.array([1,2,3,10,4])
+
+print(np.argmax(a))

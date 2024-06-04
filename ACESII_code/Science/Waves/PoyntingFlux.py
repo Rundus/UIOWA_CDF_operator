@@ -22,8 +22,8 @@ start_time = time.time()
 # --- --- --- ---
 
 # Just print the names of files
-justPrintFileNames = False
-printMagFiles = False
+justPrintFileNames = True
+printMagFiles = True
 printElecFiles = True
 
 # --- Select the Rocket ---
@@ -32,14 +32,12 @@ printElecFiles = True
 wRocket = 5
 
 modifier = ''
-inputPath_modifier_mag = 'L2'
-# inputPath_modifier_mag = 'L3\deltaB'
-wMagFile = 5
+inputPath_modifier_mag = 'L3\deltaB'
+wMagFile = 0
 Bscale = 1E-9 # what to multiply B-Field data to get into SI units
 
-# inputPath_modifier_elec = 'L3\deltaE' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-inputPath_modifier_elec = 'L2' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
-wEFIFile = 2
+inputPath_modifier_elec = 'L3\deltaE' # e.g. 'L1' or 'L1'. It's the name of the broader input folder
+wEFIFile = 0
 Escale = 1
 
 inputPath_modifier_langmuir = 'L3\Langmuir'
@@ -57,7 +55,7 @@ outputData = True
 # --- IMPORTS ---
 # --- --- --- ---
 
-from ACESII_code.class_var_func import u0,coordinatesNames,coordinatesSets
+from ACESII_code.class_var_func import u0
 
 def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -190,7 +188,7 @@ def PoyntingFlux(wRocket, rocketFolderPath, justPrintFileNames):
             data_dict_output = {**data_dict_output, **{'Epoch': Epoch_output}}
 
             # add in the attitude data
-            keys = ['Alt', 'Lat', 'Long', 'Alt_geom', 'Lat_geom', 'Long_geom','ILat','ILong']
+            keys = ['Alt', 'ILat', 'ILong']
             for key in keys:
                 data_dict_output = {**data_dict_output, **{key:data_dict_mag[key]}}
 
