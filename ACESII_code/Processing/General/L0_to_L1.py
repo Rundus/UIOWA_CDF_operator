@@ -59,7 +59,7 @@ wFiles = [[1, 2, 3], [1, 2]]
 
 # EEPAA: how many energy values not to keep, starting from the lowest values e.g. adjusts = 8 --> remove the bottom 8 values
 energy_adjusts = [8, 0, 0] #  [EEPAA,IEPAA,LEESA]
-countNoiseThresh = 4
+countNoiseThresh = 2
 
 # Truncates all data to everything past 17:20:00 or whatever you wish
 truncateData = True
