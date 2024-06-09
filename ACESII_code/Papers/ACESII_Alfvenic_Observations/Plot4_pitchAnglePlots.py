@@ -108,9 +108,9 @@ Vpara = deepcopy(countsTemp)
 
 for ptch in range(len(countsTemp)):
     for engy in range(len(countsTemp[0])):
-        Emag = np.sqrt(2*q0*Energy[engy]/(m_e))
-        Vperp[ptch][engy] = np.sin(np.radians(Pitch[ptch]))*Emag
-        Vpara[ptch][engy] = np.cos(np.radians(Pitch[ptch]))*Emag
+        Vmag = np.sqrt(2*q0*Energy[engy]/(m_e))
+        Vperp[ptch][engy] = np.sin(np.radians(Pitch[ptch]))*Vmag
+        Vpara[ptch][engy] = np.cos(np.radians(Pitch[ptch]))*Vmag
 
 Vpara, Vperp = np.array(Vpara)/(10000*1000), np.array(Vperp)/(10000*1000)
 Done(start_time)
@@ -123,7 +123,6 @@ dispersionTimes = dispersionAttributes.keyDispersionTimes
 
 # the slices in time for each dispersion used
 sliceTimes = {key:[data_dict_eepaa_high['Epoch'][0][val] for val in sliceEpochIndicies[key]] for key,val in sliceEpochIndicies.items()}
-
 
 
 # --- --- --- --- ---

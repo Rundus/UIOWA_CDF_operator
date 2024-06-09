@@ -1,5 +1,5 @@
-import numpy as np
+from ACESII_code.myImports import *
 
-a = np.array([1,2,3,10,4])
-
-print(np.argmax(a))
+ACESI_EEPAA_path = r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\PlotExtra\BetaFit\ACESI_EEPAA.cdf'
+data_dict_ACESI = loadDictFromFile(ACESI_EEPAA_path)
+print(data_dict_ACESI['energy_cal'][0])
