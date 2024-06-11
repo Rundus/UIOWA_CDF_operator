@@ -1,5 +1,7 @@
+import numpy as np
+
 from ACESII_code.myImports import *
 
-ACESI_EEPAA_path = r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\PlotExtra\BetaFit\ACESI_EEPAA.cdf'
-data_dict_ACESI = loadDictFromFile(ACESI_EEPAA_path)
-print(data_dict_ACESI['energy_cal'][0])
+a,b = np.meshgrid([1,2,3],[5,6,7])
+print(a.flatten())
+print(b.flatten())
