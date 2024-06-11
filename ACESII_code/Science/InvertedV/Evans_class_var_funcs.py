@@ -38,11 +38,11 @@ def loadDiffNFluxData():
 
     return diffNFlux,Epoch,Energy,Pitch
 
-# def diffNFlux_for_mappedMaxwellian(x, n, T, beta, V, alpha):
-#     Vpara_sqrd = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (1 - 1 / beta) * (2 * x / m_e) * (power(sin(radians(alpha)), 2))
-#     Vperp_sqrd = ((2 * x) / (beta * m_e)) * power(sin(radians(alpha)), 2)
-#
-#     return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e / (2 * T)) * (Vpara_sqrd + Vperp_sqrd))
+def diffNFlux_for_mappedMaxwellian(x, n, T, beta, V, alpha):
+    Vpara_sqrd = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (1 - 1 / beta) * (2 * x / m_e) * (power(sin(radians(alpha)), 2))
+    Vperp_sqrd = ((2 * x) / (beta * m_e)) * power(sin(radians(alpha)), 2)
+
+    return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e / (2 * T)) * (Vpara_sqrd + Vperp_sqrd))
 
 
 def dist_Maxwellian(Vperp,Vpara,n,T):
@@ -50,16 +50,43 @@ def dist_Maxwellian(Vperp,Vpara,n,T):
     # output: the distribution function in SI units [s^3 m^-6]
     Emag = (0.5*m_e*(Vperp**2 + Vpara**2))/q0
     return (1E6 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp(-1*Emag/T)
-    # return (n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp(-1*Emag/T)
 
 
 def calc_diffNFlux(Vperp,Vpara,dist):
-
     # Input: Velocities [m/s], distribution function [s^3m^-6]
     # output: diffNFlux [cm^-2 s^-1 eV^-1 str^-1]
     Emag = 0.5 * m_e * (Vperp**2 + Vpara**2)/q0
-    return (2 * Emag) * power((100*q0 / m_e),2) * dist
-    # return (2 * Emag) * power((1E-2*q0 / m_e),2) * dist
+    return (2 * Emag) * power((q0 /( 100*m_e)),2) * dist
+
+
+def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta):
+
+    # --- Define a grid a velocities (static) ---
+    VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
+    distGrid = dist_Maxwellian(VperpGrid, VparaGrid, n=model_n, T=model_T)
+    diffNFluxGrid = calc_diffNFlux(VperpGrid, VparaGrid, distGrid)
+
+    # --- Determine the Accelerated Velocities ---
+    Vperp_gridVals_Accel = Vperp_gridVals
+    Vpar_gridVals_Accel = np.array([np.sqrt(val ** 2 + 2 * model_V0 * q0 / m_e) for val in Vpara_gridVals])
+    VperpGrid_Accel, VparaGrid_Accel = np.meshgrid(Vperp_gridVals_Accel, Vpar_gridVals_Accel)
+    diffNFluxGrid_Accel = calc_diffNFlux(VperpGrid_Accel, VparaGrid_Accel, distGrid)
+
+    # --- Determine the new velocities at different beta ---
+    VperpArray_magsph = VperpGrid_Accel.flatten()
+    VparaArray_magsph = VparaGrid_Accel.flatten()
+    Vperp_gridVals_iono = np.array([np.sqrt(beta) * val for val in VperpArray_magsph])
+    Vpara_gridVals_iono_sqrd = np.array([Vpar_magsph ** 2 + (1 - beta) * (Vper_magsph ** 2) for Vper_magsph, Vpar_magsph in zip(VperpArray_magsph, VparaArray_magsph)])
+    Vpara_gridVals_iono = np.array([np.sqrt(val) if val >= 0 else -1 * np.sqrt(np.abs(val)) for val in Vpara_gridVals_iono_sqrd])
+
+
+    # make the grids
+    VperpGrid_iono = Vperp_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
+    VparaGrid_iono = Vpara_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
+    diffNFluxGrid_iono = calc_diffNFlux(VperpGrid_iono, VparaGrid_iono, distGrid)
+
+    return distGrid,VperpGrid, VparaGrid, diffNFluxGrid, VperpGrid_Accel, VparaGrid_Accel, diffNFluxGrid_Accel, VperpGrid_iono, VparaGrid_iono, diffNFluxGrid_iono
+
 
 
 def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGrid,ZGrid):

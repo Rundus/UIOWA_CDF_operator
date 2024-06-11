@@ -14,7 +14,7 @@ import numpy as np
 from ACESII_code.myImports import *
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 from ACESII_code.class_var_func import EpochTo_T0_Rocket, q0,m_e
-from ACESII_code.Science.InvertedV.Evans_class_var_funcs import calc_diffNFlux,dist_Maxwellian
+from ACESII_code.Science.InvertedV.Evans_class_var_funcs import calc_diffNFlux,dist_Maxwellian,diffNFlux_for_mappedMaxwellian
 from functools import partial
 plt.rcParams["font.family"] = "Arial"
 start_time = time.time()
@@ -45,7 +45,7 @@ Tick_Length_minor = 1
 Tick_Width_minor = 1
 Plot_LineWidth = 0.5
 plot_MarkerSize = 14
-legend_fontSize = 15
+Legend_fontSize = 14
 dpi = 200
 
 # --- Cbar ---
@@ -54,9 +54,9 @@ cbarMin, cbarMax = 1E-18, 1E-14
 cbarTickLabelSize = 14
 
 # ---  Density, Temperature and Potential ---
-invertedV_fitDensityTempPotential = False
+invertedV_fitDensityTempPotential = True
 wPitchToFit = 2
-countNoiseLevel = 1
+countNoiseLevel = 4
 
 
 ##########################
@@ -75,15 +75,23 @@ Done(start_time)
 # --- --- --- --- --- --- --- -
 ###############################
 
-
 # define my function at the specific pitch angle of interest
+fitFuncAtPitch = partial(diffNFlux_for_mappedMaxwellian, alpha=Pitch[wPitchToFit])
 
-fitFuncAtPitch = partial(diffNFlux_for_mappedMaxwellian, alpha= Pitch[wPitchToFit])
+################################
+# --- DEFINE THE NOISE LEVEL ---
+################################
+rocketAttrs, b, c = ACES_mission_dicts()
+diffNFlux_NoiseCount = np.zeros(shape=(len(Energy)))
+geo_factor = rocketAttrs.geometric_factor[0]
+count_interval = 0.8992E-3
+for engy in range(len(Energy)):
+    deltaT = (count_interval) - (countNoiseLevel * rocketAttrs.deadtime[0])
+    diffNFlux_NoiseCount[engy] = (countNoiseLevel) / (geo_factor[0] * deltaT * Energy[engy])
 
 ##############################
 # --- COLLECT THE FIT DATA ---
 ##############################
-
 for timeset in invertedV_TargetTimes_data:
     # collect the data
     low_idx, high_idx = np.abs(Epoch - timeset[0]).argmin(), np.abs(Epoch - timeset[1]).argmin()
@@ -100,7 +108,7 @@ for timeset in invertedV_TargetTimes_data:
         threshEngy = 200
         EngyIdx = np.abs(Energy - threshEngy).argmin()
         peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
-        peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
+        peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])+1
 
         # get the subset of data to fit to and fit it. Only include data with non-zero points
         xData_fit = np.array(Energy[:peakDiffNVal_index+1])
@@ -118,41 +126,41 @@ for timeset in invertedV_TargetTimes_data:
         bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
         params, cov = curve_fit(fitFuncAtPitch,xData_fit,yData_fit,maxfev=int(1E9), bounds=bounds)
 
-
-        pairs = [f'({x},{y})' for x,y in zip(xData_fit,yData_fit)]
-
-
         fittedX = np.linspace(xData_fit.min(), xData_fit.max(), 100)
         fittedY = fitFuncAtPitch(fittedX,*params)
 
         # --- Calculate ChiSquare ---
-
-        for i in range(len(xData_fit)):
-            print(fitFuncAtPitch(xData_fit[i],*params),yData_fit[i],xData_fit[i],(fitFuncAtPitch(xData_fit[i],*params) - yData_fit[i])**2)
-
         ChiSquare = (1/2)*sum([(fitFuncAtPitch(xData_fit[i],*params) - yData_fit[i])**2 / (yData_fit[i]**2) for i in range(len(xData_fit))])
 
 
         # Plot the result to see
         fig, ax = plt.subplots(2)
         fig.set_size_inches(figure_width, figure_height)
-        fig.suptitle(f'Pitch Angle = {Pitch[wPitchToFit]} \n {EpochFitData[tmeIdx]} UTC')
+        fig.suptitle(f'Pitch Angle = {Pitch[wPitchToFit]} \n {EpochFitData[tmeIdx]} UTC', fontsize=Title_FontSize)
         ax[0].pcolormesh(EpochFitData,Energy,fitData.T, vmin=1E4, vmax=1E7,cmap='turbo', norm='log')
         ax[0].set_yscale('log')
-        ax[0].set_ylabel('Energy [eV]')
-        ax[0].set_xlabel('Time')
+        ax[0].set_ylabel('Energy [eV]', fontsize=Label_FontSize)
+        ax[0].set_xlabel('Time', fontsize=Label_FontSize)
         ax[0].axvline(EpochFitData[tmeIdx],color='black', linestyle='--')
         ax[0].set_ylim(28,1000)
         ax[1].plot(Energy, fitData[tmeIdx][:],'-o')
-        ax[1].plot(fittedX, fittedY, color='purple', label=f'n = {params[0]}\n T = {params[1]} \n' + rf'$\beta$={params[2]}' + f'\n V = {params[3]}\n' + r'$\chi^{2}$='+f'{ChiSquare}')
-        ax[1].legend()
+        ax[1].plot(fittedX, fittedY, color='red', label=f'n = {params[0]}' +' cm$^{-3}$' +f'\n T = {params[1]} eV\n' + f'V = {params[3]} eV\n')
+
+        for i in range(2):
+            ax[i].tick_params(axis='y', which='major', colors='black', labelsize=Tick_FontSize, length=Tick_Length, width=Tick_Width)
+            ax[i].tick_params(axis='y', which='minor', colors='black', labelsize=Tick_FontSize_minor, length=Tick_Length_minor, width=Tick_Width_minor)
+
         ax[1].axvline(Energy[peakDiffNVal_index],color='red')
         ax[1].set_yscale('log')
         ax[1].set_xscale('log')
-        ax[1].set_xlabel('Energy [eV]')
-        ax[1].set_ylabel('diffNFlux')
+        ax[1].set_xlabel('Energy [eV]', fontsize=Label_FontSize)
+        ax[1].set_ylabel('diffNFlux [cm$^{-2}$s$^{-1}$str$^{-1}$ eV/eV]', fontsize=Label_FontSize-4)
         ax[1].set_xlim(28,1E4)
         ax[1].set_ylim(1E4, 1E7)
 
+        # plot the noise
+        ax[1].plot(Energy,diffNFlux_NoiseCount,color='black', label=f'{countNoiseLevel}-count noise')
+
+        ax[1].legend(fontsize=Legend_fontSize)
         plt.show()
         plt.close()

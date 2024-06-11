@@ -493,13 +493,7 @@ if Fit_FITDATA:
                 plt.tight_layout()
                 # plt.show()
                 # plt.close()
-                plt.savefig(
-                    rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\fitData\Plot8_distribution_fit_base{wRegionIdx}{wTimeIdx}{wPtchIdx}.png',
-                    dpi=dpi)
-
-
-
-
+                plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\fitData\Plot8_distribution_fit_base{wRegionIdx}{wTimeIdx}{wPtchIdx}.png', dpi=dpi)
 
 
 else:

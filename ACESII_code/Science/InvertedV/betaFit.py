@@ -2,7 +2,7 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: using the data from diffNFlux_fitting we can generate distributions at various altitudes
 # to see which height our data most closely matches to
-
+import os
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -47,7 +47,7 @@ mycmap = apl_rainbow_black0_cmap()
 # --- --- --- --- --- ---
 ##########################
 prgMsg('Loading Data')
-from ACESII_code.Science.InvertedV.Evans_class_var_funcs import loadDiffNFluxData
+from ACESII_code.Science.InvertedV.Evans_class_var_funcs import loadDiffNFluxData, calc_DistributionMapping
 diffNFlux,Epoch,Energy,Pitch = loadDiffNFluxData()
 Done(start_time)
 
@@ -55,8 +55,8 @@ Done(start_time)
 # --- BETA FIT TOGGLES ---
 ##########################
 # mapped distribution to different betas
-beta_model = [1,2,4]
-paramSet = 2
+beta_model = [3,6,9,12,15,18,21,24] # If I wante realistic distance values, then beta should be between 3 to 24
+
 N = 1000 # velcoity space grid density
 pitchBarVal = 110 # pitch angle to plot on graphs
 
@@ -64,25 +64,29 @@ pitchBarVal = 110 # pitch angle to plot on graphs
 outputCDF = True
 EnergyBins = Energy
 PitchBins = np.array([-180 + i * 10 for i in range(36 + 1)]) #
-compareThesePitches = [2,3, 4,5, 6,7, 8,10]
+compareThesePitches = [2, 3, 4, 5, 6, 7, 8, 10]
 
 
 # note: these values come from the pitch = 10deg fit
-# modelParams = [['2022-11-20 17:25:01:312207', 1.25, 1150, 3400],# kappler
-#                ['2022-11-20 17:25:01:312207', 1.5, 800, 2000],  # Evans 1974
-#                ['2022-11-20 17:25:01:312207', 3.799273, 108.904, 235.2], # our data
-#                ['2022-11-20 17:25:01:362211', 5.365, 146.9, 201],
-#                ['2022-11-20 17:25:01:412211', 2.957, 124.599, 275],
-#                ['2022-11-20 17:25:01:462208', 3.3039, 115.86, 235.4]] # format: time, density [cm^-3], temperature [eV], [potential eV]
-
+paramSet = 4
 modelParams = [['2022-11-20 17:25:01:312207', 1.25, 1150, 3400],# kappler
                ['2022-11-20 17:25:01:312207', 1.5, 800, 2000],  # Evans 1974
-               ['2022-11-20 17:25:01:412211', 2.957, 124.599, 275]] # OUR DATA: the GOOD SLICE
+               ['2022-11-20 17:25:01:312207', 3.799273, 108.904, 235.2], # our data
+               ['2022-11-20 17:25:01:362211', 5.365, 146.9, 201],
+               ['2022-11-20 17:25:01:412211', 2.957, 124.599, 275],# OUR DATA: the GOOD SLICE
+               ['2022-11-20 17:25:01:462208', 3.3039, 115.86, 235.4]] # format: time, density [cm^-3], temperature [eV], [potential eV]
+
 
 #################################
 # --- GENERATE THE MODEL DATA ---
 #################################
-prgMsg('Creating Model Data')
+
+# remove the old files in the folder
+oldFiles = [glob(r'C:\Data\ACESII\science\invertedV\betaMappingPlots\*.png*'),glob(r'C:\Data\ACESII\science\invertedV\betaComparisonPlots\*.png*')]
+for folder in oldFiles:
+    for file in folder:
+        os.remove(file)
+
 
 Vpar_model = []
 Vperp_model = []
@@ -91,46 +95,34 @@ Epoch_model =[dt.datetime.strptime(st[0], "%Y-%m-%d %H:%M:%S:%f") for st in mode
 
 for betaChoice in beta_model:
 
+
     # betaChoice = 7  # unitless
     model_T = modelParams[paramSet][2]  # in eV
     model_n = modelParams[paramSet][1]  # in cm^-3
     model_V0 = modelParams[paramSet][3]
 
-    # --- Define a grid a velocities (static) ---
+    # --- Define a grid of intial velocities ---
     Vperp_gridVals = np.linspace(-np.sqrt(2*Energy.max()*q0/m_e), np.sqrt(2*Energy.max()*q0/m_e), N)
     Vpara_gridVals = np.linspace(0, np.sqrt(2*Energy.max()*q0/m_e), N)
-    VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
-    distGrid = dist_Maxwellian(VperpGrid, VparaGrid, n=model_n, T=model_T)
-    diffNFluxGrid = calc_diffNFlux(VperpGrid,VparaGrid,distGrid)
 
-    # --- Determine the Accelerated Velocities ---
-    Vperp_gridVals_Accel = Vperp_gridVals
-    Vpar_gridVals_Accel = np.array([np.sqrt(val**2 + 2*model_V0*q0/m_e) for val in Vpara_gridVals])
-    VperpGrid_Accel,VparGrid_Accel = np.meshgrid(Vperp_gridVals_Accel,Vpar_gridVals_Accel)
-    diffNFluxGrid_Accel = calc_diffNFlux(VperpGrid_Accel,VparGrid_Accel,distGrid)
-
-    # --- Determine the new velocities at different beta ---
-    VperpArray_magsph = VperpGrid_Accel.flatten()
-    VparaArray_magsph = VparGrid_Accel.flatten()
-    distFuncArray= distGrid.flatten()
-    VperpArray_iono = np.array([ np.sqrt(betaChoice)*val for val in VperpArray_magsph])
-    VparaArray_iono_sqrd = np.array([ Vpar_magsph**2 + (1 - betaChoice)*(Vper_magsph**2) for Vper_magsph, Vpar_magsph in zip(VperpArray_magsph,VparaArray_magsph)])
-    VparaArray_iono = np.array([np.sqrt(val) if val >=0 else -1*np.sqrt(np.abs(val)) for val in VparaArray_iono_sqrd ])
-
+    # --- Calculate the grids of the accelerate and mirror_mapped distributions ---
+    prgMsg(rf'Creating Model Data for beta = {betaChoice}')
+    distGrid,VperpGrid, VparaGrid, diffNFluxGrid, VperpGrid_Accel, VparaGrid_Accel, diffNFluxGrid_Accel, VperpGrid_iono, VparaGrid_iono, diffNFluxGrid_iono = calc_DistributionMapping(Vperp_gridVals=Vperp_gridVals,
+                                                                                                                                                                              Vpara_gridVals=Vpara_gridVals,
+                                                                                                                                                                              model_T=model_T,
+                                                                                                                                                                              model_n=model_n,
+                                                                                                                                                                              model_V0=model_V0,
+                                                                                                                                                                              beta=betaChoice)
     if outputCDF:
-        Vpar_model.append(VparaArray_iono)
-        Vperp_model.append(VperpArray_iono)
-        distFunc_model.append(distFuncArray)
+        Vpar_model.append(VparaGrid_iono.flatten())
+        Vperp_model.append(VperpGrid_iono.flatten())
+        distFunc_model.append(distGrid.flatten())
 
-    # make the grids
-    VperpGrid_iono = VperpArray_iono.reshape(N,N)
-    VparGrid_iono = VparaArray_iono.reshape(N,N)
-    diffNFluxGrid_iono = calc_diffNFlux(VperpGrid_iono,VparGrid_iono,distGrid)
-
-    # --- Determine the Distribution at a beta ratio ---
+    Done(start_time)
+    prgMsg('Creating the Plot')
 
     # --- Plot it ---
-    fig, ax = plt.subplots(3,2)
+    fig, ax = plt.subplots(3, 2)
     fig.set_size_inches(figure_width, figure_height)
 
     titles = ['Plasma Sheet Model','Accelerated', 'Observed Ionosphere Model']
@@ -138,26 +130,25 @@ for betaChoice in beta_model:
     for k in range(2):
 
         if k == 0:
-            grids = [[VperpGrid, VparaGrid, distGrid], [VperpGrid_Accel, VparGrid_Accel, distGrid], [VperpGrid_iono, VparGrid_iono, distGrid]]
+            grids = [[VperpGrid, VparaGrid, distGrid], [VperpGrid_Accel, VparaGrid_Accel, distGrid], [VperpGrid_iono, VparaGrid_iono, distGrid]]
             vmin, vmax = 1E-22, 1E-14
             cbarLabel = 'Distribution Function'
 
         else:
-            grids = [[VperpGrid, VparaGrid, diffNFluxGrid], [VperpGrid_Accel, VparGrid_Accel, diffNFluxGrid_Accel], [VperpGrid_iono, VparGrid_iono, diffNFluxGrid_iono]]
-            vmin, vmax = 1E4, 4E6
+            grids = [[VperpGrid, VparaGrid, diffNFluxGrid], [VperpGrid_Accel, VparaGrid_Accel, diffNFluxGrid_Accel], [VperpGrid_iono, VparaGrid_iono, diffNFluxGrid_iono]]
+            vmin, vmax = 1E4, 1E10
             cbarLabel = 'diff_N_Flux'
 
-
-        for i in [0, 1, 2 ]:
+        for i in [0, 1, 2]:
             cmap = ax[i,k].pcolormesh(grids[i][0]/(1E7), grids[i][1]/(1E7), grids[i][2], cmap=mycmap, norm='log', vmin=vmin, vmax=vmax)
             cbar = plt.colorbar(cmap, ax=ax[i,k])
             cbar.set_label(cbarLabel)
-            ax[i,k].set_ylabel('Vpara')
-            ax[i,k].set_xlabel('Vperp')
-            ax[i,k].set_ylim(0, 3)
-            ax[i,k].set_xlim(-3, 3)
-            ax[i,k].invert_yaxis()
-            ax[i,k].set_title(titles[i])
+            ax[i, k].set_ylabel('Vpara')
+            ax[i, k].set_xlabel('Vperp')
+            ax[i, k].set_ylim(0, 10)
+            ax[i, k].set_xlim(-10, 10)
+            ax[i, k].invert_yaxis()
+            ax[i, k].set_title(titles[i])
 
             if i in [1,2]:
                 ax[i,k].axhline(np.sqrt(2*model_V0*q0/m_e)/(1000*10000),color='red', label='$V_{0}$'+f'= {model_V0} eV')
@@ -168,9 +159,10 @@ for betaChoice in beta_model:
                 ax[i,k].plot([0,-1*EmagVal * np.sin(np.radians(pitchBarVal))], [0, EmagVal * np.cos(np.radians(pitchBarVal))], color='black')
                 ax[i,k].legend()
     plt.tight_layout()
-    plt.savefig(rf'C:\Data\ACESII\science\invertedV\BetaFit_{betaChoice}.png',dpi=dpi)
+    plt.savefig(rf'C:\Data\ACESII\science\invertedV\betaMappingPlots\BetaFit_{betaChoice}.png',dpi=dpi)
     plt.close()
-Done(start_time)
+    Done(start_time)
+
 
 
 
