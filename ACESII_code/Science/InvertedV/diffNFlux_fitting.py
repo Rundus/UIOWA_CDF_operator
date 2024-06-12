@@ -92,6 +92,13 @@ for engy in range(len(Energy)):
 ##############################
 # --- COLLECT THE FIT DATA ---
 ##############################
+
+paramTime = []
+modeled_T = []
+modeled_V = []
+modeled_n = []
+
+
 for timeset in invertedV_TargetTimes_data:
     # collect the data
     low_idx, high_idx = np.abs(Epoch - timeset[0]).argmin(), np.abs(Epoch - timeset[1]).argmin()
@@ -108,7 +115,7 @@ for timeset in invertedV_TargetTimes_data:
         threshEngy = 200
         EngyIdx = np.abs(Energy - threshEngy).argmin()
         peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
-        peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])+1
+        peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
 
         # get the subset of data to fit to and fit it. Only include data with non-zero points
         xData_fit = np.array(Energy[:peakDiffNVal_index+1])
@@ -159,8 +166,39 @@ for timeset in invertedV_TargetTimes_data:
         ax[1].set_ylim(1E4, 1E7)
 
         # plot the noise
-        ax[1].plot(Energy,diffNFlux_NoiseCount,color='black', label=f'{countNoiseLevel}-count noise')
+        ax[1].plot(Energy, diffNFlux_NoiseCount, color='black', label=f'{countNoiseLevel}-count noise')
 
         ax[1].legend(fontsize=Legend_fontSize)
-        plt.show()
+
+        plt.savefig(rf'C:\Data\ACESII\science\invertedV\TempDensityPotential_Fitting\FitData_Pitch{Pitch[wPitchToFit]}_{tmeIdx}.png')
         plt.close()
+
+        # Store the data to be plotted later
+        paramTime.append(EpochFitData[tmeIdx])
+        modeled_n.append(params[0])
+        modeled_T.append(params[1])
+        modeled_V.append(params[3])
+
+
+# --- output Plot of the time series of modeled data ---
+fig, ax = plt.subplots(3, sharex=True)
+fig.set_size_inches(figure_width, figure_height)
+ax[0].plot(paramTime,modeled_n,marker='o',label='n  [cm$^{-3}$]')
+avg_n = round(sum(modeled_n)/len(modeled_n),1)
+ax[0].axhline(avg_n,color='red',label=rf'n (Avg) = {avg_n}')# plot the average value
+ax[0].legend(fontsize= Legend_fontSize)
+# ax[0].set_ylim(1,10)
+ax[1].plot(paramTime,modeled_T,marker='o', label='T [eV]')
+avg_T = round(sum(modeled_T)/len(modeled_T),1)
+ax[1].axhline(avg_T,color='red',label=rf'T (Avg) = {avg_T} ')# plot the average value
+ax[1].legend(fontsize= Legend_fontSize)
+# ax[1].set_ylim(50,200)
+ax[2].plot(paramTime,modeled_V,marker='o', label='V [eV]')
+avg_V = round(sum(modeled_V)/len(modeled_V),1)
+ax[2].axhline(avg_V,color='red',label=rf'$V (Avg) = {avg_V}')# plot the average value
+ax[2].legend(fontsize= Legend_fontSize)
+# ax[2].set_ylim(150,350)
+ax[2].set_ylabel('Time (UTC)')
+
+plt.savefig(rf'C:\Data\ACESII\science\invertedV\TempDensityPotential_Fitting\Parameters_Pitch{Pitch[wPitchToFit]}.png')
+

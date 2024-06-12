@@ -56,14 +56,23 @@ def calc_diffNFlux(Vperp,Vpara,dist):
     # Input: Velocities [m/s], distribution function [s^3m^-6]
     # output: diffNFlux [cm^-2 s^-1 eV^-1 str^-1]
     Emag = 0.5 * m_e * (Vperp**2 + Vpara**2)/q0
-    return (2 * Emag) * power((q0 /( 100*m_e)),2) * dist
+    return (2 * Emag) * power(q0 /( 100*m_e),2) * dist
 
 
-def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta):
+def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold):
 
     # --- Define a grid a velocities (static) ---
     VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
     distGrid = dist_Maxwellian(VperpGrid, VparaGrid, n=model_n, T=model_T)
+
+    if modifyInitialBeam:
+        for i in range(len(VperpGrid)):
+            for j in range(len(VperpGrid[0])):
+                pitchVal = np.degrees(np.arctan2(VperpGrid[i][j] ,VparaGrid[i][j]))
+
+                if np.abs(pitchVal) >= beamPitchThreshold:
+                    distGrid[i][j] = 0
+
     diffNFluxGrid = calc_diffNFlux(VperpGrid, VparaGrid, distGrid)
 
     # --- Determine the Accelerated Velocities ---
