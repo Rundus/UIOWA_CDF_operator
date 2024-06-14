@@ -55,7 +55,7 @@ cbarTickLabelSize = 14
 
 # ---  Density, Temperature and Potential ---
 invertedV_fitDensityTempPotential = True
-wPitchToFit = 1
+wPitchToFit = 3
 countNoiseLevel = 4
 
 
@@ -136,6 +136,8 @@ for timeset in invertedV_TargetTimes_data:
                          [(1-deviation)*Energy[peakDiffNVal_index], (1+deviation)*Energy[peakDiffNVal_index]]]  # V [eV]
             bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
             params, cov = curve_fit(fitFuncAtPitch,xData_fit,yData_fit,maxfev=int(1E9), bounds=bounds)
+
+            print(Pitch[wPitchToFit], params)
 
             fittedX = np.linspace(xData_fit.min(), xData_fit.max(), 100)
             fittedY = fitFuncAtPitch(fittedX,*params)
