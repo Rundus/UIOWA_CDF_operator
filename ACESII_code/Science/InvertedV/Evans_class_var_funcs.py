@@ -59,7 +59,7 @@ def calc_diffNFlux(Vperp,Vpara,dist):
     return (2 * Emag) * power(q0 /( 100*m_e),2) * dist
 
 
-def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold):
+def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold,beamEnergyThreshold):
 
     # --- Define a grid a velocities (static) ---
     VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
@@ -68,9 +68,13 @@ def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, mod
     if modifyInitialBeam:
         for i in range(len(VperpGrid)):
             for j in range(len(VperpGrid[0])):
+
                 pitchVal = np.degrees(np.arctan2(VperpGrid[i][j] ,VparaGrid[i][j]))
+                EnergyVal = 0.5*m_e*(VperpGrid[i][j] **2 + VparaGrid[i][j]**2) / q0
 
                 if np.abs(pitchVal) >= beamPitchThreshold:
+                    distGrid[i][j] = 0
+                if EnergyVal >= beamEnergyThreshold:
                     distGrid[i][j] = 0
 
     diffNFluxGrid = calc_diffNFlux(VperpGrid, VparaGrid, distGrid)

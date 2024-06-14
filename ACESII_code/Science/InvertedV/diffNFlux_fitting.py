@@ -28,8 +28,8 @@ print(color.UNDERLINE + f'diffNFlux_fitting' + color.END)
 # --- --- --- ---
 
 # --- Physics Toggles ---
-invertedV_targetTimes = [dt.datetime(2022,11, 20, 17, 24, 56, 000000), dt.datetime(2022,11,20,17,25,3,000000)]
-invertedV_TargetTimes_data = [[dt.datetime(2022,11, 20, 17, 25, 1, 300000), dt.datetime(2022,11,20,17,25,1,800000)]]
+invertedV_targetTimes = [dt.datetime(2022, 11, 20, 17, 24, 56, 000000), dt.datetime(2022,11,20,17,25,3,000000)]
+invertedV_TargetTimes_data = [[dt.datetime(2022, 11, 20, 17, 25, 1, 150000), dt.datetime(2022,11,20,17,25,1,512208)]]
 
 # --- Plot toggles - General ---
 figure_width = 10 # in inches
@@ -55,7 +55,7 @@ cbarTickLabelSize = 14
 
 # ---  Density, Temperature and Potential ---
 invertedV_fitDensityTempPotential = True
-wPitchToFit = 2
+wPitchToFit = 1
 countNoiseLevel = 4
 
 
@@ -105,99 +105,107 @@ for timeset in invertedV_TargetTimes_data:
     EpochFitData = Epoch[low_idx:high_idx + 1]
     fitData = diffNFlux[low_idx:high_idx+1, wPitchToFit, :]
 
+
     # for each slice in time, loop over the data and identify the peak differentialNumberFlux (This corresponds to the
     # peak energy of the inverted-V since the location of the maximum number flux tells you what energy the low-energy BULk got accelerated to)
     # Note: The peak in the number flux is very likely the maximum value AFTER 100 eV, just find this point
 
     for tmeIdx in range(len(EpochFitData)):
+        sign = [-1 if val < 0 else 1 for val in fitData[tmeIdx]]
 
-        # Determine the peak point based on a treshold limit
-        threshEngy = 200
-        EngyIdx = np.abs(Energy - threshEngy).argmin()
-        peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
-        peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
+        if EpochFitData[tmeIdx] != dt.datetime(2022,11,20,17,25,1,262206) and not sum(sign) == -1*len(fitData[tmeIdx]):
 
-        # get the subset of data to fit to and fit it. Only include data with non-zero points
-        xData_fit = np.array(Energy[:peakDiffNVal_index+1])
-        yData_fit = np.array(fitData[tmeIdx][:peakDiffNVal_index+1])
-        nonZeroIndicies = np.where(yData_fit!=0)[0]
-        xData_fit = xData_fit[nonZeroIndicies]
-        yData_fit = yData_fit[nonZeroIndicies]
+            # Determine the peak point based on a treshold limit
+            threshEngy = 100
+            EngyIdx = np.abs(Energy - threshEngy).argmin()
+            peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
+            peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
 
-        deviation = 0.18
-        guess = [1.55, 20000000, 100]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
-        boundVals = [[0.0001, 30000], # n [cm^-3]
-                     [10,500], # T [eV]
-                     [1, 10], # beta [unitless]
-                     [(1-deviation)*Energy[peakDiffNVal_index], (1+deviation)*Energy[peakDiffNVal_index]]]  # V [eV]
-        bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
-        params, cov = curve_fit(fitFuncAtPitch,xData_fit,yData_fit,maxfev=int(1E9), bounds=bounds)
+            # get the subset of data to fit to and fit it. Only include data with non-zero points
+            xData_fit = np.array(Energy[:peakDiffNVal_index+1])
+            yData_fit = np.array(fitData[tmeIdx][:peakDiffNVal_index+1])
+            nonZeroIndicies = np.where(yData_fit!=0)[0]
+            xData_fit = xData_fit[nonZeroIndicies]
+            yData_fit = yData_fit[nonZeroIndicies]
 
-        fittedX = np.linspace(xData_fit.min(), xData_fit.max(), 100)
-        fittedY = fitFuncAtPitch(fittedX,*params)
+            deviation = 0.18
+            guess = [1.55, 20000000, 100]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
+            boundVals = [[0.0001, 30000], # n [cm^-3]
+                         [10,500], # T [eV]
+                         [1, 10], # beta [unitless]
+                         [(1-deviation)*Energy[peakDiffNVal_index], (1+deviation)*Energy[peakDiffNVal_index]]]  # V [eV]
+            bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
+            params, cov = curve_fit(fitFuncAtPitch,xData_fit,yData_fit,maxfev=int(1E9), bounds=bounds)
 
-        # --- Calculate ChiSquare ---
-        ChiSquare = (1/2)*sum([(fitFuncAtPitch(xData_fit[i],*params) - yData_fit[i])**2 / (yData_fit[i]**2) for i in range(len(xData_fit))])
+            fittedX = np.linspace(xData_fit.min(), xData_fit.max(), 100)
+            fittedY = fitFuncAtPitch(fittedX,*params)
+
+            # --- Calculate ChiSquare ---
+            ChiSquare = (1/2)*sum([(fitFuncAtPitch(xData_fit[i],*params) - yData_fit[i])**2 / (yData_fit[i]**2) for i in range(len(xData_fit))])
 
 
-        # Plot the result to see
-        fig, ax = plt.subplots(2)
-        fig.set_size_inches(figure_width, figure_height)
-        fig.suptitle(f'Pitch Angle = {Pitch[wPitchToFit]} \n {EpochFitData[tmeIdx]} UTC', fontsize=Title_FontSize)
-        ax[0].pcolormesh(EpochFitData,Energy,fitData.T, vmin=1E4, vmax=1E7,cmap='turbo', norm='log')
-        ax[0].set_yscale('log')
-        ax[0].set_ylabel('Energy [eV]', fontsize=Label_FontSize)
-        ax[0].set_xlabel('Time', fontsize=Label_FontSize)
-        ax[0].axvline(EpochFitData[tmeIdx],color='black', linestyle='--')
-        ax[0].set_ylim(28,1000)
-        ax[1].plot(Energy, fitData[tmeIdx][:],'-o')
-        ax[1].plot(fittedX, fittedY, color='red', label=f'n = {params[0]}' +' cm$^{-3}$' +f'\n T = {params[1]} eV\n' + f'V = {params[3]} eV\n')
+            # Plot the result to see
+            fig, ax = plt.subplots(2)
+            fig.set_size_inches(figure_width, figure_height)
+            fig.suptitle(f'Pitch Angle = {Pitch[wPitchToFit]} \n {EpochFitData[tmeIdx]} UTC', fontsize=Title_FontSize)
+            cmapObj =ax[0].pcolormesh(EpochFitData,Energy,fitData.T, vmin=9E4, vmax=1E7,cmap='turbo', norm='log')
+            ax[0].set_yscale('log')
+            ax[0].set_ylabel('Energy [eV]', fontsize=Label_FontSize)
+            ax[0].set_xlabel('Time', fontsize=Label_FontSize)
+            ax[0].axvline(EpochFitData[tmeIdx],color='black', linestyle='--')
+            ax[0].set_ylim(28,1000)
+            plt.colorbar(cmapObj)
 
-        for i in range(2):
-            ax[i].tick_params(axis='y', which='major', colors='black', labelsize=Tick_FontSize, length=Tick_Length, width=Tick_Width)
-            ax[i].tick_params(axis='y', which='minor', colors='black', labelsize=Tick_FontSize_minor, length=Tick_Length_minor, width=Tick_Width_minor)
 
-        ax[1].axvline(Energy[peakDiffNVal_index],color='red')
-        ax[1].set_yscale('log')
-        ax[1].set_xscale('log')
-        ax[1].set_xlabel('Energy [eV]', fontsize=Label_FontSize)
-        ax[1].set_ylabel('diffNFlux [cm$^{-2}$s$^{-1}$str$^{-1}$ eV/eV]', fontsize=Label_FontSize-4)
-        ax[1].set_xlim(28,1E4)
-        ax[1].set_ylim(1E4, 1E7)
+            ax[1].plot(Energy, fitData[tmeIdx][:],'-o')
+            ax[1].plot(fittedX, fittedY, color='red', label=f'n = {params[0]}' +' cm$^{-3}$' +f'\n T = {params[1]} eV\n' + f'V = {params[3]} eV\n')
 
-        # plot the noise
-        ax[1].plot(Energy, diffNFlux_NoiseCount, color='black', label=f'{countNoiseLevel}-count noise')
+            for i in range(2):
+                ax[i].tick_params(axis='y', which='major', colors='black', labelsize=Tick_FontSize, length=Tick_Length, width=Tick_Width)
+                ax[i].tick_params(axis='y', which='minor', colors='black', labelsize=Tick_FontSize_minor, length=Tick_Length_minor, width=Tick_Width_minor)
 
-        ax[1].legend(fontsize=Legend_fontSize)
+            ax[1].axvline(Energy[peakDiffNVal_index],color='red')
+            ax[1].set_yscale('log')
+            ax[1].set_xscale('log')
+            ax[1].set_xlabel('Energy [eV]', fontsize=Label_FontSize)
+            ax[1].set_ylabel('diffNFlux [cm$^{-2}$s$^{-1}$str$^{-1}$ eV/eV]', fontsize=Label_FontSize-4)
+            ax[1].set_xlim(28,1E4)
+            ax[1].set_ylim(1E4, 1E7)
 
-        plt.savefig(rf'C:\Data\ACESII\science\invertedV\TempDensityPotential_Fitting\FitData_Pitch{Pitch[wPitchToFit]}_{tmeIdx}.png')
-        plt.close()
+            # plot the noise
+            ax[1].plot(Energy, diffNFlux_NoiseCount, color='black', label=f'{countNoiseLevel}-count noise')
 
-        # Store the data to be plotted later
-        paramTime.append(EpochFitData[tmeIdx])
-        modeled_n.append(params[0])
-        modeled_T.append(params[1])
-        modeled_V.append(params[3])
+            ax[1].legend(fontsize=Legend_fontSize)
+
+            plt.savefig(rf'C:\Data\ACESII\science\invertedV\TempDensityPotential_Fitting\FitData_Pitch{Pitch[wPitchToFit]}_{tmeIdx}.png')
+            plt.close()
+
+            # Store the data to be plotted later
+            paramTime.append(EpochFitData[tmeIdx])
+            modeled_n.append(params[0])
+            modeled_T.append(params[1])
+            modeled_V.append(params[3])
 
 
 # --- output Plot of the time series of modeled data ---
 fig, ax = plt.subplots(3, sharex=True)
 fig.set_size_inches(figure_width, figure_height)
+fig.suptitle(f'Pitch = {Pitch[wPitchToFit]}')
 ax[0].plot(paramTime,modeled_n,marker='o',label='n  [cm$^{-3}$]')
 avg_n = round(sum(modeled_n)/len(modeled_n),1)
 ax[0].axhline(avg_n,color='red',label=rf'n (Avg) = {avg_n}')# plot the average value
 ax[0].legend(fontsize= Legend_fontSize)
-# ax[0].set_ylim(1,10)
+ax[0].set_ylim(1,10)
 ax[1].plot(paramTime,modeled_T,marker='o', label='T [eV]')
 avg_T = round(sum(modeled_T)/len(modeled_T),1)
 ax[1].axhline(avg_T,color='red',label=rf'T (Avg) = {avg_T} ')# plot the average value
 ax[1].legend(fontsize= Legend_fontSize)
-# ax[1].set_ylim(50,200)
+ax[1].set_ylim(50,200)
 ax[2].plot(paramTime,modeled_V,marker='o', label='V [eV]')
 avg_V = round(sum(modeled_V)/len(modeled_V),1)
-ax[2].axhline(avg_V,color='red',label=rf'$V (Avg) = {avg_V}')# plot the average value
+ax[2].axhline(avg_V,color='red',label=rf'V (Avg) = {avg_V}')# plot the average value
 ax[2].legend(fontsize= Legend_fontSize)
-# ax[2].set_ylim(150,350)
+ax[2].set_ylim(100,350)
 ax[2].set_ylabel('Time (UTC)')
 
 plt.savefig(rf'C:\Data\ACESII\science\invertedV\TempDensityPotential_Fitting\Parameters_Pitch{Pitch[wPitchToFit]}.png')

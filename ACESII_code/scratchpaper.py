@@ -2,6 +2,12 @@ import numpy as np
 
 from ACESII_code.myImports import *
 
-a,b = np.meshgrid([1,2,3],[5,6,7])
-print(a.flatten())
-print(b.flatten())
+e = (245.74, 286.82, 334.77, 390.74)
+d = (30, 30, 30, 40)
+c = [-10, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170]
+b = np.array([286.82, 245.74, 286.82, 334.77, 390.74, 334.77, 390.74, 334.77, 334.77, 245.74, 286.82, 245.74, 286.82, 286.82, 334.77, 245.74, 245.74, 245.74])
+commonEnergies = [334.77, 390.74, 245.74, 286.82]
+
+h = [np.where(b == engy)[0][0] for engy in commonEnergies]
+print(h)
+
