@@ -17,7 +17,12 @@ import datetime as dt
 ######################
 # --- FROM IMPORTS ---
 ######################
-from ACESII_code.class_var_func import Done, setupPYCDF,IonMasses,u0,q0,m_e,cm_to_m,kB,ep0,dateTimetoTT2000,InterpolateDataDict,getCoordinateKeys
+from myspaceToolsLib.physicsVariables import IonMasses,u0,q0,m_e,cm_to_m,kB,ep0
+from myspaceToolsLib.CDF_load import getCoordinateKeys
+from myspaceToolsLib.time import dateTimetoTT2000
+from myspaceToolsLib.interpolate import InterpolateDataDict
+from ACESII_code.class_var_func import Done,setupPYCDF
+
 from tqdm import tqdm
 from glob import glob
 from os.path import getsize

@@ -2,8 +2,11 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: Place to store all the Filtering functions I use
 
+# imports
 from scipy.signal import butter, filtfilt
 from numpy import flip,array
+
+
 def butterworth(lowcutoff, highcutoff, fs, order, filtertype):
     if filtertype.lower() == 'bandpass':
         return butter(N = order, Wn = [lowcutoff, highcutoff], fs=fs, btype='bandpass')

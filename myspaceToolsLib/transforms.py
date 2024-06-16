@@ -5,9 +5,9 @@
 
 # Imports
 from numpy import array,cos,sin,matmul,radians,sqrt,arcsin
+from myspaceToolsLib.physicsVariables import Re
 
-# Variables
-Re = 6357 # radius of earth in kilometer
+
 
 # --- The Basic rotation matricies ---
 def Rx(angle):

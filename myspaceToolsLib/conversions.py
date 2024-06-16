@@ -4,10 +4,9 @@
 
 # IMPORTS
 from numpy import cos,radians,pi
+from physicsVariables import Re,lat_to_meter
 
-# Variables
-lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
-Re = 6357 # radius of earth in kilometer
+
 
 def long_to_meter(long, lat):
     return long*(lat_to_meter * cos(radians(lat)))

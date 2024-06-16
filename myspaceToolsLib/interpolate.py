@@ -2,6 +2,13 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: Place to store all the classes/variables/functions
 
+# Imports
+from numpy import array
+from ACESII_code.class_var_func import setupPYCDF
+setupPYCDF()
+from spacepy.pycdf import lib
+
+# Variables
 
 def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
 
@@ -19,9 +26,9 @@ def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
 
     # Ensure the inputEpoch is in tt2000
     if isinstance(InputEpochArray[0], dt.datetime):
-        InputEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in InputEpochArray])
+        InputEpochArray = array([lib.datetime_to_tt2000(tme) for tme in InputEpochArray])
     if isinstance(targetEpochArray[0], dt.datetime):
-        targetEpochArray = np.array([pycdf.lib.datetime_to_tt2000(tme) for tme in targetEpochArray])
+        targetEpochArray = array([lib.datetime_to_tt2000(tme) for tme in targetEpochArray])
 
 
     # --- Do the interpolation ---
@@ -35,13 +42,13 @@ def InterpolateDataDict(InputDataDict,InputEpochArray,wKeys,targetEpochArray):
             splCub = CubicSpline(InputEpochArray, InputDataDict[key][0])
 
             # --- evaluate the interpolation at all the new Epoch points ---
-            newData = np.array([splCub(timeVal) for timeVal in targetEpochArray])
+            newData = array([splCub(timeVal) for timeVal in targetEpochArray])
 
             # --- store the data in the interpolated data_dict ---
             data_dict_interpolated = {**data_dict_interpolated, **{key:[newData,InputDataDict[key][1]]}}
 
         else:
-            newEpoch = np.array([pycdf.lib.tt2000_to_datetime(tme) for tme in targetEpochArray])
+            newEpoch = array([lib.tt2000_to_datetime(tme) for tme in targetEpochArray])
             data_dict_interpolated = {**data_dict_interpolated, **{key:[newEpoch,InputDataDict[key][1]]}}
 
     return data_dict_interpolated
