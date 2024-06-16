@@ -172,7 +172,7 @@ def deSpin(wRocket,wComponent):
 
 
     # --- --- --- --- --- --- --- --- --- ---
-    # --- STEP 4: Interpolate ACS Data ---
+    # --- STEP 4: interpolate ACS Data ---
     # --- --- --- --- --- --- --- --- --- ---
 
 

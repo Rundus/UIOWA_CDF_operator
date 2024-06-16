@@ -1,6 +1,6 @@
 # --- RingCore_L1_DetermineAdjustments_before_despin.py ---
 # --- Author: C. Feltman ---
-# DESCRIPTION: Interpolate attitude data (alt,lat,long,DCM) onto ringCore Epoch and use
+# DESCRIPTION: interpolate attitude data (alt,lat,long,DCM) onto ringCore Epoch and use
 # it to Despin the ringCore data. The interpolation is done by drawing a line between
 # successive points in the attitude data, seeing how many magnetometer epoch values fall
 # between the two attitude epoch values, then evaluating the line at the magnetomter epoch values

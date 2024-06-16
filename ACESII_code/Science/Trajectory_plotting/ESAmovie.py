@@ -219,7 +219,7 @@ def ACESIIplotting():
 
         scienceVar = np.array(scienceVar)
 
-        # --- Interpolate and store the Data for each flyer ----
+        # --- interpolate and store the Data for each flyer ----
 
         # Note: I'm not interested in interpolating over the entire Vspace range. Much of the interesting stuff happens <2000eV
         # Reduce the X,Y linspace to only relvant data

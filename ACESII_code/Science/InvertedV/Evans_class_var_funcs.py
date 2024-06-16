@@ -41,7 +41,6 @@ def loadDiffNFluxData():
 def diffNFlux_for_mappedMaxwellian(x, n, T, beta, V, alpha):
     Vpara_sqrd = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (1 - 1 / beta) * (2 * x / m_e) * (power(sin(radians(alpha)), 2))
     Vperp_sqrd = ((2 * x) / (beta * m_e)) * power(sin(radians(alpha)), 2)
-
     return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e / (2 * T)) * (Vpara_sqrd + Vperp_sqrd))
 
 
@@ -59,7 +58,7 @@ def calc_diffNFlux(Vperp,Vpara,dist):
     return (2 * Emag) * power(q0 /( 100*m_e),2) * dist
 
 
-def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold,beamEnergyThreshold):
+def calc_DistributionMapping(Vperp_gridVals, Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold,beamEnergyThreshold):
 
     # --- Define a grid a velocities (static) ---
     VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
@@ -92,7 +91,6 @@ def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, mod
     Vpara_gridVals_iono_sqrd = np.array([Vpar_magsph ** 2 + (1 - beta) * (Vper_magsph ** 2) for Vper_magsph, Vpar_magsph in zip(VperpArray_magsph, VparaArray_magsph)])
     Vpara_gridVals_iono = np.array([np.sqrt(val) if val >= 0 else -1 * np.sqrt(np.abs(val)) for val in Vpara_gridVals_iono_sqrd])
 
-
     # make the grids
     VperpGrid_iono = Vperp_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
     VparaGrid_iono = Vpara_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
@@ -101,6 +99,7 @@ def calc_DistributionMapping(Vperp_gridVals,Vpara_gridVals,model_T, model_n, mod
     return distGrid,VperpGrid, VparaGrid, diffNFluxGrid, VperpGrid_Accel, VparaGrid_Accel, diffNFluxGrid_Accel, VperpGrid_iono, VparaGrid_iono, diffNFluxGrid_iono
 
 
+# def mapVelocitySpace_Ionosphere_ToM_agnetosphere(VperpGrid,VparaGrid,distGrid):
 
 def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGrid,ZGrid):
 

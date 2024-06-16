@@ -11,7 +11,7 @@ GEOPHYSICAL_INDICES = generate_kpap.fetch()
 
 def cubic_interp1d(x0, x, y):
     """
-    Interpolate a 1-D function using cubic splines.
+    interpolate a 1-D function using cubic splines.
       x0 : a float or an 1d-array
       x : (N,) array_like
           A 1-D array of real/complex values.

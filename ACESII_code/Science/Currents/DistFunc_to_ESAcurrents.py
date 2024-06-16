@@ -145,7 +145,7 @@ def DistFunc_to_ESAcurrents(wRocket, wFile, rocketFolderPath, justPrintFileNames
 
         Done(start_time) ; prgMsg('Interpolating Dist Func')
 
-        # Interpolate Data
+        # interpolate Data
         X = np.linspace(Vpars.min(), Vpars.max(), N)
         Y = np.linspace(Vperps.min(), Vperps.max(), N)
         X, Y = np.meshgrid(X, Y, indexing='ij')

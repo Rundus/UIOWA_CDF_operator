@@ -259,7 +259,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
         Epoch_interpolateThis = np.array([int(tme + TimeOffset[wRocket-4]) for tme in Epoch_attitude_tt2000])
 
         ##########################################
-        # --- Interpolate CHAOS onto mag Epoch ---
+        # --- interpolate CHAOS onto mag Epoch ---
         ##########################################
 
         prgMsg('Interpolating CHAOS onto magnetometer Epoch')
@@ -315,7 +315,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
 
 
         #####################################
-        # --- Interpolate DCM to mag time ---
+        # --- interpolate DCM to mag time ---
         #####################################
 
         # --- GET THE DCM FOR THE RKT with No time adjustments ---
@@ -431,7 +431,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
             # --- APPLY T0 KENTON/ANTONIO CORRECTION TO B_ENU ---
             #####################################################
             # [1] Create a new Epoch variable through multiplication
-            # [2] Interpolate the B-Field data onto the old time-base?
+            # [2] interpolate the B-Field data onto the old time-base?
             # [3] export the newly interpolated B-Field data
             if KentonAntonio_T0_Correction:
                 if wRocket == 5:
@@ -444,7 +444,7 @@ def RingCore_L1_to_L2_Despin(wRocket, wFile, rocketFolderPath, justPrintFileName
                     interscept = EB_East[1]
                     newEpoch = np.array([ pycdf.lib.tt2000_to_datetime(int((slope * val + interscept)*1E9 + pycdf.lib.datetime_to_tt2000(T0_time))) for val in oldEpoch_TSL])
 
-                    # Interpolate onto old timebase
+                    # interpolate onto old timebase
                     data_dict_output_interp = InterpolateDataDict(InputDataDict=data_dict_output,
                                                                   InputEpochArray=newEpoch,
                                                                   targetEpochArray=deepcopy(data_dict_output['Epoch'][0]),

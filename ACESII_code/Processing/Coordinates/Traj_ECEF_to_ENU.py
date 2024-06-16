@@ -79,7 +79,7 @@ def Traj_ECEF_to_ENU(wRocket, rocketFolderPath, justPrintFileNames, wflyer, wFil
     # --- --- --- --- ---
     # --- INTERPOLATE ---
     # --- --- --- --- ---
-    # Interpolate trajectory data onto attitude timebase
+    # interpolate trajectory data onto attitude timebase
     data_dict_traj_interp = InterpolateDataDict(InputDataDict=data_dict_traj,
                                                 InputEpochArray=data_dict_traj['Epoch'][0],
                                                 targetEpochArray=data_dict_attitude['Epoch'][0],
