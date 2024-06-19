@@ -1,6 +1,7 @@
 # --- imports ---
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles, EToggles, runFullSimulation
-from ACESII_code.class_var_func import lightSpeed, u0,q0,m_e,ep0,cm_to_m, IonMasses, loadDictFromFile
+from myspaceToolsLib.physicsVariables import lightSpeed,u0,m_e,ep0,cm_to_m,IonMasses,q0
+from myspaceToolsLib.CDF_load import loadDictFromFile
 from numpy import exp, sqrt, array, pi, abs, tanh
 simulationAlt = GenToggles.simAlt
 
@@ -14,7 +15,7 @@ simulationAlt = GenToggles.simAlt
 ##################
 # --- PLOTTING ---
 ##################
-plotting = True
+plotting = False
 useTanakaDensity = False
 xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
@@ -33,7 +34,7 @@ plottingDict = {'Temperature':False,
                 'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = False if not runFullSimulation else False
+outputData = False if not runFullSimulation else True
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -602,7 +603,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if outputData:
 
             from copy import deepcopy
-            from ACESII_code.class_var_func import outputCDFdata
+            from myspaceToolsLib.CDF_load import outputCDFdata
 
             # --- Construct the Data Dict ---
             exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808,

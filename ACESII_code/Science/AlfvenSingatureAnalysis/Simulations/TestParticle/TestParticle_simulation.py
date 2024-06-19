@@ -5,7 +5,8 @@
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
-from ACESII_code.class_var_func import loadDictFromFile,prgMsg,Done, outputCDFdata, color
+from ACESII_code.class_var_func import prgMsg,Done, color
+from myspaceToolsLib.CDF_load import loadDictFromFile,outputCDFdata
 from ACESII_code.missionAttributes import ACES_mission_dicts
 import numpy as np
 from tqdm import tqdm
@@ -32,7 +33,7 @@ regenerateSimulation = True
 plotEuler_1step = False
 
 # --- Particle Trajectory ANIMATION ---
-outputAnimation = True
+outputAnimation = False
 
 
 # --- EEPAA Energy vs Time Plots ---

@@ -17,7 +17,7 @@ import datetime as dt
 ######################
 # --- FROM IMPORTS ---
 ######################
-from myspaceToolsLib.physicsVariables import IonMasses,u0,q0,m_e,cm_to_m,kB,ep0
+from myspaceToolsLib.physicsVariables import IonMasses,u0,q0,m_e,cm_to_m,kB,ep0,Re
 from myspaceToolsLib.CDF_load import getCoordinateKeys
 from myspaceToolsLib.time import dateTimetoTT2000
 from myspaceToolsLib.interpolate import InterpolateDataDict
@@ -35,6 +35,7 @@ from ACESII_code.data_paths import Integration_data_folder, ACES_data_folder, TR
 from ACESII_code.class_var_func import color, prgMsg
 from ACESII_code.class_var_func import  L1_TRICE_Quick,L2_TRICE_Quick,L0_TRICE_Quick,L0_ACES_Quick,L1_ACES_Quick
 from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
+from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 
 #####################
 # --- SETUP PYCDF ---

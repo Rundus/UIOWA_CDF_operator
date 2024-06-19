@@ -5,7 +5,7 @@ from numpy.linalg import norm
 from datetime import datetime
 from spacepy import coordinates as coord
 from spacepy.time import Ticktock
-from ACESII_code.class_var_func import CHAOS
+from myspaceToolsLib.models import CHAOS
 
 
 ########################################
@@ -14,7 +14,7 @@ from ACESII_code.class_var_func import CHAOS
 plot_BField = False
 
 # --- OUTPUT DATA ------
-outputData = False if not runFullSimulation else False
+outputData = False if not runFullSimulation else True
 
 
 def generateGeomagneticField(outputData, **kwargs):

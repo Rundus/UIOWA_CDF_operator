@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import power, cos, radians, exp, sin,pi,abs,arctan2
-from ACESII_code.class_var_func import m_e,q0
+from myspaceToolsLib.physicsVariables import m_e,q0
 import datetime as dt
 
 
@@ -20,7 +20,7 @@ datasetReduction_TargetTime = [dt.datetime(2022,11, 20, 17, 24, 50, 000000), dt.
 def loadDiffNFluxData():
     from ACESII_code.missionAttributes import ACES_mission_dicts, TRICE_mission_dicts
     from glob import glob
-    from ACESII_code.class_var_func import loadDictFromFile
+    from myspaceToolsLib.CDF_load import loadDictFromFile
     from copy import deepcopy
     targetVar = [datasetReduction_TargetTime, 'Epoch']
 
@@ -44,11 +44,11 @@ def diffNFlux_for_mappedMaxwellian(x, n, T, beta, V, alpha):
     return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e / (2 * T)) * (Vpara_sqrd + Vperp_sqrd))
 
 
-def dist_Maxwellian(Vperp,Vpara,n,T):
+def dist_Maxwellian(Vperp,Vpara,model_Params):
     # Input: density [cm^-3], Temperature [eV], Velocities [m/s]
     # output: the distribution function in SI units [s^3 m^-6]
     Emag = (0.5*m_e*(Vperp**2 + Vpara**2))/q0
-    return (1E6 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp(-1*Emag/T)
+    return (1E6 * model_Params[0]) * power(m_e / (2 * pi * q0 * model_Params[1]), 3 / 2) * exp(-1*Emag/model_Params[1])
 
 
 def calc_diffNFlux(Vperp,Vpara,dist):
@@ -57,49 +57,84 @@ def calc_diffNFlux(Vperp,Vpara,dist):
     Emag = 0.5 * m_e * (Vperp**2 + Vpara**2)/q0
     return (2 * Emag) * power(q0 /( 100*m_e),2) * dist
 
+def diffNFlux_to_distFunc(Vperp,Vpara,diffNFlux):
+    # Input: Vperp,Vpara in [m/s]. DiffNFlux in [cm^-2 s^-1 str^-1 eV^-1]
+    Energy = 0.5*m_e*(Vperp**2 + Vpara**2)/q0
+    # print(Vperp,Vpara,diffNFlux,Energy,0.5*power((100*m_e/q0), 2)*diffNFlux /Energy)
+    return 0.5*power((100*m_e/q0), 2)*diffNFlux /Energy
 
-def calc_DistributionMapping(Vperp_gridVals, Vpara_gridVals,model_T, model_n, model_V0, beta,modifyInitialBeam,beamPitchThreshold,beamEnergyThreshold):
+
+def calc_BackScatter_onto_Velspace(VperpGrid, VparaGrid, BackScatterSpline, EngyLimit):
+    Energy = 0.5*m_e*(VperpGrid**2 + VparaGrid**2)/q0
+    diffNFluxInterp = BackScatterSpline(Energy)
+    diffNFluxInterp[np.where(EngyLimit[0] >= Energy)] = 0
+    diffNFluxInterp[np.where(Energy> EngyLimit[1])] = 0
+    return diffNFluxInterp
+
+
+
+def calc_velSpace_DistFuncDiffNFluxGrid(Vperp_gridVals, Vpara_gridVals, model_Params, **kwargs):
 
     # --- Define a grid a velocities (static) ---
     VperpGrid, VparaGrid = np.meshgrid(Vperp_gridVals, Vpara_gridVals)
-    distGrid = dist_Maxwellian(VperpGrid, VparaGrid, n=model_n, T=model_T)
+    distGrid = dist_Maxwellian(VperpGrid, VparaGrid, model_Params)
 
-    if modifyInitialBeam:
+    # --- modify the initial beam ---
+    initalBeamParams = kwargs.get('initalBeamParams', [])
+
+    if initalBeamParams != []:
+        initialBeamAngle, initialBeamEnergyThresh = initalBeamParams[0], initalBeamParams[1]
         for i in range(len(VperpGrid)):
             for j in range(len(VperpGrid[0])):
 
-                pitchVal = np.degrees(np.arctan2(VperpGrid[i][j] ,VparaGrid[i][j]))
+                pitchVal = np.degrees(np.arctan2(VperpGrid[i][j], VparaGrid[i][j]))
                 EnergyVal = 0.5*m_e*(VperpGrid[i][j] **2 + VparaGrid[i][j]**2) / q0
 
-                if np.abs(pitchVal) >= beamPitchThreshold:
+                if np.abs(pitchVal) >= initialBeamAngle:
                     distGrid[i][j] = 0
-                if EnergyVal >= beamEnergyThreshold:
+                if EnergyVal >= initialBeamEnergyThresh:
                     distGrid[i][j] = 0
 
-    diffNFluxGrid = calc_diffNFlux(VperpGrid, VparaGrid, distGrid)
-
-    # --- Determine the Accelerated Velocities ---
+    # Accelerate the Beam based off of model_Params[-1]
     Vperp_gridVals_Accel = Vperp_gridVals
-    Vpar_gridVals_Accel = np.array([np.sqrt(val ** 2 + 2 * model_V0 * q0 / m_e) for val in Vpara_gridVals])
+    Vpar_gridVals_Accel = np.array([np.sqrt(val ** 2 + 2 * model_Params[-1] * q0 / m_e) for val in Vpara_gridVals])
     VperpGrid_Accel, VparaGrid_Accel = np.meshgrid(Vperp_gridVals_Accel, Vpar_gridVals_Accel)
-    diffNFluxGrid_Accel = calc_diffNFlux(VperpGrid_Accel, VparaGrid_Accel, distGrid)
+    diffNFluxGrid = calc_diffNFlux(VperpGrid_Accel, VparaGrid_Accel, distGrid)
 
-    # --- Determine the new velocities at different beta ---
-    VperpArray_magsph = VperpGrid_Accel.flatten()
-    VparaArray_magsph = VparaGrid_Accel.flatten()
-    Vperp_gridVals_iono = np.array([np.sqrt(beta) * val for val in VperpArray_magsph])
-    Vpara_gridVals_iono_sqrd = np.array([Vpar_magsph ** 2 + (1 - beta) * (Vper_magsph ** 2) for Vper_magsph, Vpar_magsph in zip(VperpArray_magsph, VparaArray_magsph)])
-    Vpara_gridVals_iono = np.array([np.sqrt(val) if val >= 0 else -1 * np.sqrt(np.abs(val)) for val in Vpara_gridVals_iono_sqrd])
-
-    # make the grids
-    VperpGrid_iono = Vperp_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
-    VparaGrid_iono = Vpara_gridVals_iono.reshape(len(Vperp_gridVals), len(Vpara_gridVals))
-    diffNFluxGrid_iono = calc_diffNFlux(VperpGrid_iono, VparaGrid_iono, distGrid)
-
-    return distGrid,VperpGrid, VparaGrid, diffNFluxGrid, VperpGrid_Accel, VparaGrid_Accel, diffNFluxGrid_Accel, VperpGrid_iono, VparaGrid_iono, diffNFluxGrid_iono
+    return VperpGrid_Accel, VparaGrid_Accel, distGrid, diffNFluxGrid
 
 
-# def mapVelocitySpace_Ionosphere_ToM_agnetosphere(VperpGrid,VparaGrid,distGrid):
+def mapping_VelSpace_MagnetoIono(VperpGrid, VparaGrid, distFuncGrid, betaVal, mapToMagSph):
+    # INPUT:
+    # velocity Space Grids and distribution function to map them either:
+    # (a) FROM the ionosphere to Magnetosphere
+    # (b) FROM the magnetosphere to Ionosphere
+
+    # OUTPUT:
+    # VperpGrid_newBeta, VparaGrid_newBeta, diffNFlux_newBeta
+
+    # --- Determine the velocity values from the Grids ---
+    Vperp_gridVals = VperpGrid.flatten()
+    Vpara_gridVals = VparaGrid.flatten()
+
+    if mapToMagSph:
+        # from Ionosphere to Magnetosphere
+        Vperp_gridVals_mapped = np.array([val/np.sqrt(betaVal) for val in Vperp_gridVals])
+        Vpara_gridVals_mapped_sqrd = np.array( [Vpara_iono**2 + (1 - 1/betaVal) * (Vperp_iono ** 2) for Vperp_iono, Vpara_iono in zip(Vperp_gridVals, Vpara_gridVals)])
+        Vpara_gridVals_mapped = np.array([np.sqrt(val) if val >= 0 else -1 * np.sqrt(np.abs(val)) for val in Vpara_gridVals_mapped_sqrd])
+        VperpGrid_mapped, VparaGrid_mapped = Vperp_gridVals_mapped.reshape(len(VperpGrid), len(VperpGrid[0])), Vpara_gridVals_mapped.reshape(len(VparaGrid), len(VparaGrid[0]))
+        diffNFlux_mapped = calc_diffNFlux(VperpGrid_mapped, VparaGrid_mapped, distFuncGrid)
+
+    else:
+        # from Magnetosphere to Ionosphere
+        Vperp_gridVals_mapped = np.array([np.sqrt(betaVal) * val for val in Vperp_gridVals])
+        Vpara_gridVals_mapped_sqrd = np.array([Vpar_magsph ** 2 + (1 - betaVal) * (Vper_magsph ** 2) for Vper_magsph, Vpar_magsph in zip(Vperp_gridVals, Vpara_gridVals)])
+        Vpara_gridVals_mapped = np.array([np.sqrt(val) if val >= 0 else -1 * np.sqrt(np.abs(val)) for val in Vpara_gridVals_mapped_sqrd])
+        VperpGrid_mapped, VparaGrid_mapped = Vperp_gridVals_mapped.reshape(len(VperpGrid), len(VperpGrid[0])), Vpara_gridVals_mapped.reshape(len(VparaGrid), len(VparaGrid[0]))
+        diffNFlux_mapped = calc_diffNFlux(VperpGrid_mapped, VparaGrid_mapped, distFuncGrid)
+
+    return VperpGrid_mapped, VparaGrid_mapped, diffNFlux_mapped
+
 
 def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGrid,ZGrid):
 

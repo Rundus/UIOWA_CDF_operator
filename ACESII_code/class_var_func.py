@@ -136,7 +136,7 @@ def prgMsg(message):
     print(f'{message}: ',end='')
 
 def Done(start_time):
-    print(f'{color.GREEN}Done{color.END} at {color.YELLOW}{round(time.time() - start_time,1)} seconds {color.END}' )
+    print(f'{color.GREEN}Done{color.END} at {color.YELLOW}{round(time() - start_time,1)} seconds {color.END}' )
 def setupPYGMT():
     environ["GMT_LIBRARY_PATH"] = data_paths.CDF_LIB
 

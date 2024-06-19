@@ -1,6 +1,6 @@
 # --- imports ---
 from numpy import array,sqrt,degrees,arccos,abs
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles,ptclToggles,m_to_km, R_REF
+from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles,ptclToggles
 from random import seed, choice
 from numpy.random import uniform
 from scipy.special import erfinv

@@ -26,9 +26,9 @@ class GenToggles:
     simLen = 550 # how many delta T steps to simulate
     deltaT = 0.01 # in seconds
     simAltLow = 200*m_to_km # low altitude (in meters)
-    simAltHigh = 20000*m_to_km # high altitude (in meters)
+    simAltHigh = 10000*m_to_km # high altitude (in meters)
     obsHeight = 400*m_to_km # height of observation (in meters)
-    alt_Rez = 2000
+    alt_Rez = 2000 # number of points in the altitude grid
 
     # calculatd quantities
     simAlt = linspace(simAltLow, simAltHigh, alt_Rez)  # in METERS
@@ -36,8 +36,7 @@ class GenToggles:
 
     # extra
     fps = 10
-    simColors = ['tab:purple', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green', 'tab:brown',
-                 'tab:pink']  # the color choices available for the simulation to use
+    simColors = ['tab:purple', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green', 'tab:brown', 'tab:pink']  # the color choices available for the simulation to use
     simFolderPath = r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Science\AlfvenSingatureAnalysis\Simulations\TestParticle'
     simOutputPath = r'C:\Data\ACESII\science\simulations\TestParticle'
 
@@ -61,14 +60,14 @@ class ptclToggles:
 # --- GEOMAGNETIC FIELD ---
 ###########################
 class BgeoToggles:
-    Lshell = 9
+    Lshell = 8.7
 
 ########################
 # --- ELECTRIC FIELD ---
 ########################
 class EToggles:
     Z0_wave = (20000*m_to_km) # initial altitude of the wave (in meters)
-    lambdaPerp0 = 2 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
+    lambdaPerp0 = 3 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
     waveFreq_Hz = 4 # in Hz
     Eperp0 = 0.005  # V/m
     waveFraction = 2 # What fraction of the initial bipolar wave we want to keep. e.g. 2 --> Half the wave, 3 --> 1/3 of wave etc
