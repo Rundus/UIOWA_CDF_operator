@@ -38,10 +38,10 @@ def loadDiffNFluxData():
 
     return diffNFlux,Epoch,Energy,Pitch
 
-def diffNFlux_for_mappedMaxwellian(x, n, T, beta, V, alpha):
-    Vpara_sqrd = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (1 - 1 / beta) * (2 * x / m_e) * (power(sin(radians(alpha)), 2))
-    Vperp_sqrd = ((2 * x) / (beta * m_e)) * power(sin(radians(alpha)), 2)
-    return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e / (2 * T)) * (Vpara_sqrd + Vperp_sqrd))
+
+def diffNFlux_for_mappedMaxwellian(x, n, T, V, alpha): # Used in diffNFlux_fitting
+    Energy = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (2 * x / m_e) * (power(sin(radians(alpha)), 2))
+    return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e*Energy / (2 * T)) )
 
 
 def dist_Maxwellian(Vperp,Vpara,model_Params):
@@ -104,7 +104,7 @@ def calc_velSpace_DistFuncDiffNFluxGrid(Vperp_gridVals, Vpara_gridVals, model_Pa
     return VperpGrid_Accel, VparaGrid_Accel, distGrid, diffNFluxGrid
 
 
-def mapping_VelSpace_MagnetoIono(VperpGrid, VparaGrid, distFuncGrid, betaVal, mapToMagSph):
+def mapping_VelSpace_magMirror(VperpGrid, VparaGrid, distFuncGrid, targetAlt, startingAlt, mapToMagSph):
     # INPUT:
     # velocity Space Grids and distribution function to map them either:
     # (a) FROM the ionosphere to Magnetosphere
@@ -112,6 +112,9 @@ def mapping_VelSpace_MagnetoIono(VperpGrid, VparaGrid, distFuncGrid, betaVal, ma
 
     # OUTPUT:
     # VperpGrid_newBeta, VparaGrid_newBeta, diffNFlux_newBeta
+
+    # --- Determine the beta value ---
+    betaVal = ((6378 + startingAlt)/(6378 + targetAlt))**3
 
     # --- Determine the velocity values from the Grids ---
     Vperp_gridVals = VperpGrid.flatten()

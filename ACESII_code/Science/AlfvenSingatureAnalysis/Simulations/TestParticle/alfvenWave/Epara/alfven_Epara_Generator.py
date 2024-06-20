@@ -14,7 +14,8 @@ import numpy as np
 from itertools import product
 from copy import deepcopy
 from tqdm import tqdm
-from ACESII_code.class_var_func import prgMsg,Done, outputCDFdata, loadDictFromFile
+from ACESII_code.class_var_func import prgMsg, Done
+from myspaceToolsLib.CDF_load import outputCDFdata, loadDictFromFile
 start_time = time()
 
 ##################

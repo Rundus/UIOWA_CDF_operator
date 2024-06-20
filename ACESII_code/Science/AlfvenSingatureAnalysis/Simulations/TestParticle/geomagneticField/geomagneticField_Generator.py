@@ -14,7 +14,7 @@ from myspaceToolsLib.models import CHAOS
 plot_BField = False
 
 # --- OUTPUT DATA ------
-outputData = False if not runFullSimulation else True
+outputData = True if not runFullSimulation else True
 
 
 def generateGeomagneticField(outputData, **kwargs):
@@ -74,7 +74,7 @@ def generateGeomagneticField(outputData, **kwargs):
         Bgeo, Bgrad = geomagneticFieldProfile(altRange=GenToggles.simAlt)
 
         from copy import deepcopy
-        from ACESII_code.class_var_func import outputCDFdata
+        from myspaceToolsLib.CDF_load import outputCDFdata
 
         # --- Construct the Data Dict ---
         exampleVar = {'DEPEND_0': None, 'DEPEND_1': None, 'DEPEND_2': None, 'FILLVAL': -9223372036854775808,
@@ -102,5 +102,5 @@ def generateGeomagneticField(outputData, **kwargs):
 #################
 # --- EXECUTE ---
 #################
-if plot_BField:
-    generateGeomagneticField(outputData=outputData,plotting=plot_BField)
+
+generateGeomagneticField(outputData=outputData,plotting=plot_BField)

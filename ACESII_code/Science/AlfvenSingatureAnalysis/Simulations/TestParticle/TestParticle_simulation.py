@@ -35,7 +35,6 @@ plotEuler_1step = False
 # --- Particle Trajectory ANIMATION ---
 outputAnimation = False
 
-
 # --- EEPAA Energy vs Time Plots ---
 simulated_EEPAA_plots = False
 ptches_to_plot = [i for i in range(21)] # indicies of pitch bins that will be plotted from [-10, 0 , 10, 20, 30, ...]
