@@ -165,7 +165,7 @@ def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGri
         for engy in range(len(EnergyBins)):
             try:
                 ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy]) / len(ZGrid_New[ptch][engy])
-                # diffNFlux_model[tme][ptch][engy] = sum(diffNFlux_model[tme][ptch][engy])
+                # ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy])
             except:
                 ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy])
 

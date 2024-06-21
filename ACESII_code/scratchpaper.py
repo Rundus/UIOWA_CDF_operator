@@ -1,5 +1,4 @@
-import numpy as np
+from ACESII_code.myImports import *
 
-
-a = np.array([1,2,3,0,5])
-print(np.nonzero(a)[0])
+PitchInterp = [-360 + i*10 for i in range(72)]
+print(PitchInterp)
