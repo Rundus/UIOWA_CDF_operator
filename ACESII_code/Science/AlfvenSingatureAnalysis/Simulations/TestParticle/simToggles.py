@@ -47,7 +47,7 @@ class GenToggles:
 class ptclToggles:
     seedChoice = 10 # some value to define the randomness seed
     ptclTemperature = 5 # distribution temperature in eV
-    Z0_ptcl_ranges = array([0.5,0.6]) * m_to_km * 6371 # initial altitude of particles (in meters)
+    Z0_ptcl_ranges = array([0.5, 0.6]) * m_to_km * 6371 # initial altitude of particles (in meters)
     N_ptcls = 200  # number of particles. Example: The real data at s3 has 10598 particles
     ptcl_mass = 9.11 * 10 ** (-31)  # mass of the particle
     ptcl_charge = 1.602176565 * 10 ** (-19)  # charge of the particle
@@ -67,8 +67,8 @@ class BgeoToggles:
 ########################
 class EToggles:
     Z0_wave = (11000*m_to_km) # initial altitude of the wave (in meters)
-    lambdaPerp0 = 2 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
-    waveFreq_Hz = 2 # in Hz
+    lambdaPerp0 = 3.5 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
+    waveFreq_Hz = 4 # in Hz
     Eperp0 = 0.005  # V/m
     waveFraction = 2 # What fraction of the initial bipolar wave we want to keep. e.g. 2 --> Half the wave, 3 --> 1/3 of wave etc
     lambdaPerp_Rez = 11 # resolution of the x-direction (MUST BE ODD)

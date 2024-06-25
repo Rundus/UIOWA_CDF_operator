@@ -29,12 +29,12 @@ plottingDict = {'Temperature':False,
                 'ionCyclotron': False,
                 'ionLarmorRadius':False,
                 'alfSpdMHD': False,
-                'kineticTerms': True,
+                'kineticTerms': False,
                 'lambdaPara': False,
                 'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = False if not runFullSimulation else True
+outputData = True if not runFullSimulation else True
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -52,10 +52,10 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         T0 = 2.5 # Temperature at the Ionospher (in eV)
         T1 = 0.0135 # (in eV)
         h0 = 2000*m_to_km # scale height (in meters)
-        T_iono = T1*exp(altRange/h0 ) + T0
+        T_iono = T1*exp(altRange/h0) + T0
         deltaZ = 0.3*R_REF
         # T_ps = 2000 # temperature of plasma sheet (in eV)
-        T_ps = 400  # temperature of plasma sheet (in eV)
+        T_ps = 107  # temperature of plasma sheet (in eV)
         z_ps = 3.75*R_REF # height of plasma sheet (in meters)
         w = 0.5*(1 - tanh((altRange - z_ps)/deltaZ)) # models the transition to the plasma sheet
 
@@ -527,7 +527,8 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             fig, ax = plt.subplots()
             ax.plot(altRange / xNorm, kineticAlfSpeed/(m_to_km), label='kinetic Alf speed', color='blue')
             ax.set_title(r'$\omega_{wave}/k_{\parallel}$ vs Altitude' +
-                         '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq_rad} rad/s')
+                         '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq_rad} rad/s \n'
+                                                       '$\lambda_{\perp 0}$ ='+f'{EToggles.lambdaPerp0/1000} km')
             ax.set_ylabel('Kinetic Alfven Speed  [km/s]')
             ax.set_xlabel(f'Altitude [{xLabel}]')
             ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--')

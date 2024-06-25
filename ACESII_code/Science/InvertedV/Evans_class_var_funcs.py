@@ -39,6 +39,8 @@ def loadDiffNFluxData():
     return diffNFlux,Epoch,Energy,Pitch
 
 
+def normalized_normalDistribution(x,mean,sigma):
+    return np.exp(- np.power((x-mean),2)/(2*np.power(sigma,2)))
 def diffNFlux_for_mappedMaxwellian(x, n, T, V, alpha): # Used in diffNFlux_fitting
     Energy = (2 * x * power(cos(radians(alpha)), 2) / m_e) - 2 * V / m_e + (2 * x / m_e) * (power(sin(radians(alpha)), 2))
     return (2 * x) * ((q0 / m_e) ** 2) * (1E2 * n) * power(m_e / (2 * pi * q0 * T), 3 / 2) * exp((-m_e*Energy / (2 * T)) )
@@ -99,9 +101,9 @@ def calc_velSpace_DistFuncDiffNFluxGrid(Vperp_gridVals, Vpara_gridVals, model_Pa
     Vperp_gridVals_Accel = Vperp_gridVals
     Vpar_gridVals_Accel = np.array([np.sqrt(val ** 2 + 2 * model_Params[-1] * q0 / m_e) for val in Vpara_gridVals])
     VperpGrid_Accel, VparaGrid_Accel = np.meshgrid(Vperp_gridVals_Accel, Vpar_gridVals_Accel)
-    diffNFluxGrid = calc_diffNFlux(VperpGrid_Accel, VparaGrid_Accel, distGrid)
+    diffNFluxGrid_Accel = calc_diffNFlux(VperpGrid_Accel, VparaGrid_Accel, distGrid)
 
-    return VperpGrid_Accel, VparaGrid_Accel, distGrid, diffNFluxGrid
+    return VperpGrid_Accel, VparaGrid_Accel, distGrid, diffNFluxGrid_Accel
 
 
 def mapping_VelSpace_magMirror(VperpGrid, VparaGrid, distFuncGrid, targetAlt, startingAlt, mapToMagSph):
@@ -139,7 +141,7 @@ def mapping_VelSpace_magMirror(VperpGrid, VparaGrid, distFuncGrid, targetAlt, st
     return VperpGrid_mapped, VparaGrid_mapped, diffNFlux_mapped
 
 
-def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGrid,ZGrid):
+def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGrid, ZGrid, method):
 
     # description:
     # INPUT: Two velocity space grids  + Z-value grid
@@ -158,16 +160,27 @@ def velocitySpace_to_PitchEnergySpace(EnergyBins, PitchBins, VperpGrid, VparaGri
     for i in range(len(ZgridValues)):
         engyIdx = abs(EnergyBins - calcEnergies[i]).argmin()
         ptchIdx = abs(PitchBins - calcPitch[i]).argmin()
-        ZGrid_New[ptchIdx][engyIdx].append(ZgridValues[i])
+        if method == 'convolve':
+            energyResolution = 0.18
+            mean = EnergyBins[engyIdx]
+            sigma = energyResolution * mean / (2 * np.sqrt(2 * np.log(2)))
+            ZGrid_New[ptchIdx][engyIdx].append(ZgridValues[i]*normalized_normalDistribution(calcEnergies[i], mean=mean, sigma=sigma))
+        else:
+            ZGrid_New[ptchIdx][engyIdx].append(ZgridValues[i])
 
     # flatten the values in the diffnFlux new array
     for ptch in range(len(PitchBins)):
         for engy in range(len(EnergyBins)):
-            try:
-                ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy]) / len(ZGrid_New[ptch][engy])
-                # ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy])
-            except:
+            if method == 'average' or method == 'convolve':
+                try:
+                    ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy]) / len(ZGrid_New[ptch][engy])
+                except:
+                    ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy])
+            elif method == 'sum':
                 ZGrid_New[ptch][engy] = sum(ZGrid_New[ptch][engy])
+
+
 
     EnergyGrid,PitchGrid = np.meshgrid(EnergyBins,PitchBins)
     return np.array(ZGrid_New), EnergyGrid, PitchGrid
+

@@ -3,7 +3,7 @@
 # DESCRIPTION: using the method outline in Kaeppler's thesis, we can fit inverted-V distributions
 # to get estimate the magnetospheric temperature, density and electrostatic potential that accelerated
 # our particles
-
+import numpy as np
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -12,6 +12,7 @@ from ACESII_code.myImports import *
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 from ACESII_code.Science.InvertedV.Evans_class_var_funcs import diffNFlux_for_mappedMaxwellian
 from functools import partial
+from scipy.integrate import simpson,trapezoid
 plt.rcParams["font.family"] = "Arial"
 start_time = time.time()
 # --- --- --- --- ---
@@ -25,12 +26,12 @@ print(color.UNDERLINE + f'diffNFlux_fitting' + color.END)
 
 # --- Physics Toggles ---
 invertedV_targetTimes = [dt.datetime(2022, 11, 20, 17, 24, 56, 000000), dt.datetime(2022,11,20,17,25,3,000000)]
-invertedV_TargetTimes_data = [[dt.datetime(2022, 11, 20, 17, 25, 1, 112206), dt.datetime(2022,11,20,17,25,1,662208)]]
+invertedV_TargetTimes_data = [[dt.datetime(2022, 11, 20, 17, 25, 1, 160000), dt.datetime(2022,11,20,17,25,1,500000)]]
 
 # ---  Density, Temperature and Potential ---
-threshEngy = 180
+threshEngy = 140
 invertedV_fitDensityTempPotential = True
-wPitchsToFit = [1,2,3,4]
+wPitchsToFit = [1, 2, 3, 4]
 countNoiseLevel = 4
 
 
@@ -103,7 +104,7 @@ for pitchVal in wPitchsToFit:
 
 
     for timeset in invertedV_TargetTimes_data:
-        # collect the data
+        # collect the data to fit one single pitch
         low_idx, high_idx = np.abs(Epoch - timeset[0]).argmin(), np.abs(Epoch - timeset[1]).argmin()
         EpochFitData = Epoch[low_idx:high_idx + 1]
         fitData = diffNFlux[low_idx:high_idx+1, pitchVal, :]
@@ -114,34 +115,75 @@ for pitchVal in wPitchsToFit:
         # Note: The peak in the number flux is very likely the maximum value AFTER 100 eV, just find this point
 
         for tmeIdx in range(len(EpochFitData)):
-            sign = [-1 if val < 0 else 1 for val in fitData[tmeIdx]]
+            try:
 
-            # if EpochFitData[tmeIdx] != dt.datetime(2022,11,20,17,25,1,262206) and not sum(sign) == -1*len(fitData[tmeIdx]):
-            if not sum(sign) == -1 * len( fitData[tmeIdx]):
-
-                # Determine the peak point based on a treshold limit
+                # --- Determine the peak point based on a treshold limit ---
                 EngyIdx = np.abs(Energy - threshEngy).argmin()
                 peakDiffNVal = fitData[tmeIdx][:EngyIdx].max()
                 peakDiffNVal_index = np.argmax(fitData[tmeIdx][:EngyIdx])
+                parallelPotential = Energy[peakDiffNVal_index]
 
-                # get the subset of data to fit to and fit it. Only include data with non-zero points
+                # ---  get the subset of data to fit to and fit it. Only include data with non-zero points ---
                 xData_fit = np.array(Energy[:peakDiffNVal_index+1])
                 yData_fit = np.array(fitData[tmeIdx][:peakDiffNVal_index+1])
                 nonZeroIndicies = np.where(yData_fit!=0)[0]
                 xData_fit = xData_fit[nonZeroIndicies]
                 yData_fit = yData_fit[nonZeroIndicies]
 
+                # --- --- --- --- --- --- ---
+                # --- FIRST ITERATION FIT ---
+                # --- --- --- --- --- --- ---
                 deviation = 0.18
-                guess = [1.55, 20000000, 100]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
-                boundVals = [[0.001, 30], # n [cm^-3]
-                             [10, 500], # T [eV]
-                             [(1-deviation)*Energy[peakDiffNVal_index], (1+deviation)*Energy[peakDiffNVal_index]]]  # V [eV]
+                guess = [1, 120, 250]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
+                boundVals = [[0.001, 5], # n [cm^-3]
+                             [10, 300], # T [eV]
+                             [(1-deviation)*parallelPotential, (1+deviation)*parallelPotential]]  # V [eV]
 
                 bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))], [boundVals[i][1] for i in range(len(boundVals))]])
                 params, cov = curve_fit(fitFuncAtPitch,xData_fit,yData_fit,maxfev=int(1E9), bounds=bounds)
 
+                # --- --- --- --- --- --- ---
+                # --- SECOND ITERATION FIT ---
+                # --- --- --- --- --- --- ---
+                # --- Determine the number flux at this time for pitch angles 0 to 90 deg and energies above the parallel potential ---
+                PitchIndicies = [1, 2, 3, 4, 5, 6, 7, 8, 10]
+                allPitchFitData = diffNFlux[low_idx + tmeIdx, 1:PitchIndicies[-1]+1, :peakDiffNVal_index]
+                numberFlux_perPitch = []
+
+                for idx, ptch in enumerate(PitchIndicies):  # integrate over energy
+                    dataValues = allPitchFitData[idx]
+                    dataValues_cleaned = np.array([val if val > 0 else 0 for val in dataValues])  # Clean up the data by setting fillvalues to == 0
+                    EnergyValues = Energy[:peakDiffNVal_index]
+                    numberFlux_perPitch.append(simpson(y=np.cos(np.radians(Pitch[ptch])) * np.sin(np.radians(Pitch[ptch])) * dataValues_cleaned, x=EnergyValues))
+
+                # integrate over pitch
+                numberFlux = (2*2*np.pi)*simpson(y=-1*np.array(numberFlux_perPitch), x=Pitch[PitchIndicies])
+
+                # define the new fit parameters
+                # n0Guess = (1E-2) * np.sqrt((2*np.pi*m_e*params[1])/q0) * numberFlux / params[2] # simple verison
+                # print(numberFlux, n0Guess)
+                betaChoice = 6
+                n0Guess = (-1E-6)*numberFlux*np.power(q0*params[1]/(2*np.pi*m_e),-0.5)*np.power(betaChoice*(1 - (1 - 1/betaChoice)*np.exp(-(0-parallelPotential)/(params[1]*(betaChoice-1)))),-1)
+                print(n0Guess)
+
+                # Second iterative fit
+                deviation = 0.18
+                guess = [n0Guess, 120, 250]  # observed plasma at dispersive region is 0.5E5 cm^-3 BUT this doesn't make sense to use as the kappa fit since the kappa fit comes from MUCH less dense populations above
+                boundVals = [[0.0001, 5],  # n [cm^-3]
+                             [10, 300],  # T [eV]
+                             [100,400]]  # V [eV]
+
+                bounds = tuple([[boundVals[i][0] for i in range(len(boundVals))],
+                                [boundVals[i][1] for i in range(len(boundVals))]])
+                params, cov = curve_fit(fitFuncAtPitch, xData_fit, yData_fit, maxfev=int(1E9), bounds=bounds)
+
+
+
+                # --- Fit the second iteration fit ---
                 fittedX = np.linspace(xData_fit.min(), xData_fit.max(), 100)
                 fittedY = fitFuncAtPitch(fittedX,*params)
+
+
 
                 # --- Calculate ChiSquare ---
                 ChiSquare = (1/(3-1))*sum([(fitFuncAtPitch(xData_fit[i],*params) - yData_fit[i])**2 / (yData_fit[i]**2) for i in range(len(xData_fit))])
@@ -189,6 +231,8 @@ for pitchVal in wPitchsToFit:
                 modeled_T.append(params[1])
                 modeled_V.append(params[2])
                 modeled_ChiVal.append(ChiSquare)
+            except:
+                print('no Pitch Data')
 
 
     # --- output Plot of the time series of modeled data ---
