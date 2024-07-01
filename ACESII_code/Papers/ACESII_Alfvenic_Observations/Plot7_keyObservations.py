@@ -20,7 +20,7 @@ start_time = time.time()
 # --- --- --- ---
 import math
 import matplotlib as mpl
-from ACESII_code.class_var_func import EpochTo_T0_Rocket
+from myspaceToolsLib.time import EpochTo_T0_Rocket
 
 print(color.UNDERLINE + f'Plot7_keyObservations' + color.END)
 
@@ -59,7 +59,7 @@ dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
 
 # plot toggles - Show STEB itself ----------
 cbarLow_counts, cbarHigh_counts = 1, 100
-cbarLow_diffEFlux, cbarHigh_diffEFlux = 5E6, 1E9
+diffEFlux_limit_Low, diffEFlux_limit_High = 1E3, 1E7
 wPitch_Engy_vs_Time = 2 # the pitch angle index to plot for the Energy vs time plot
 Energy_yLimit = 1350
 
@@ -151,7 +151,8 @@ rktTime_counts = EpochTo_T0_Rocket(InputEpoch=data_dict_counts_high['Epoch'][0],
 Pitch = data_dict_counts_high['Pitch_Angle'][0]
 Energy = data_dict_counts_high['Energy'][0]
 counts = data_dict_counts_high['eepaa'][0]
-diffEFlux = data_dict_eepaa_high['Differential_Energy_Flux'][0]
+# diffEFlux = data_dict_eepaa_high['Differential_Energy_Flux'][0]
+diffEFlux = data_dict_eepaa_high['Differential_Number_Flux'][0]
 
 # --- Flux ---
 B0 = 1E-9 * data_dict_B['Bmag'][0]
@@ -358,19 +359,20 @@ for t, tme in enumerate(STEBtimes[1:]):
     # set the labels and such
     if t in [0]:
         subAxes[t].legend(prop={'size': legend_SubAxes_FontSize})
-    if t in [0,2]:
+    if t in [0, 2]:
         # subAxes[t].set_ylabel(r'Avg. diffEFlux\n [cm$^-2$str$^-1s$^-1$eV/eV]',fontsize=labels_FontSize)
-        subAxes[t].set_ylabel('Avg. Diff. E. Flux \n [cm$^{-2}$ str$^{-1}$ s$^{-1}$ eV/eV]', fontsize=labels_subplot_fontsize )
-    if t in [2,3]:
+        subAxes[t].set_ylabel('Avg. Diff. N. Flux \n [cm$^{-2}$ str$^{-1}$ s$^{-1}$ eV$^{-1}$]', fontsize=labels_subplot_fontsize )
+    if t in [2, 3]:
         subAxes[t].set_xlabel('Energy [eV]',fontsize=labels_FontSize)
-    if t in [0,1]:
+    if t in [0, 1]:
         subAxes[t].set_xticklabels([])
 
     props = dict(boxstyle='round', facecolor='white', alpha=1)
-    subAxes[t].text(600, 4.5E8, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black',bbox=props, ha='center')
+    subAxes[t].text(500, 5E6, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black',bbox=props, ha='center')
 
     subAxes[t].set_yscale('log')
-    subAxes[t].set_ylim(5E5, 8E8)
+    subAxes[t].set_ylim(diffEFlux_limit_Low, diffEFlux_limit_High)
+    subAxes[t].set_xlim(-10, 1000)
     subAxes[t].tick_params(axis='y', which='major', labelsize=tick_SubplotLabelSize+4, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='y', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
     subAxes[t].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)

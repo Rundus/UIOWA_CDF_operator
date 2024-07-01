@@ -34,7 +34,7 @@ from scipy.interpolate import CubicSpline
 # --- Collect the Data ---
 datasetReduction_TargetTime = [dt.datetime(2022, 11, 20, 17, 24, 50, 000000), dt.datetime(2022,11,20,17,25,15,000000)]
 targetVar = [datasetReduction_TargetTime, 'Epoch']
-mappingAltitudes = [5950, 4850, 2252]
+mappingAltitudes = [6588, 4850, 2252]
 
 # --- PRIMARY BEAM diffNFlux fit  ---
 primaryBeam_TargetTimes_data = dt.datetime(2022, 11, 20, 17, 25, 1, 212210)
@@ -45,10 +45,10 @@ diffNFlux_Fit_threshEngy = 100
 countNoiseLevel = 4
 
 # --- Model Primary Beam toggles ---
-N = 101
-PS_BeamThreshEnergy = 621.29*(1) # in eV
+N = 51
+PS_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
 PS_BeamThreshPitch = 90
-InV_BeamThreshEnergy = 621.29*(1) # in eV
+InV_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
 InV_BeamThreshPitch = 90
 
 # backscatter toggles
@@ -63,6 +63,7 @@ Plot_useDistributionFunction = False # use distribution Function instead of diff
 # --- Alfven Wave Resonance Bands ---
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import EToggles
 EparallelMax = [19E-6, 17E-6, 12E-6]
+PhiPotential = [268, 206, 56]
 waveFreq = EToggles.waveFreq_Hz
 
 ################################
@@ -331,9 +332,17 @@ for d, mapAlt in enumerate(mappingAltitudes):
     Altitude = mapAlt*1000
     altIdx = np.abs(data_dict_alfModel['simAlt'][0] - Altitude).argmin()
     localAlfSpdInertial = data_dict_alfModel['alfSpdInertial'][0][altIdx]
-    PhiVal = 2*EparallelMax[d]*localAlfSpdInertial/waveFreq
-
+    # PhiVal = 2*EparallelMax[d]*localAlfSpdInertial/waveFreq
+    PhiVal = PhiPotential[d]
     ResonanceLimits.append([localAlfSpdInertial - np.sqrt(2*q0*PhiVal/(m_e)), localAlfSpdInertial])
+
+    if Altitude == 2252000:
+        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * 28 * q0 / m_e), 2) / q0)
+    else:
+        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(
+            localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
+
+
 
 
 
@@ -363,8 +372,6 @@ fig = plt.figure()
 fig.set_size_inches(figure_width, figure_height)
 gs0 = gridspec.GridSpec(3, 1, figure=fig, height_ratios=[3/16,2/16,11/16])
 
-
-
 # --- --- --- --- --- --- --
 # --- diffNFlux fit plot ---
 # --- --- --- --- --- --- --
@@ -392,21 +399,18 @@ ax_diffNFluxFit.legend(fontsize=Legend_fontSize, loc='upper right')
 # --- diffNFlux fit plot ---
 # --- --- --- --- --- --- --
 ax_alfvenSpeed = fig.add_subplot(gs0[1, :])
-
-
-# plot the MHD alfven speed
-ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedMHD_sim)/VelSpace_Norm, color='blue',linewidth=Line_LineWidth+1, label='MHD')
-# Plot the kinetic Speed
-ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Kinetic (Inertial)', color='red', linewidth=Line_LineWidth+1)
-
-ax_alfvenSpeed.text(x=1250,y=3,s=r'$\omega$ = ' + f'{EToggles.waveFreq_Hz} Hz \n'
-                                           '$\lambda_{\perp 0}$ = '+f'{EToggles.lambdaPerp0/1000} km',fontsize=Text_Fontsize, ha='center', va='center',bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'))
+ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedMHD_sim)/VelSpace_Norm, color='blue',linewidth=Line_LineWidth+1, label='MHD',zorder=1)
+ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Kinetic (Inertial limit)', color='red', linewidth=Line_LineWidth+1,zorder=1)
+ax_alfvenSpeed.text(x=1250,y=3.5,s=r'$\lambda_{\perp 0}$ = '+f'{EToggles.lambdaPerp0/1000} km',fontsize=Text_Fontsize, ha='center', va='center',bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'))
 ax_alfvenSpeed.set_ylabel(r'Alfv$\'e$n Speed'+'\n  [10000 km/s]',fontsize=Label_FontSize)
 ax_alfvenSpeed.set_xlabel(f'Altitude [km]',fontsize=Label_FontSize)
 ax_alfvenSpeed.grid(True)
 ax_alfvenSpeed.set_ylim(0,4.2)
 ax_alfvenSpeed.set_xlim(100, 10000)
 ax_alfvenSpeed.legend(loc='lower right',fontsize=Legend_fontSize)
+keyPoints_alt = np.array([6588000,4850000,2252000])/1000
+keyPoints_VA = np.array([24497207.92313035,23285318.5169304,7568587.927368634])/VelSpace_Norm
+ax_alfvenSpeed.scatter(x=keyPoints_alt,y=keyPoints_VA,color='red',s=150,zorder=2)
 
 axes = [ax_diffNFluxFit, ax_alfvenSpeed]
 for ax in axes:
@@ -466,12 +470,19 @@ for i in range(len(mappingAltitudes)): # Which Beta I'm considering
         else:
             cmapObj = ax.pcolormesh(xData/VelSpace_Norm, yData/VelSpace_Norm, ZData[j][i], vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
 
-
         #########################
         # --- RESONANCE BANDS ---
         #########################
         ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
         # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
+
+        if i == 0:
+            ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+        if i == 1:
+            ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+        if i == 2:
+            ax.text(x=0.83, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075,
+                    s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
         ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
         ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
 
@@ -496,6 +507,10 @@ for i in range(len(mappingAltitudes)): # Which Beta I'm considering
         if j == 1 and i == 0: # plot the accelerated potential line
             ax.axhline(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm, color='tab:red',linewidth=Line_LineWidth)
             ax.text(x=0.5, y=(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm)-0.075,s='$V_{0}$' + f'= {round(fitParameters[2],1)} eV',fontsize=Text_Fontsize, color='black'  )
+        if j == 1 and i == 2:
+            ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
+            ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
+
         if j == 0: # plot Vparallel labels
             ax.set_ylabel('$V_{\parallel}$ ' + rf'[$10^4$ km/s]', fontsize=Label_FontSize)
         if i == 2:# plot Vperp labels
@@ -508,14 +523,14 @@ cax = fig.add_axes([0.90, 0.05, 0.025, 0.564])
 cbar = plt.colorbar(cmapObj,cax=cax)
 cbar.ax.minorticks_on()
 cbar.ax.tick_params(labelsize=cbar_TickLabelSize)
-cbar.ax.get_yaxis().labelpad = 50
+cbar.ax.get_yaxis().labelpad = 40
 cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
 for l in cbar.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbar_TickLabelSize)
 
 
-plt.subplots_adjust(left=0.1, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
+plt.subplots_adjust(left=0.4, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
 try:
     os.remove(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png')
 except:

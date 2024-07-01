@@ -20,7 +20,7 @@ start_time = time.time()
 # --- IMPORTS ---
 # --- --- --- ---
 import matplotlib.gridspec as gridspec
-from ACESII_code.class_var_func import EpochTo_T0_Rocket
+from myspaceToolsLib.time import EpochTo_T0_Rocket
 from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
 
 
@@ -31,7 +31,7 @@ print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
 #################
 # --- TOGGLES ---
 #################
-
+useDiffNFlux = True
 # plot toggles - Overview -----------------------------
 sliceEpochIndicies = {
     's1':[5934, 5940, 5946],
@@ -67,7 +67,11 @@ dpi = 200
 
 
 # plot toggles - Show STEB itself ----------
-cbarLow, cbarHigh = 2E7, 1E9
+if useDiffNFlux:
+    cbarLow, cbarHigh = 1E5, 1E7
+else:
+    cbarLow, cbarHigh = 2E7, 1E9
+
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = [0,1,2] # the pitch angle index to plot for the Energy vs time plot
 Energy_yLimit = 1350
@@ -102,7 +106,10 @@ Done(start_time)
 prgMsg('Calculating Vperp and Vparallel')
 Energy = data_dict_eepaa_high['Energy'][0]
 Pitch = data_dict_eepaa_high['Pitch_Angle'][0]
-countsTemp = data_dict_eepaa_high['Differential_Energy_Flux'][0][6000]
+if useDiffNFlux:
+    countsTemp = data_dict_eepaa_high['Differential_Number_Flux'][0][6000]
+else:
+    countsTemp = data_dict_eepaa_high['Differential_Energy_Flux'][0][6000]
 Vperp = deepcopy(countsTemp)
 Vpara = deepcopy(countsTemp)
 
@@ -130,7 +137,12 @@ sliceTimes = {key:[data_dict_eepaa_high['Epoch'][0][val] for val in sliceEpochIn
 # --- --- --- --- ---
 IndexLow, IndexHigh = np.abs(data_dict_eepaa_high['Epoch'][0] - dispersiveRegionTargetTime[0]).argmin(), np.abs(data_dict_eepaa_high['Epoch'][0] - dispersiveRegionTargetTime[1]).argmin()
 Epoch = EpochTo_T0_Rocket(InputEpoch=data_dict_eepaa_high['Epoch'][0][IndexLow:IndexHigh], T0=data_dict_eepaa_high['Epoch'][0][0])
-dataArray = np.array(data_dict_eepaa_high['Differential_Energy_Flux'][0][IndexLow:IndexHigh])
+if useDiffNFlux:
+    dataArray = np.array(data_dict_eepaa_high['Differential_Number_Flux'][0][IndexLow:IndexHigh])
+else:
+    dataArray = np.array(data_dict_eepaa_high['Differential_Energy_Flux'][0][IndexLow:IndexHigh])
+
+
 
 
 ############################
@@ -209,7 +221,12 @@ for rowIdx in range(NoOfSlices):
         ax.text(0.5, -1.3, f'$t_{rowIdx}$=' + f'{timeTag} s', fontsize=textFontSize, weight='bold', color='black', bbox=props, ha='center')
 
         # dataToPlot
-        dataArray_Slice = data_dict_eepaa_high['Differential_Energy_Flux'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIdx] + 1}'][rowIdx]).argmin()]
+        if useDiffNFlux:
+            dataArray_Slice = data_dict_eepaa_high['Differential_Number_Flux'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIdx] + 1}'][rowIdx]).argmin()]
+        else:
+            dataArray_Slice = data_dict_eepaa_high['Differential_Energy_Flux'][0][np.abs(data_dict_eepaa_high['Epoch'][0] - sliceTimes[f's{wDispersions[colIdx] + 1}'][rowIdx]).argmin()]
+
+
 
         # Set the background black by turning all 0 values into 1's (just for display purposes)
         # for tme in range(len(dataArray_Slice)):

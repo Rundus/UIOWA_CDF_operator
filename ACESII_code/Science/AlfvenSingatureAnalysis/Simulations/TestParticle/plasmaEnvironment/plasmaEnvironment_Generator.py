@@ -27,11 +27,11 @@ plottingDict = {'Temperature':False,
                 'plasmaFreq': False,
                 'skinDepth': False,
                 'ionCyclotron': False,
-                'ionLarmorRadius':False,
+                'ionLarmorRadius': False,
                 'alfSpdMHD': False,
-                'kineticTerms': False,
+                'kineticTerms': True,
                 'lambdaPara': False,
-                'alfSpdInertial': True}
+                'alfSpdInertial': False}
 
 # --- Output Data ---
 outputData = True if not runFullSimulation else True
@@ -54,8 +54,8 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         h0 = 2000*m_to_km # scale height (in meters)
         T_iono = T1*exp(altRange/h0) + T0
         deltaZ = 0.3*R_REF
-        # T_ps = 2000 # temperature of plasma sheet (in eV)
-        T_ps = 107  # temperature of plasma sheet (in eV)
+        T_ps = 2000 # temperature of plasma sheet (in eV)
+        # T_ps = 105  # temperature of plasma sheet (in eV)
         z_ps = 3.75*R_REF # height of plasma sheet (in meters)
         w = 0.5*(1 - tanh((altRange - z_ps)/deltaZ)) # models the transition to the plasma sheet
 
@@ -191,28 +191,22 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(3)
+            fig, ax = plt.subplots(2)
             fig.set_figwidth(15)
             fig.set_figheight(10)
-            ax[0].plot(altRange / xNorm, n_Op)
+            ax[0].plot(altRange / xNorm, n_Op, color='blue', label='$n_{0^{+}}$ [$m^{-3}$]')
+            ax[0].plot(altRange / xNorm, n_Hp, color='red', label='$n_{H^{+}}$ [$m^{-3}$]')
             ax[0].set_title('Plasma densities vs Altitude')
-            ax[0].set_ylabel('$n_{0^{+}}$ [$m^{-3}$]')
             ax[0].set_xlabel(f'Altitude [{xLabel}]')
-            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='black')
             ax[0].set_yscale('log')
             ax[0].grid(True)
+            ax[0].legend()
 
-            ax[1].plot(altRange / xNorm, n_Hp)
-            ax[1].set_ylabel('$n_{H^{+}}$ [$m^{-3}$]')
+            ax[1].plot(altRange / xNorm, m_eff_i)
+            ax[1].set_ylabel('$m_{eff_{i}}$ [kg]')
             ax[1].set_xlabel(f'Altitude [{xLabel}]')
             ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            ax[1].set_yscale('log')
-            ax[1].grid(True)
-
-            ax[2].plot(altRange / xNorm, m_eff_i)
-            ax[2].set_ylabel('$m_{eff_{i}}$ [kg]')
-            ax[2].set_xlabel(f'Altitude [{xLabel}]')
-            ax[2].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             plt.legend()
             plt.tight_layout()
             plt.show()
