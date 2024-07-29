@@ -44,7 +44,7 @@ justPrintFileNames = False
 # 3 -> TRICE II Low Flier
 # 4 -> ACES II High Flier
 # 5 -> ACES II Low Flier
-wRocket = 5
+wRocket = 4
 
 useNanoAmps = True
 
@@ -53,8 +53,8 @@ useNanoAmps = True
 ###############################
 unit_conversion = 1e9 # 1 for Amps 10**9 for nano amps, etc
 SECTION_fixedProbeCal = True
-applyFixedCalCurve = True
-plotFixedCalCurve = False
+applyFixedCalCurve = False
+plotFixedCalCurve = True
 
 ##################################
 # --- SWEPT TO VOLTAGE TOGGLES ---
@@ -86,7 +86,7 @@ indvEpochThresh = 15000000 # Value, in tt2000, that determines the time diff nee
 #####################
 # --- DATA OUTPUT ---
 #####################
-outputData = True
+outputData = False
 
 # --- --- --- ---
 # --- IMPORTS ---
@@ -183,6 +183,8 @@ def L1_to_Langmuir(wRocket, rocketFolderPath, justPrintFileNames, wflyer):
             parameters, covariance = scipy.optimize.curve_fit(calFunction_fixed, analog_vals, calibrationCurrents, maxfev=10000)
 
             if plotFixedCalCurve:
+                import matplotlib
+                matplotlib.rc('figure', figsize=(5, 5))
                 xDataFit = np.array([i for i in range(1, 4096)])
                 yDataFit = [calFunction_fixed(val, *parameters) for val in xDataFit]
                 plt.plot(xDataFit, yDataFit, color='red')

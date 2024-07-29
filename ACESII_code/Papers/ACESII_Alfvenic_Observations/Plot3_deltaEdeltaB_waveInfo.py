@@ -23,7 +23,8 @@ start_time = time.time()
 # --- IMPORTS ---
 # --- --- --- ---
 from numpy.fft import rfft, fftfreq
-from ACESII_code.class_var_func import u0, InterpolateDataDict
+from myspaceToolsLib.physicsVariables import u0
+from myspaceToolsLib.interpolate import InterpolateDataDict
 from scipy.integrate import simpson
 from scipy.signal import spectrogram
 from my_matplotlib_Assets.colorbars.matlab_parula import matlab_parula_cmap
@@ -280,6 +281,8 @@ def Plot3_deltaEdeltaB_waveInfo(targetVar,dict_sets):
         data_dict_FFT['ni'].append(ni)
         data_dict_FFT['VA_avg'].append(VA_avg)
         data_dict_FFT['VA_t'].append(VA_t)
+
+        print(np.average(data_dicts[6]['Ion_Comp'][0]), np.average(data_dicts[6]['Op_Comp'][0]))
 
     # ---------------------
     #######################

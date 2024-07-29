@@ -11,9 +11,10 @@ __version__ = "1.0.0"
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
 from ACESII_code.myImports import *
 start_time = time.time()
+
 # --- --- --- --- ---
 justPrintFileNames = False
 wRocket = 4
@@ -22,25 +23,42 @@ inputPath_modifier = 'l1' # e.g. 'L1' or 'L1'. It's the name of the broader inpu
 outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir'. It's the name of the broader output folder
 
 
+################################
+# --- Plot toggles - General ---
+################################
+figure_width = 12 # in inches
+figure_height = 8.5 # in inches
+Title_FontSize = 20
+Label_FontSize = 15
+Label_Padding = 8
+Line_LineWidth = 2.5
+Text_Fontsize = 25
+Tick_FontSize = 25
+Tick_FontSize_minor = 20
+Tick_Length = 10
+Tick_Width = 2
+Tick_Length_minor = 5
+Tick_Width_minor = 1
+Plot_LineWidth = 0.5
+Plot_MarkerSize = 14
+Legend_fontSize = 15
+dpi = 200
+
+
 # --- --- --- ---
 # --- TOGGLES ---
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
-# wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [3] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [2,3,4,5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
-from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
-mycmap = apl_rainbow_black0_cmap()
-cbar_low, cbar_high = 0, 30
-# ---------------------------
 applyMaskVal = True
-maskVal = 2 # apply a single mask to the dispersion feature
+cbar_low, cbar_high = 0, 30
+maskVal = 5 # apply a single mask to the dispersion feature
 # ---------------------------
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature
 # ---------------------------
-plotCorrelationProcess = False
 DetectorTimeResolution = 0.05 # in seconds
 DetectorEnergyResolution = 0.18
 # ---------------------------
@@ -49,20 +67,32 @@ showErrorBars = False
 weightLinearFitByCounts = False
 outputCorrelationPlot = True
 # ---------------------------
-outputData = False
-# ---------------------------
 LambdaPerpPlot = False
 LambdaPerpFit = False
-
-
 
 # --- --- --- ---
 # --- IMPORTS ---
 # --- --- --- ---
+
 from scipy.signal import correlate, correlation_lags
 from itertools import combinations
 from ACESII_code.Science.AlfvenSingatureAnalysis.Particles.dispersionAttributes import dispersionAttributes
 from myspaceToolsLib.physicsVariables import Re
+
+mycmap = apl_rainbow_black0_cmap()
+
+
+
+# Linear Fitted Model
+def fitFunc_linear(x, a, b):
+    return a * x + b
+
+# Polynomial Fitted Model
+# def fitFunc_polynomial(x, a0, a1, a2):
+#     return a0 + a1 * x + a2 * (x ** 2)
+
+def fitFunc_polynomial(x,a0, a1, a2):
+    return  a0+ a1 * x + a2 * (x ** 2)
 
 
 def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames,wDis):
@@ -96,15 +126,19 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
 
     eepaa_dis = data_dict['eepaa'][0][lowCut:highCut+1]
 
-    if isolateAlfvenSignature:
-        eepaa_dis = np.array(dispersionAttributes.isolationFunctions[wDispersion_key](eepaa_dis, Energy, Epoch_dis)) # pply the isolation functions found in dispersionAttributes.py
-
     if applyMaskVal:
         # --- Apply the Masking Value to the dataset ---
         # Note: This removes all Fillvals
         eepaa_dis[eepaa_dis<=maskVal] = 0 # applies mask and zeros-out anything below 0
         eepaa_dis = eepaa_dis.clip(min=0)
         eepaa_dis[eepaa_dis>1E15] = 0 # zeros-out anything above 1E15
+
+    if isolateAlfvenSignature:
+        eepaa_dis = np.array(dispersionAttributes.isolationFunctions[wDispersion_key](eepaa_dis, Energy, Epoch_dis)) # pply the isolation functions found in dispersionAttributes.py
+
+
+
+
 
     # --- Reduce data to Pitch Slice of Interest ---
     # gets one slice in pitch of the data and flips
@@ -116,7 +150,6 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
     #################################################
 
     if justPlotKeyDispersions:
-
         fig, ax = plt.subplots(2)
         figure_width = 25
         figure_height = 15
@@ -125,19 +158,16 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         fig.suptitle(f'STEB {wDis}\n Pitch = {Pitch[wPitch]}deg\n {data_dict["Epoch"][0][lowCut].strftime("%H:%M:%S.%f")} to {data_dict["Epoch"][0][highCut].strftime("%H:%M:%S.%f")}')
         cmap = ax[0].pcolormesh(Epoch_dis, Energy, np.array(eepaa_dis[:, wPitch, :]).T, cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
         ax[0].set_yscale('log')
-        ax[0].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis-1][1]).argmin()-1])
-        ax[1].pcolormesh(Epoch_dis, Energy, np.array(data_dict['eepaa'][0][lowCut:highCut+1,wPitch,:]).T, cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
+        ax[0].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis - 1][1]).argmin() - 1])
+        ax[1].pcolormesh(Epoch_dis, Energy, np.array(data_dict['eepaa'][0][lowCut:highCut + 1, wPitch, :]).T,cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
         ax[1].set_yscale('log')
         ax[1].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis - 1][1]).argmin() - 1])
-        cbar = plt.colorbar(cmap,ax=ax.ravel().tolist())
+        cbar = plt.colorbar(cmap, ax=ax.ravel().tolist())
         plt.show()
-    elif correlationAnalysis:
-
+    else:
         ############################################
         # --- PERFORM CROSS CORRELATION ANALYSIS ---
         ############################################
-        engyIndx = 0
-        tmeIndex = 0
         peakVal = 0
 
         for engy in range(len(Energy)):
@@ -164,8 +194,6 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         maxEnergy = validEngyIndicies.min()
         energyPairs = [comb for comb in combinations(validEngyIndicies, 2) if maxEnergy in comb]
 
-
-
         # for each pair of Energies, perform the cross-correlation analysis:
         # Note: the peak value in the lag-time determines the deltaT value between the velocities
         deltaTs = []
@@ -190,30 +218,7 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
                 continue
             else:
                 corr = np.array(correlate(eepaa_dis_onePitch[lowerEnergyIndex],eepaa_dis_onePitch[higherEnergyIndex]))
-                corr_norm = corr/np.max(corr)
                 lags = correlation_lags(len(eepaa_dis_onePitch[higherEnergyIndex]), len(eepaa_dis_onePitch[lowerEnergyIndex]))
-
-            if plotCorrelationProcess:
-                fig, ax = plt.subplots(4)
-                figure_width = 10
-                figure_height = 20
-                fig.set_figwidth(figure_width)
-                fig.set_figheight(figure_height)
-                fig.suptitle(f'High Energy {Energy[higherEnergyIndex]} \n Low Energy {Energy[lowerEnergyIndex]}')
-                ax[0].pcolormesh(Epoch_dis,Energy,np.array(eepaa_dis[:,wPitch,:]).T,cmap='turbo',vmin=cbar_low,vmax=cbar_high)
-                ax[0].set_yscale('log')
-                ax[0].set_ylim(Energy[-1],Energy[higherEnergyIndex-1])
-                ax[0].axhline(Energy[lowerEnergyIndex], color='green')
-                ax[0].axhline(Energy[higherEnergyIndex], color='red')
-                ax[1].plot(eepaa_dis_onePitch[higherEnergyIndex])
-                ax[1].set_ylabel('Higher Energy Counts')
-                ax[2].plot(eepaa_dis_onePitch[lowerEnergyIndex])
-                ax[2].set_ylabel('Lower Energy Counts')
-                ax[3].plot(lags, corr)
-                ax[3].set_ylabel('Correlation (normalized)')
-                ax[3].set_xlabel('Lag')
-                plt.tight_layout()
-                plt.show()
 
             try:
                 # Find the x,y value of the peak in the correlation output
@@ -256,24 +261,9 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ##########################################
         # --- FIT THE DATA TO DERIVE TOF Z_ACC ---
         ##########################################
-
-        # Linear Fitted Model
-        def fitFunc_linear(x, a, b):
-            return a * x + b
-
-        paramsLin, covLin = curve_fit(fitFunc_linear, deltaVs, deltaTs)
-
-        # Polynomial Fitted Model
-        # def fitFunc_polynomial(x, a0, a1, a2):
-        #     return a0 + a1 * x + a2 * (x ** 2)
-
-        def fitFunc_polynomial(x,a0, a1, a2):
-            return  a0+ a1 * x + a2 * (x ** 2)
-
         p0 = [-9.113E-1, 7.350E3, -1.108E7]
-        # p0 = [7.350E3, -1.108E7]
         paramsPoly, covPoly = curve_fit(fitFunc_polynomial, deltaVs, deltaTs, p0=p0, maxfev=int(1E6))
-
+        paramsLin, covLin = curve_fit(fitFunc_linear, deltaVs, deltaTs)
 
         # --- CORRELATION ---
         # # linear
@@ -284,8 +274,6 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         # Polynomial
         fitData_poly = fitFunc_polynomial(deltaVs, *paramsPoly)
         r_corr_poly = np.corrcoef([deltaTs,fitData_poly])[0][1]
-
-
 
 
         # calculate chisquare
@@ -309,173 +297,138 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         # ax.plot(deltaVs,ExpectedPoly,color='red')
         # plt.show()
 
-
-
-        #####################################
-        # --- PLOT THE RESULTS OF THE FIT ---
-        #####################################
-        if outputCorrelationPlot:
-
-            x_s = np.linspace(deltaVs.min(), deltaVs.max(), 20)
-            fitData = fitFunc_linear(x_s,*paramsLin)
-            fitData_poly = fitFunc_polynomial(x_s, *paramsPoly)
-
-            fig, ax = plt.subplots()
-            fig.suptitle(f'STEB {wDis}\n' + r'$\alpha$ =' + f'{Pitch[wPitch]} deg, maslVal = {maskVal}, N = {len(deltaVs)}')
-
-            # Raw Data
-            if showErrorBars:
-                ax.errorbar(deltaVs, deltaTs, xerr=errorV, yerr=errorT, fmt='o', linewidth=2, capsize=6)
-            else:
-                ax.scatter(deltaVs, deltaTs)
-
-            ax.set_ylabel('Delay time [s]')
-            ax.set_xlabel('1/v [s/km]')
-            ax.plot(x_s, fitData, color="red",label=f'd ={paramsLin[0]/6371}Re\n t_0={paramsLin[1]}\n r_corr_lin = {r_corr_linear}')
-            ax.plot(x_s, fitData_poly, color='black',label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {paramsPoly[2]}\n r_corr_poly = {r_corr_poly}')
-            # ax.plot(x_s, fitData_poly, color='black', label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {0}\n r_corr_poly = {r_corr_poly}')
-
-            xticks = np.linspace(0, deltaVs.max(), 6)
-            xtick_labels = [f'{x:.2e}' for x in xticks]
-            xtick_labels[0] = '0'
-            ax.set_xticks(xticks,xtick_labels)
-            plt.legend()
-            plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\STEB_{wDis}.png')
-
         ########################################
         # --- Return results of the Analysis ---
         ########################################
         # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
         errorZ_avg = sum(errorZ) / len(errorZ)
-        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin[0] / Re, errorZ_avg, r_corr_linear,paramsPoly,deltaVs,deltaTs]
+        return [wDis, whenSTEBoccured_time, whenSTEBoccured_Alt, paramsLin, errorZ_avg, r_corr_linear, paramsPoly, deltaVs, deltaTs,r_corr_poly]
 
 
 # --- --- --- ---
 # --- EXECUTE ---
 # --- --- --- ---
 rocketFolderPath = ACES_data_folder
-
-if len(glob(f'{rocketFolderPath}{inputPath_modifier}\{fliers[wRocket-4]}\*.cdf')) == 0:
-    print(color.RED + 'There are no .cdf files in the specified directory' + color.END)
-else:
-    STEBfitResults = []
-
-    if len(wDispersions) == 1:
-        results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDispersions[0])
-        STEBfitResults.append(results)
-    elif wDispersions == []:
-        for i in tqdm(range(len(dispersionAttributes.keyDispersionTimes))):
-            results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, i+1)
-            STEBfitResults.append(results)
-    else:
-        for i in tqdm(range(len(wDispersions))):
-            results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDispersions[i])
-            STEBfitResults.append(results)
-
-    if LambdaPerpFit:
-
-        Tanaka_XDat = [1,3,9]
-        Tanaka_YDat = [-2.77E7,-9.71E6,-8.29E6]
-
-
-        def fitFunc(x, a0, a2):
-            return a0*np.log(x+1) + a2
-
-        guess = [1E6,-1.04E7]
-        paramsFit,cov = curve_fit(fitFunc,Tanaka_XDat,Tanaka_YDat, p0=guess)
-
-
-        x_s = np.linspace(min(Tanaka_XDat),max(Tanaka_XDat),200)
-        fitDat = fitFunc(x_s,*paramsFit)
-        fig,ax = plt.subplots()
-        ax.scatter(Tanaka_XDat,Tanaka_YDat)
-        ax.plot(x_s,fitDat)
-        plt.show()
-
-        def inverseFunc(x,a,c):
-            return np.exp((x-c)/a)+1
-        print(paramsFit)
-
-        for data in STEBfitResults:
-            if data[0] in [2, 3, 4, 5]:
-                params = data[6]
-                deltaV = data[7]
-                deltaT = data[8]
-
-                a2_param = params[2]
-
-                print(data[0],a2_param,inverseFunc(a2_param,*paramsFit))
+STEBfitResults = []
+for wDis in tqdm(wDispersions):
+    results = AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileNames, wDis)
+    STEBfitResults.append(results)
 
 
 
 
+if not justPrintFileNames:
+    ##################
+    # --- PLOTTING ---
+    ##################
+    fig, ax = plt.subplots(nrows=2,ncols=2)
+    fig.set_size_inches(figure_width, figure_height)
+    counter = 0
+    Pitch = [-10 + i*10 for i in range(21)]
+
+    for rowIdx in range(2):
+        for colIdx in range(2):
+            wDis = STEBfitResults[counter][0]
+            deltaVs = STEBfitResults[counter][7]
+            deltaTs = STEBfitResults[counter][8]
+            paramsLin = STEBfitResults[counter][3]
+            paramsPoly = STEBfitResults[counter][6]
+            r_corr_linear = STEBfitResults[counter][5]
+            r_corr_poly = STEBfitResults[counter][-1]
+
+
+            x_s = np.linspace(deltaVs.min(), deltaVs.max(), 20)
+            fitData = fitFunc_linear(x_s, *paramsLin)
+            fitData_poly = fitFunc_polynomial(x_s, *paramsPoly)
+
+            ax[rowIdx, colIdx].set_title(f'S{wDis}', fontsize=Title_FontSize)
+
+
+            # Raw Data
+            ax[rowIdx, colIdx].scatter(deltaVs, deltaTs)
+
+            if colIdx == 0:
+                ax[rowIdx, colIdx].set_ylabel('Delay time [s]',fontsize=Label_FontSize)
+            if rowIdx == 1:
+                ax[rowIdx, colIdx].set_xlabel('1/v [s/km]',fontsize=Label_FontSize)
+            ax[rowIdx, colIdx].plot(x_s, fitData, color="red", label=f'r-corr. (first order) = {round(r_corr_linear, 3)}')
+            ax[rowIdx, colIdx].plot(x_s, fitData_poly, color='black', label=f'r-corr. (second order) = {round(r_corr_poly,3)}')
+            # ax.plot(x_s, fitData_poly, color='black', label=f'a0 = {paramsPoly[0]}\n a1 = {paramsPoly[1]} \n a2 = {0}\n r_corr_poly = {r_corr_poly}')
+
+            xticks = np.linspace(0, deltaVs.max(), 6)
+            xtick_labels = [f'{x:.2e}' for x in xticks]
+            xtick_labels[0] = '0'
+            ax[rowIdx, colIdx].set_xticks(xticks, xtick_labels)
+            ax[rowIdx, colIdx].legend(loc='lower right', fontsize=Legend_fontSize)
+            counter += 1
+
+    plt.tight_layout()
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot9\Plot9_TOFfunc_base.png', dpi=dpi)
 
 
 
-    if LambdaPerpPlot:
-
-        fig, ax = plt.subplots()
-
-        for data in STEBfitResults:
-            if data[0] in [2, 3, 4, 5]:
-                params = data[6]
-                deltaV = data[7]
-                deltaT = data[8]
-
-                x_s = np.linspace(deltaV.min(), deltaV.max(), 20)
-                # x_s = np.linspace(deltaV.min(), 3E-4, 20)
-
-                def fitFunc_polynomial(x, a0, a1, a2):
-                    return a0 + a1 * x + a2 * (x ** 2)
-                fitData_poly = fitFunc_polynomial(x_s, *params)
-
-                ax.plot(x_s, fitData_poly,label=f'STEB {data[0]}')
-
-        ax.set_ylabel('Delay time [s]')
-        ax.set_xlabel('1/v [s/km]')
-        ax.set_xlim(0,3E-4)
-        plt.legend()
-        plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\STEB_LambdaPerp.png')
 
 
-    if outputData:
-        ########################################
-        # --- Return results of the Analysis ---
-        ########################################
-        # FORMAT of STEB fit results:
-        # [[STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error_avg, correlationR],
-        #  [...],
-        #  ]
 
-        ExampleVarAttrs = {'FIELDNAM': None,
-                           'LABLAXIS': None,
-                           'DEPEND_0': None,
-                           'DEPEND_1': None,
-                           'DEPEND_2': None,
-                           'FILLVAL': None,
-                           'FORMAT': None,
-                           'UNITS': None,
-                           'VALIDMIN': None,
-                           'VALIDMAX': None,
-                           'VAR_TYPE': 'data',
-                           'SCALETYP': 'linear'}
+if LambdaPerpFit:
 
-        # return an array of: [STEB Number,Observation Time, Observation Altitude, Z_acc, Z_acc_error, correlationR]
-        data_dict_output = {'wDis': [np.array(STEBfitResults[:,0]), deepcopy(ExampleVarAttrs)],
-                            'whenSTEBoccured_time': [np.array(STEBfitResults[:,1]), deepcopy(ExampleVarAttrs)],
-                            'whenSTEBoccured_Alt': [np.array(STEBfitResults[:,2]), deepcopy(ExampleVarAttrs)],
-                            'Z_acc': [np.array(STEBfitResults[:,3]), deepcopy(ExampleVarAttrs)],
-                            'Z_acc_error': [np.array(STEBfitResults[:,4]), deepcopy(ExampleVarAttrs)],
-                            'r_corr': [np.array(STEBfitResults[:,5]), deepcopy(ExampleVarAttrs)],
-                            }
+    Tanaka_XDat = [1,3,9]
+    Tanaka_YDat = [-2.77E7,-9.71E6,-8.29E6]
 
-        prgMsg('Creating output file')
-        rocketAttrs, b, c = ACES_mission_dicts()
-        rocketID = rocketAttrs.rocketID[wRocket - 4]
-        fileoutName = f'ACESII_{rocketID}_crossCorrelationAnalysis.cdf'
-        outputPath = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\{fileoutName}'
-        outputCDFdata(outputPath, data_dict_output)
-        Done(start_time)
+
+    def fitFunc(x, a0, a2):
+        return a0*np.log(x+1) + a2
+
+    guess = [1E6,-1.04E7]
+    paramsFit,cov = curve_fit(fitFunc,Tanaka_XDat,Tanaka_YDat, p0=guess)
+
+
+    x_s = np.linspace(min(Tanaka_XDat),max(Tanaka_XDat),200)
+    fitDat = fitFunc(x_s,*paramsFit)
+    fig,ax = plt.subplots()
+    ax.scatter(Tanaka_XDat,Tanaka_YDat)
+    ax.plot(x_s,fitDat)
+    plt.show()
+
+    def inverseFunc(x,a,c):
+        return np.exp((x-c)/a)+1
+    print(paramsFit)
+
+    for data in STEBfitResults:
+        if data[0] in [2, 3, 4, 5]:
+            params = data[6]
+            deltaV = data[7]
+            deltaT = data[8]
+
+            a2_param = params[2]
+
+            print(data[0],a2_param,inverseFunc(a2_param,*paramsFit))
+
+if LambdaPerpPlot:
+
+    fig, ax = plt.subplots()
+
+    for data in STEBfitResults:
+        if data[0] in [2, 3, 4, 5]:
+            params = data[6]
+            deltaV = data[7]
+            deltaT = data[8]
+
+            x_s = np.linspace(deltaV.min(), deltaV.max(), 20)
+            # x_s = np.linspace(deltaV.min(), 3E-4, 20)
+
+            def fitFunc_polynomial(x, a0, a1, a2):
+                return a0 + a1 * x + a2 * (x ** 2)
+            fitData_poly = fitFunc_polynomial(x_s, *params)
+
+            ax.plot(x_s, fitData_poly,label=f'STEB {data[0]}')
+
+    ax.set_ylabel('Delay time [s]')
+    ax.set_xlabel('1/v [s/km]')
+    ax.set_xlim(0,3E-4)
+    plt.legend()
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\TOFanalysis\STEB_LambdaPerp.png')
+
 
 
 

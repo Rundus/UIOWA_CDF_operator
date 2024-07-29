@@ -1,7 +1,7 @@
 # --- EEPAA_Energy_Cal.py ---
 # --- Author: C. Feltman ---
 # DESCRIPTION: Using the 401 chamber calibration data, fit a linear curve to
-# between the data to determine a calibration curve for EEPAA steps/energy
+# the data to determine a calibration curve for EEPAA steps/energy
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -19,7 +19,7 @@ inputFile = r'C:\Users\cfelt\PycharmProjects\UIOWA_CDF_operator\ACESII_code\Cali
 wRow = 0 # row corresponding to where all the names of the variables are
 
 
-plotCalData_vs_Theoretical = False
+plotCalData_vs_Theoretical = True
 
 # Thereotical EEPAA Energies
 # 12750.00, 10905.65, 9328.10, 7978.75, 6824.58, 5837.38, 4992.97, 4270.72,

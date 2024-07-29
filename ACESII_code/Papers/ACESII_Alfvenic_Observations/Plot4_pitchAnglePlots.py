@@ -11,6 +11,7 @@ __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from ACESII_code.myImports import *
 start_time = time.time()
@@ -31,7 +32,7 @@ print(color.UNDERLINE + f'Plot4_pitchAnglePlots' + color.END)
 #################
 # --- TOGGLES ---
 #################
-useDiffNFlux = True
+useDiffNFlux = False
 # plot toggles - Overview -----------------------------
 sliceEpochIndicies = {
     's1':[5934, 5940, 5946],
@@ -70,7 +71,7 @@ dpi = 200
 if useDiffNFlux:
     cbarLow, cbarHigh = 1E5, 1E7
 else:
-    cbarLow, cbarHigh = 2E7, 1E9
+    cbarLow, cbarHigh = 4E7, 1E9
 
 wDispersions = np.array([2,3,4,5])-1 # [s1, s2, s3, s4, etc] <-- Index
 wPitch_Engy_vs_Time = [0,1,2] # the pitch angle index to plot for the Energy vs time plot
@@ -244,8 +245,18 @@ for rowIdx in range(NoOfSlices):
         ax.tick_params(axis='x', which='major', labelsize=tickFontSize, width=tickWidth, length=tickLength)
         ax.tick_params(axis='x', which='minor', labelsize=tickFontSize, width=tickWidth, length=tickLength / 2)
 
+        Eval = [0.55, 1.05, 1.545]
+        for eval in Eval:
+            xVals = [eval * np.sin(np.radians(ptch)) for ptch in [-15 + i * 10 for i in range(21)]]
+            yVals = [eval * np.cos(np.radians(ptch)) for ptch in [-15 + i*10 for i in range(21)]]
+            ax.plot(xVals, yVals, label=f'{eval}', color='black', linewidth=1.5,alpha=0.5)
+
+            if colIdx == 0:
+                ax.text(x=eval * np.sin(np.radians(130)),y=eval * np.cos(np.radians(130)),s=f'{eval}', fontsize=13)
+
         if colIdx == 0:
             ax.set_ylabel('V$_{\parallel}$ [10$^{4}$ km/s]', fontsize=smallPlots_labelsFontSize , labelpad=labelPadding + 5, weight='bold')
+
         else:
             ax.set_yticklabels([])
 

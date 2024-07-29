@@ -221,6 +221,13 @@ class dispersionAttributes(object):
         EnergyStartPoint, TimeStart, TimeEnd = 80, 1.1, 1.6
         newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
 
+
+        # # --- DIAGONAL REMOVE ---
+        # remove upper Right stuff (COARSE)
+        upper = True
+        EnergyStartPoint, TimeStart, TimeEnd = 70, 0.8, 1.6
+        newData = diagonalRemove(newData, EnergyStartPoint, TimeStart, TimeEnd, Energy, Time, upper)
+
         return newData
 
     @staticmethod

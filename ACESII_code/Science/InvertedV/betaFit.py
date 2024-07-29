@@ -31,13 +31,13 @@ modifyInitialBeam = True
 beamPitchThreshold = 30
 beamEnergyThreshold = 400
 cbarVmin, cbarVmax = 1E5, 5E6
-beta_model = [5,6,6.5,7,7.5,8] # If I wanted distance values between 1-2 R_E, then beta should be between 3 to 24
+beta_model = [6] # If I wanted distance values between 1-2 R_E, then beta should be between 3 to 24
 
 # --- mapped distribution to different betas ---
-Plot_modelDistribution = False
+Plot_modelDistribution = True
 
 # --- beam widening fits for beta ---
-Plot_beamWidthBetaFit = True
+Plot_beamWidthBetaFit = False
 threshEngy = 200
 betaIdxToPlot = 2 # Even though I'm trying to find beta, I still might want to plot it in order to compare
 

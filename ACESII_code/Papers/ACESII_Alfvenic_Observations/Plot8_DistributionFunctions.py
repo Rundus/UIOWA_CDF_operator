@@ -11,6 +11,9 @@
 __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
+
+import numpy as np
+
 from ACESII_code.myImports import *
 plt.rcParams["font.family"] = "Arial"
 start_time = time.time()
@@ -34,7 +37,10 @@ from scipy.interpolate import CubicSpline
 # --- Collect the Data ---
 datasetReduction_TargetTime = [dt.datetime(2022, 11, 20, 17, 24, 50, 000000), dt.datetime(2022,11,20,17,25,15,000000)]
 targetVar = [datasetReduction_TargetTime, 'Epoch']
-mappingAltitudes = [6588, 4850, 2252]
+mappingAltitudes = [5000, 2500, 400]
+
+
+# note: Beta = 5 0.817 --> 5210.826
 
 # --- PRIMARY BEAM diffNFlux fit  ---
 primaryBeam_TargetTimes_data = dt.datetime(2022, 11, 20, 17, 25, 1, 212210)
@@ -45,10 +51,12 @@ diffNFlux_Fit_threshEngy = 100
 countNoiseLevel = 4
 
 # --- Model Primary Beam toggles ---
-N = 51
-PS_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+N = 401
+# PS_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+PS_BeamThreshEnergy = 621.29 # in eV
 PS_BeamThreshPitch = 90
-InV_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+# InV_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+InV_BeamThreshEnergy = 621.29*(1) # in eV
 InV_BeamThreshPitch = 90
 
 # backscatter toggles
@@ -60,11 +68,15 @@ BackScatter_wPitchAngles = np.array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
 Plot_useVelGrid =False
 Plot_useDistributionFunction = False # use distribution Function instead of diffNFlux
 
+# Loss Cone
+LossConeAlt = 100 # in km
+
 # --- Alfven Wave Resonance Bands ---
 from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import EToggles
-EparallelMax = [19E-6, 17E-6, 12E-6]
-PhiPotential = [268, 206, 56]
 waveFreq = EToggles.waveFreq_Hz
+
+
+
 
 ################################
 # --- Plot toggles - General ---
@@ -85,11 +97,11 @@ Tick_Width_minor = 1
 Plot_LineWidth = 0.5
 Plot_MarkerSize = 14
 Legend_fontSize = 20
-dpi = 200
+dpi = 400
 
 # --- Velocity Space ---
 VelSpace_Norm = 1E7
-VelSpace_Max = 2.55
+VelSpace_Max = 2
 
 # --- Cbar ---
 mycmap = apl_rainbow_black0_cmap()
@@ -284,8 +296,6 @@ for mapAlt in mappingAltitudes:
     Data_InvertedV_VparaAtBeta.append(VparaGrid_mapped)
     Data_InvertedV_diffNFluxAtBeta.append(diffNFlux_mapped)
 
-
-
 # --- PLASMA SHEET AT DIFFERENT BETAs ---
 Data_PS_VperpAtBeta = []
 Data_PS_VparaAtBeta = []
@@ -309,6 +319,19 @@ for mapAlt in mappingAltitudes:
         targetAlt=mapAlt,
         startingAlt=max(mappingAltitudes),
         mapToMagSph=False)
+
+    for rowIdx in range(len(VperpGrid_mapped)):
+        for colIdx in range(len(VperpGrid_mapped[0])):
+
+            specificPitchAngle = np.arctan2(VperpGrid_mapped[rowIdx][colIdx],VparaGrid_mapped[rowIdx][colIdx])
+            if VperpGrid_mapped[rowIdx][colIdx] < 0:
+                specificPitchAngle = -1*specificPitchAngle
+
+            lostPitchThresh = np.arcsin(np.sin(specificPitchAngle)*np.power((Re + mapAlt)/(Re + LossConeAlt),3/2))
+            if -1*lostPitchThresh <= specificPitchAngle <= lostPitchThresh:
+                diffNFlux_mapped[rowIdx][colIdx] = 0
+
+
     Data_PS_VperpAtBeta.append(VperpGrid_mapped)
     Data_PS_VparaAtBeta.append(VparaGrid_mapped)
     Data_PS_diffNFluxAtBeta.append(diffNFlux_mapped)
@@ -328,19 +351,25 @@ alfSpeedMHD_sim = data_dict_alfModel['alfSpdMHD'][0][:targetIdx_Sim]
 alfSpeedKinetic_sim = data_dict_alfModel['alfSpdInertial'][0][:targetIdx_Sim]
 
 ResonanceLimits = []
+AlfSpeedAtSpecificAlti = []
+PhiPotential = []
 for d, mapAlt in enumerate(mappingAltitudes):
     Altitude = mapAlt*1000
     altIdx = np.abs(data_dict_alfModel['simAlt'][0] - Altitude).argmin()
     localAlfSpdInertial = data_dict_alfModel['alfSpdInertial'][0][altIdx]
     # PhiVal = 2*EparallelMax[d]*localAlfSpdInertial/waveFreq
-    PhiVal = PhiPotential[d]
-    ResonanceLimits.append([localAlfSpdInertial - np.sqrt(2*q0*PhiVal/(m_e)), localAlfSpdInertial])
-
-    if Altitude == 2252000:
-        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * 28 * q0 / m_e), 2) / q0)
+    AlfSpeedAtSpecificAlti.append(localAlfSpdInertial)
+    if d == 2:
+        PhiVal = round(0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (28) * q0 / m_e), 2) / q0)
+        # print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (28) * q0 / m_e), 2) / q0)
     else:
-        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(
-            localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
+        PhiVal = round(0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
+        # print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
+
+    PhiPotential.append(PhiVal)
+    ResonanceLimits.append([localAlfSpdInertial - np.sqrt(2 * q0 * PhiVal / (m_e)), localAlfSpdInertial])
+
+
 
 
 
@@ -403,14 +432,14 @@ ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedMHD_sim)/VelSp
 ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Kinetic (Inertial limit)', color='red', linewidth=Line_LineWidth+1,zorder=1)
 ax_alfvenSpeed.text(x=1250,y=3.5,s=r'$\lambda_{\perp 0}$ = '+f'{EToggles.lambdaPerp0/1000} km',fontsize=Text_Fontsize, ha='center', va='center',bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'))
 ax_alfvenSpeed.set_ylabel(r'Alfv$\'e$n Speed'+'\n  [10000 km/s]',fontsize=Label_FontSize)
-ax_alfvenSpeed.set_xlabel(f'Altitude [km]',fontsize=Label_FontSize)
+ax_alfvenSpeed.set_xlabel(f'Altitude [km]', fontsize=Label_FontSize)
 ax_alfvenSpeed.grid(True)
 ax_alfvenSpeed.set_ylim(0,4.2)
 ax_alfvenSpeed.set_xlim(100, 10000)
 ax_alfvenSpeed.legend(loc='lower right',fontsize=Legend_fontSize)
-keyPoints_alt = np.array([6588000,4850000,2252000])/1000
-keyPoints_VA = np.array([24497207.92313035,23285318.5169304,7568587.927368634])/VelSpace_Norm
-ax_alfvenSpeed.scatter(x=keyPoints_alt,y=keyPoints_VA,color='red',s=150,zorder=2)
+keyPoints_alt = np.array(mappingAltitudes)
+keyPoints_VA = np.array(AlfSpeedAtSpecificAlti)/VelSpace_Norm
+ax_alfvenSpeed.scatter(x=keyPoints_alt,y=keyPoints_VA,color='red',s=200,zorder=2)
 
 axes = [ax_diffNFluxFit, ax_alfvenSpeed]
 for ax in axes:
@@ -473,20 +502,19 @@ for i in range(len(mappingAltitudes)): # Which Beta I'm considering
         #########################
         # --- RESONANCE BANDS ---
         #########################
-        ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
-        # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
-
-        if i == 0:
-            ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        if i == 1:
-            ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        if i == 2:
-            ax.text(x=0.83, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075,
-                    s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
-        ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
-
-        # General Labels
+        # ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
+        # # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
+        #
+        # if i == 0:
+        #     ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+        # if i == 1:
+        #     ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+        # if i == 2:
+        #     ax.text(x=0.75, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+        # ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
+        # ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
+        #
+        # # General Labels
         ax.set_ylim(0, VelSpace_Max)
         ax.set_xlim(-VelSpace_Max, VelSpace_Max)
         ax.invert_yaxis()
@@ -494,11 +522,13 @@ for i in range(len(mappingAltitudes)): # Which Beta I'm considering
         ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
         ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
         ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-        ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
+        # ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
+        points = ['A','B','C']
+        ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{points[i]}', fontsize=Label_FontSize+5,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
 
         # Specific things
         if i == 0 and j == 0:
-            ax.set_title('Plasma Sheet', fontsize=Title_FontSize)
+            ax.set_title('Ambient Plasma Sheet', fontsize=Title_FontSize)
         if i == 0 and j == 1:
             ax.set_title('Inverted-V', fontsize=Title_FontSize)
 
@@ -507,9 +537,9 @@ for i in range(len(mappingAltitudes)): # Which Beta I'm considering
         if j == 1 and i == 0: # plot the accelerated potential line
             ax.axhline(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm, color='tab:red',linewidth=Line_LineWidth)
             ax.text(x=0.5, y=(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm)-0.075,s='$V_{0}$' + f'= {round(fitParameters[2],1)} eV',fontsize=Text_Fontsize, color='black'  )
-        if j == 1 and i == 2:
-            ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
-            ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
+        # if j == 1 and i == 2:
+        #     ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
+        #     ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
 
         if j == 0: # plot Vparallel labels
             ax.set_ylabel('$V_{\parallel}$ ' + rf'[$10^4$ km/s]', fontsize=Label_FontSize)
@@ -524,13 +554,13 @@ cbar = plt.colorbar(cmapObj,cax=cax)
 cbar.ax.minorticks_on()
 cbar.ax.tick_params(labelsize=cbar_TickLabelSize)
 cbar.ax.get_yaxis().labelpad = 40
-cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
+# cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
 for l in cbar.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbar_TickLabelSize)
 
 
-plt.subplots_adjust(left=0.4, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
+plt.subplots_adjust(left=0.08, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
 try:
     os.remove(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png')
 except:

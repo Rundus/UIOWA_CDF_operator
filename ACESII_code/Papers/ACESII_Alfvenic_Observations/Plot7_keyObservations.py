@@ -28,7 +28,8 @@ print(color.UNDERLINE + f'Plot7_keyObservations' + color.END)
 # --- TOGGLES ---
 #################
 figure_height = (16)
-figure_width = (12)
+# figure_width = (12)
+figure_width = (15)
 
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -52,10 +53,10 @@ tick_Length = 4
 cbar_FontSize = 15
 dpi = 1200
 
-# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,57,600000),
+dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,25,2,000000),
+                              dt.datetime(2022,11,20,17,25,9,000000)]
+# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
 #                               dt.datetime(2022,11,20,17,25,2,000000)]
-dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
-                              dt.datetime(2022,11,20,17,25,2,000000)]
 
 # plot toggles - Show STEB itself ----------
 cbarLow_counts, cbarHigh_counts = 1, 100
@@ -74,7 +75,7 @@ tempCmap = plt.cm.turbo_r # define new colormap
 cmaplist = [tempCmap(i) for i in range(tempCmap.N)] # extract all colors from the colormap
 cmap_hist = mpl.colors.LinearSegmentedColormap.from_list('turboCustom',cmaplist,tempCmap.N) # create the new map
 bounds = 10*np.array([-1.5+i for i in range(11)])
-histNorm = mpl.colors.BoundaryNorm(bounds,tempCmap.N)
+histNorm = mpl.colors.BoundaryNorm(bounds, tempCmap.N)
 
 # --- plot Poynting Flux Toggles ---
 wSTEBtoPlot = [1, 2, 3, 4, 5] # STEB number NOT index. Don't -1
@@ -368,7 +369,7 @@ for t, tme in enumerate(STEBtimes[1:]):
         subAxes[t].set_xticklabels([])
 
     props = dict(boxstyle='round', facecolor='white', alpha=1)
-    subAxes[t].text(500, 5E6, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black',bbox=props, ha='center')
+    subAxes[t].text(500, 5E6, s=f'S{wDis}', fontsize=text_FontSize, weight='bold', color='black', bbox=props, ha='center')
 
     subAxes[t].set_yscale('log')
     subAxes[t].set_ylim(diffEFlux_limit_Low, diffEFlux_limit_High)
