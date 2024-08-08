@@ -20,15 +20,15 @@ useTanakaDensity = False
 xNorm = m_to_km # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
 plottingDict = {'Temperature':False,
-                'lambdaPerp': False,
-                'Density': True,
+                'lambdaPerp': True,
+                'Density': False,
                 'ionMass': False,
                 'Beta': False,
                 'plasmaFreq': False,
-                'skinDepth': True,
+                'skinDepth': False,
                 'ionCyclotron': False,
                 'ionLarmorRadius': False,
-                'alfSpdMHD': True,
+                'alfSpdMHD': False,
                 'kineticTerms': False,
                 'lambdaPara': False,
                 'alfSpdInertial': True}

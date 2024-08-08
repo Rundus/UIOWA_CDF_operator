@@ -28,8 +28,8 @@ print(color.UNDERLINE + f'Plot7_keyObservations' + color.END)
 # --- TOGGLES ---
 #################
 figure_height = (16)
-# figure_width = (12)
-figure_width = (15)
+figure_width = (12)
+# figure_width = (15)
 
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -53,10 +53,10 @@ tick_Length = 4
 cbar_FontSize = 15
 dpi = 1200
 
-dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,25,2,000000),
-                              dt.datetime(2022,11,20,17,25,9,000000)]
-# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
-#                               dt.datetime(2022,11,20,17,25,2,000000)]
+# dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,25,2,000000),
+#                               dt.datetime(2022,11,20,17,25,9,000000)]
+dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,24,55,900000),
+                              dt.datetime(2022,11,20,17,25,2,000000)]
 
 # plot toggles - Show STEB itself ----------
 cbarLow_counts, cbarHigh_counts = 1, 100
@@ -83,8 +83,8 @@ PoyntingScale = 1E3# convert from W/m^2 to ergs/cm^2
 
 # --- plot COUNTS and ENERGY  toggles ---
 wPitchs_to_plot = [2, 3, 4, 5] # decide which pitch angles to get the peak energy for
-# countsMask = 3
-# fluxMask = 5E7
+countsMask = 3
+fluxMask = 5E7
 fluxMask = 0
 Energy_yLimit_Idx = 15 # ONLY consider energies above this index -> energies BELOW ~ 1345 eV
 
@@ -133,6 +133,8 @@ inputFiles_eepaa_counts = [glob('C:\Data\ACESII\L1\high\*eepaa_fullCal*')[0], gl
 data_dict_counts_high = loadDictFromFile(inputFilePath=inputFiles_eepaa_counts[0], targetVar=[targetVar, targetVarName],wKeys_Reduce=['eepaa','Epoch'])
 Done(start_time)
 
+data_dict_dist_high = loadDictFromFile(inputFilePath=r'C:\Data\ACESII\L3\DistFunc\high\ACESII_36359_distFunc_eepaa_fullCal.cdf', targetVar=[targetVar, targetVarName],wKeys_Reduce=['Distribution_Function','Epoch'])
+
 
 ##########################
 # --- --- --- --- --- ---
@@ -153,7 +155,8 @@ Pitch = data_dict_counts_high['Pitch_Angle'][0]
 Energy = data_dict_counts_high['Energy'][0]
 counts = data_dict_counts_high['eepaa'][0]
 # diffEFlux = data_dict_eepaa_high['Differential_Energy_Flux'][0]
-diffEFlux = data_dict_eepaa_high['Differential_Number_Flux'][0]
+diffNFlux = data_dict_eepaa_high['Differential_Number_Flux'][0]
+# diffNFlux = data_dict_dist_high['Distribution_Function'][0]
 
 # --- Flux ---
 B0 = 1E-9 * data_dict_B['Bmag'][0]
@@ -182,6 +185,7 @@ gs00 = gs0[0].subgridspec(3, 1)
 axPeakE = fig.add_subplot(gs00[2])
 axPitchHist = fig.add_subplot(gs00[0],sharex=axPeakE)
 axPoynting = fig.add_subplot(gs00[1],sharex=axPeakE)
+# axPoynting = fig.add_subplot(gs00[1])
 
 mainThreeAxes = [axPitchHist, axPoynting, axPeakE]
 
@@ -203,7 +207,6 @@ for tme in range(len(rktTime_counts)):
     for engy in range(len(Energy)):
 
         # get the data across all pitch angles here
-        # pitchData = dataArray_counts[tme, :, engy]
         pitchData = counts[tme, :, engy]
 
         # Find errors in data and eliminate them from the median calculation
@@ -227,6 +230,7 @@ for tme in range(len(rktTime_counts)):
         Z[engy][tme] = medianVal_pitchVal
 
 # adjust the plot
+print(Z)
 cmapHist = axPitchHist.pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm)
 axPitchHist.set_yscale('log')
 axPitchHist.set_ylim(Energy[-1], Energy_yLimit)
@@ -254,7 +258,7 @@ for k,tme in enumerate(STEBtimes_rkt):
     axPoynting.text(textPlacement, 0.048, f'S{wSTEBtoPlot[k]}', ha='center', weight='bold',fontsize=plot_textFontSize)
 
 axPoynting.grid(alpha=0.5)
-
+axPoynting.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
 
 
 
@@ -280,7 +284,7 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
         wDispersion_key = f's{wDis}'
         lowCut, highCut = np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][0]).argmin(), np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][1]).argmin()
         Epoch_dis = deepcopy(dateTimetoTT2000(data_dict_eepaa_high['Epoch'][0][lowCut:highCut + 1], inverse=False))
-        eepaa_dis_pre = deepcopy(diffEFlux[lowCut:highCut + 1])
+        eepaa_dis_pre = deepcopy(diffNFlux[lowCut:highCut + 1])
         eepaa_dis = deepcopy(np.array(dispersionAttributes.isolationFunctions[wDispersion_key](eepaa_dis_pre, Energy, Epoch_dis)))  # pply the isolation functions found in dispersionAttributes.py
         # prepare the data by removing fillvals and applying the mask
         STEBdata = deepcopy(eepaa_dis)
@@ -315,13 +319,16 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
 
     # plot the results
     axPeakE.plot(avgTimes, peakEnergy, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize)
+    # axPeakE.plot([1,2,3,4,5], peakEnergy, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.',ms=plot_MarkerSize)
 
 
 axPeakE.set_xmargin(0)
+axPeakE.set_xlim(0.2,5.8)
 axPeakE.set_ylabel('Peak Energy\n [eV]',fontsize=labels_FontSize)
 axPeakE.legend(fontsize=legend_FontSize)
 axPeakE.set_ylim(-50, 1200)
 axPeakE.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
+# axPeakE.set_xlabel('STEB #',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
 axPeakE.grid(alpha=0.5)
 
 
@@ -342,7 +349,7 @@ for t, tme in enumerate(STEBtimes[1:]):
     wDispersion_key = f's{wDis}'
     lowCut, highCut = np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][0]).argmin(), np.abs(data_dict_eepaa_high['Epoch'][0] - dispersionAttributes.keyDispersionDeltaT[wDis - 1][1]).argmin()
     Epoch_dis = deepcopy(dateTimetoTT2000(data_dict_eepaa_high['Epoch'][0][lowCut:highCut + 1], inverse=False))
-    eepaa_dis_pre = deepcopy(diffEFlux[lowCut:highCut + 1])
+    eepaa_dis_pre = deepcopy(diffNFlux[lowCut:highCut + 1])
     eepaa_dis = deepcopy(np.array(dispersionAttributes.isolationFunctions[wDispersion_key](eepaa_dis_pre, Energy, Epoch_dis)))  # pply the isolation functions found in dispersionAttributes.py
 
     # prepare the data by removing fillvals and applying the mask
@@ -355,7 +362,7 @@ for t, tme in enumerate(STEBtimes[1:]):
         Energies = Energy[Energy_yLimit_Idx+1:]
         fluxSum = [sum(ptchSlice[engy])/len(ptchSlice[engy]) for engy in range(len(Energies))]
         subAxes[t].plot(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.', ms=plot_MarkerSize-7)
-        # subAxes[t].scatter(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.')
+        subAxes[t].scatter(Energies, fluxSum, color=plot_Colors[idx], label=rf'$\alpha = {Pitch[ptchVal]}^\circ$', marker='.')
 
     # set the labels and such
     if t in [0]:
@@ -379,6 +386,7 @@ for t, tme in enumerate(STEBtimes[1:]):
     subAxes[t].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='x', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
 
+    # subAxes[t].set_visible(True)
 
 # Histogram Colorbar
 caxH = fig.add_axes([0.91,  0.828, 0.025, 0.162])
@@ -389,6 +397,12 @@ cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
 for l in cbar_hist.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbar_FontSize)
+
+# TURN OFF THE TOP TWO PLOTS
+# axPoynting.set_visible(True)
+# axPitchHist.set_visible(True)
+# axPeakE.set_visible(True)
+# caxH.set_visible(True)
 
 # output the figure
 plt.subplots_adjust(left=0.13, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)

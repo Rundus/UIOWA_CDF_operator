@@ -12,6 +12,7 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from ACESII_code.myImports import *
@@ -65,6 +66,7 @@ BackScatter_EnergyThreshold = [28, fitParameters[2]] # in eV
 BackScatter_wPitchAngles = np.array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
 
 # Other Plot toggles
+Plot_Individually = True
 Plot_useVelGrid =False
 Plot_useDistributionFunction = False # use distribution Function instead of diffNFlux
 
@@ -397,14 +399,20 @@ for d, mapAlt in enumerate(mappingAltitudes):
 prgMsg('Plotting Fig')
 
 # --- plot parameters ---
-fig = plt.figure()
-fig.set_size_inches(figure_width, figure_height)
-gs0 = gridspec.GridSpec(3, 1, figure=fig, height_ratios=[3/16,2/16,11/16])
+
+if Plot_Individually:
+    fig, ax_diffNFluxFit = plt.subplots()
+    fig.set_size_inches(13, 6)
+else:
+    fig = plt.figure()
+    fig.set_size_inches(figure_width, figure_height)
+    gs0 = gridspec.GridSpec(3, 1, figure=fig, height_ratios=[3 / 16, 2 / 16, 11 / 16])
+    ax_diffNFluxFit = fig.add_subplot(gs0[0, :])
 
 # --- --- --- --- --- --- --
 # --- diffNFlux fit plot ---
 # --- --- --- --- --- --- --
-ax_diffNFluxFit = fig.add_subplot(gs0[0, :])
+
 ax_diffNFluxFit.errorbar(x=Energy, y=fitData, yerr=data_stdDevs,xerr=None, color='tab:blue', linewidth=Line_LineWidth, label= f'{Pitch[wPitchToPlot]}'+'$^{\circ}$ Pitch Data'+f' (T = {round(EpochSliceTimeSinceLaunchValue,1)} sec)', capsize=7,zorder=1)
 ax_diffNFluxFit.plot(Energy, fitData, color='tab:blue', marker='o', markersize=4)
 ax_diffNFluxFit.plot(BackScatter_Energies,backScatterData,marker='o',color='tab:purple',label='Avg. BackScatter (Up Going)', linewidth=Line_LineWidth)
@@ -422,12 +430,23 @@ ax_diffNFluxFit.set_xlim(28, 2E3)
 ax_diffNFluxFit.set_ylim(6E4, 5E7)
 ax_diffNFluxFit.plot(Energy, diffFlux_NoiseCount, color='black', label=f'{countNoiseLevel}-count level')
 ax_diffNFluxFit.legend(fontsize=Legend_fontSize, loc='upper right')
+ax_diffNFluxFit.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+ax_diffNFluxFit.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+ax_diffNFluxFit.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+ax_diffNFluxFit.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+
 
 
 # --- --- --- --- --- --- --
 # --- diffNFlux fit plot ---
 # --- --- --- --- --- --- --
-ax_alfvenSpeed = fig.add_subplot(gs0[1, :])
+if Plot_Individually:
+    plt.tight_layout()
+    fig.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\diffNFitting.png', dpi=dpi)
+    fig, ax_alfvenSpeed = plt.subplots()
+    fig.set_size_inches(12, 6)
+else:
+    ax_alfvenSpeed = fig.add_subplot(gs0[1, :])
 ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedMHD_sim)/VelSpace_Norm, color='blue',linewidth=Line_LineWidth+1, label='MHD',zorder=1)
 ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Kinetic (Inertial limit)', color='red', linewidth=Line_LineWidth+1,zorder=1)
 ax_alfvenSpeed.text(x=1250,y=3.5,s=r'$\lambda_{\perp 0}$ = '+f'{EToggles.lambdaPerp0/1000} km',fontsize=Text_Fontsize, ha='center', va='center',bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'))
@@ -440,130 +459,132 @@ ax_alfvenSpeed.legend(loc='lower right',fontsize=Legend_fontSize)
 keyPoints_alt = np.array(mappingAltitudes)
 keyPoints_VA = np.array(AlfSpeedAtSpecificAlti)/VelSpace_Norm
 ax_alfvenSpeed.scatter(x=keyPoints_alt,y=keyPoints_VA,color='red',s=200,zorder=2)
+ax_alfvenSpeed.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+ax_alfvenSpeed.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+ax_alfvenSpeed.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+ax_alfvenSpeed.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
 
-axes = [ax_diffNFluxFit, ax_alfvenSpeed]
-for ax in axes:
-    ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
-    ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-    ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
-    ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-
+if Plot_Individually:
+    plt.tight_layout()
+    fig.savefig(r'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\AflvenSpeed.png', dpi=dpi)
 
 
 # --- --- --- --- --- --- --- --- --- --- -
 # --- distribution func plot - HIGH ALT ---
 # --- --- --- --- --- --- --- --- --- --- -
-gs00 = gridspec.GridSpecFromSubplotSpec(len(mappingAltitudes), 2, subplot_spec=gs0[2, :])
-VperpData = [Data_PS_VperpAtBeta, Data_InvertedV_VperpAtBeta]
-VparaData = [Data_PS_VparaAtBeta, Data_InvertedV_VparaAtBeta]
-ZData = [Data_PS_diffNFluxAtBeta, Data_InvertedV_diffNFluxAtBeta] if not Plot_useDistributionFunction else [[DistFunc_Grid for i in range(len(mappingAltitudes))], [DistFunc_Grid for i in range(len(mappingAltitudes))]]
+if not Plot_Individually:
+    gs00 = gridspec.GridSpecFromSubplotSpec(len(mappingAltitudes), 2, subplot_spec=gs0[2, :])
 
-for i in range(len(mappingAltitudes)): # Which Beta I'm considering
-    for j in range(2): # Plasma Sheet vs InvertedV
+    VperpData = [Data_PS_VperpAtBeta, Data_InvertedV_VperpAtBeta]
+    VparaData = [Data_PS_VparaAtBeta, Data_InvertedV_VparaAtBeta]
+    ZData = [Data_PS_diffNFluxAtBeta, Data_InvertedV_diffNFluxAtBeta] if not Plot_useDistributionFunction else [[DistFunc_Grid for i in range(len(mappingAltitudes))], [DistFunc_Grid for i in range(len(mappingAltitudes))]]
 
-        ax = fig.add_subplot(gs00[i, j])
+    for i in range(len(mappingAltitudes)): # Which Beta I'm considering
+        for j in range(2): # Plasma Sheet vs InvertedV
 
-        ###############################################
-        # --- VELOCITY SPACE GRID INSTRUMENTAL DATA ---
-        ###############################################
-        xData = VperpData[j][i]
-        yData = VparaData[j][i]
-        xData_Back = Data_BackScatter_VperpAtBeta[i]
-        yData_Back = Data_BackScatter_VparaAtBeta[i]
+            ax = fig.add_subplot(gs00[i, j])
 
-        if Plot_useVelGrid:
-            # --- Primary Beam ---
-            PitchInterp = [-350 + i * 10 for i in range(72)]
-            EnergyBins = np.logspace(0, 4, base=10, num=42)
-            ZGrid_New_Prim, EnergyGrid_Instr_Prim, PitchGrid_Instr_Prim = velocitySpace_to_PitchEnergySpace(EnergyBins=EnergyBins, PitchBins=PitchInterp, VperpGrid=xData, VparaGrid=yData, ZGrid=ZData[j][i],method='average')
+            ###############################################
+            # --- VELOCITY SPACE GRID INSTRUMENTAL DATA ---
+            ###############################################
+            xData = VperpData[j][i]
+            yData = VparaData[j][i]
+            xData_Back = Data_BackScatter_VperpAtBeta[i]
+            yData_Back = Data_BackScatter_VparaAtBeta[i]
 
-            if j == 1:
-                # --- Secondaries ---
-                ZGrid_New_BackScatter, EnergyGrid_Instr_BackScatter, PitchGrid_Instr_BackScatter = velocitySpace_to_PitchEnergySpace(EnergyBins=EnergyBins, PitchBins=PitchInterp, VperpGrid=xData_Back, VparaGrid=yData_Back, ZGrid=Data_BackScatter_diffNFluxAtBeta[i],method='average')
-                newZData = ZGrid_New_Prim + ZGrid_New_BackScatter
+            if Plot_useVelGrid:
+                # --- Primary Beam ---
+                PitchInterp = [-350 + i * 10 for i in range(72)]
+                EnergyBins = np.logspace(0, 4, base=10, num=42)
+                ZGrid_New_Prim, EnergyGrid_Instr_Prim, PitchGrid_Instr_Prim = velocitySpace_to_PitchEnergySpace(EnergyBins=EnergyBins, PitchBins=PitchInterp, VperpGrid=xData, VparaGrid=yData, ZGrid=ZData[j][i],method='average')
+
+                if j == 1:
+                    # --- Secondaries ---
+                    ZGrid_New_BackScatter, EnergyGrid_Instr_BackScatter, PitchGrid_Instr_BackScatter = velocitySpace_to_PitchEnergySpace(EnergyBins=EnergyBins, PitchBins=PitchInterp, VperpGrid=xData_Back, VparaGrid=yData_Back, ZGrid=Data_BackScatter_diffNFluxAtBeta[i],method='average')
+                    newZData = ZGrid_New_Prim + ZGrid_New_BackScatter
+                else:
+                    newZData = ZGrid_New_Prim
+
+                # --- Create the Velocity Space Grid ---
+                Vperp = deepcopy(ZGrid_New_Prim)
+                Vpara = deepcopy(ZGrid_New_Prim)
+
+                for ptch in range(len(ZGrid_New_Prim)):
+                    for engy in range(len(EnergyBins)):
+                        Vmag = np.sqrt(2 * q0 * EnergyBins[engy] / m_e)
+                        Vperp[ptch][engy] = np.sin(np.radians(PitchInterp[ptch])) * Vmag
+                        Vpara[ptch][engy] = np.cos(np.radians(PitchInterp[ptch])) * Vmag
+
+                Vpara, Vperp = np.array(Vpara) / (VelSpace_Norm), np.array(Vperp) / (VelSpace_Norm)
+                cmapObj = ax.pcolormesh(Vperp, Vpara, newZData, vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
             else:
-                newZData = ZGrid_New_Prim
+                cmapObj = ax.pcolormesh(xData/VelSpace_Norm, yData/VelSpace_Norm, ZData[j][i], vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
 
-            # --- Create the Velocity Space Grid ---
-            Vperp = deepcopy(ZGrid_New_Prim)
-            Vpara = deepcopy(ZGrid_New_Prim)
+            #########################
+            # --- RESONANCE BANDS ---
+            #########################
+            # ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
+            # # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
+            #
+            # if i == 0:
+            #     ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            # if i == 1:
+            #     ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            # if i == 2:
+            #     ax.text(x=0.75, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            # ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
+            # ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
+            #
+            # # General Labels
+            ax.set_ylim(0, VelSpace_Max)
+            ax.set_xlim(-VelSpace_Max, VelSpace_Max)
+            ax.invert_yaxis()
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            # ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
+            points = ['A','B','C']
+            ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{points[i]}', fontsize=Label_FontSize+5,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
 
-            for ptch in range(len(ZGrid_New_Prim)):
-                for engy in range(len(EnergyBins)):
-                    Vmag = np.sqrt(2 * q0 * EnergyBins[engy] / m_e)
-                    Vperp[ptch][engy] = np.sin(np.radians(PitchInterp[ptch])) * Vmag
-                    Vpara[ptch][engy] = np.cos(np.radians(PitchInterp[ptch])) * Vmag
+            # Specific things
+            if i == 0 and j == 0:
+                ax.set_title('Ambient Plasma Sheet', fontsize=Title_FontSize)
+            if i == 0 and j == 1:
+                ax.set_title('Inverted-V', fontsize=Title_FontSize)
 
-            Vpara, Vperp = np.array(Vpara) / (VelSpace_Norm), np.array(Vperp) / (VelSpace_Norm)
-            cmapObj = ax.pcolormesh(Vperp, Vpara, newZData, vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
-        else:
-            cmapObj = ax.pcolormesh(xData/VelSpace_Norm, yData/VelSpace_Norm, ZData[j][i], vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
+            if j==1 and not Plot_useVelGrid: # plot the backscatter
+                ax.pcolormesh(Data_BackScatter_VperpAtBeta[i] / VelSpace_Norm, Data_BackScatter_VparaAtBeta[i] / VelSpace_Norm, Data_BackScatter_diffNFluxAtBeta[i], vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
+            if j == 1 and i == 0: # plot the accelerated potential line
+                ax.axhline(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm, color='tab:red',linewidth=Line_LineWidth)
+                ax.text(x=0.5, y=(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm)-0.075,s='$V_{0}$' + f'= {round(fitParameters[2],1)} eV',fontsize=Text_Fontsize, color='black'  )
+            # if j == 1 and i == 2:
+            #     ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
+            #     ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
 
-        #########################
-        # --- RESONANCE BANDS ---
-        #########################
-        # ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
-        # # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
-        #
-        # if i == 0:
-        #     ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        # if i == 1:
-        #     ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        # if i == 2:
-        #     ax.text(x=0.75, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-        # ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
-        # ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
-        #
-        # # General Labels
-        ax.set_ylim(0, VelSpace_Max)
-        ax.set_xlim(-VelSpace_Max, VelSpace_Max)
-        ax.invert_yaxis()
-        ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
-        ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-        ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
-        ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-        # ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
-        points = ['A','B','C']
-        ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{points[i]}', fontsize=Label_FontSize+5,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
-
-        # Specific things
-        if i == 0 and j == 0:
-            ax.set_title('Ambient Plasma Sheet', fontsize=Title_FontSize)
-        if i == 0 and j == 1:
-            ax.set_title('Inverted-V', fontsize=Title_FontSize)
-
-        if j==1 and not Plot_useVelGrid: # plot the backscatter
-            ax.pcolormesh(Data_BackScatter_VperpAtBeta[i] / VelSpace_Norm, Data_BackScatter_VparaAtBeta[i] / VelSpace_Norm, Data_BackScatter_diffNFluxAtBeta[i], vmin=cbarMin, vmax=cbarMax, cmap=mycmap, norm='log')
-        if j == 1 and i == 0: # plot the accelerated potential line
-            ax.axhline(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm, color='tab:red',linewidth=Line_LineWidth)
-            ax.text(x=0.5, y=(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm)-0.075,s='$V_{0}$' + f'= {round(fitParameters[2],1)} eV',fontsize=Text_Fontsize, color='black'  )
-        # if j == 1 and i == 2:
-        #     ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
-        #     ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
-
-        if j == 0: # plot Vparallel labels
-            ax.set_ylabel('$V_{\parallel}$ ' + rf'[$10^4$ km/s]', fontsize=Label_FontSize)
-        if i == 2:# plot Vperp labels
-            ax.set_xlabel('$V_{\perp}$ ' + f'[$10^4$ km/s]', fontsize=Label_FontSize)
+            if j == 0: # plot Vparallel labels
+                ax.set_ylabel('$V_{\parallel}$ ' + rf'[$10^4$ km/s]', fontsize=Label_FontSize)
+            if i == 2:# plot Vperp labels
+                ax.set_xlabel('$V_{\perp}$ ' + f'[$10^4$ km/s]', fontsize=Label_FontSize)
 
 
 
-# Cbar
-cax = fig.add_axes([0.90, 0.05, 0.025, 0.564])
-cbar = plt.colorbar(cmapObj,cax=cax)
-cbar.ax.minorticks_on()
-cbar.ax.tick_params(labelsize=cbar_TickLabelSize)
-cbar.ax.get_yaxis().labelpad = 40
-# cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
-for l in cbar.ax.yaxis.get_ticklabels():
-    l.set_weight("bold")
-    l.set_fontsize(cbar_TickLabelSize)
+    # Cbar
+    cax = fig.add_axes([0.90, 0.05, 0.025, 0.564])
+    cbar = plt.colorbar(cmapObj,cax=cax)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(labelsize=cbar_TickLabelSize)
+    cbar.ax.get_yaxis().labelpad = 40
+    # cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
+    for l in cbar.ax.yaxis.get_ticklabels():
+        l.set_weight("bold")
+        l.set_fontsize(cbar_TickLabelSize)
 
 
-plt.subplots_adjust(left=0.08, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
-try:
-    os.remove(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png')
-except:
-    print('')
-plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png',dpi=dpi)
-Done(start_time)
+    plt.subplots_adjust(left=0.08, bottom=0.05, right=0.89, top=0.98, wspace=None, hspace=None)
+    try:
+        os.remove(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png')
+    except:
+        print('')
+    plt.savefig(rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot8\Plot8_DistributionFunc_Base.png',dpi=dpi)
+    Done(start_time)

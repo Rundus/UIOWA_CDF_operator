@@ -43,19 +43,22 @@ def generateGeomagneticField(outputData, **kwargs):
         if plotBool:
 
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(2)
+            Label_Fontsize = 15
+            Title_Fontsize = 20
+
+            fig, ax = plt.subplots(2,sharex=True)
             ax[0].plot(altRange/R_REF, Bgeo/(1E-9))
-            ax[0].set_title('|B| vs Altitude')
-            ax[0].set_ylabel('$B_{geo}$ [nT]')
+            ax[0].set_title('|B| vs Altitude', fontsize=Title_Fontsize)
+            ax[0].set_ylabel('$B_{geo}$ [nT]', fontsize=Label_Fontsize)
             ax[0].set_yscale('log')
-            ax[0].set_xlabel('Altitude [$R_{E}$]')
+            # ax[0].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_Fontsize)
             ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red')
             ax[0].legend()
 
             ax[1].plot(altRange / R_REF, Bgrad/(1E-9))
-            ax[1].set_title(r'$\nabla B$ vs Altitude')
-            ax[1].set_ylabel(r'$\nabla B$ [nT/m]')
-            ax[1].set_xlabel('Altitude [$R_{E}$]')
+            ax[1].set_title(r'$\nabla B$ vs Altitude', fontsize=Title_Fontsize)
+            ax[1].set_ylabel(r'$\nabla B$ [nT/m]', fontsize=Label_Fontsize)
+            ax[1].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_Fontsize)
             ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
             ax[1].legend()
             plt.tight_layout()

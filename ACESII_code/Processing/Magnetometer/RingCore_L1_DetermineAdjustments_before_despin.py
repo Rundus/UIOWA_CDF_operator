@@ -49,9 +49,9 @@ targetTimes = [[dt.datetime(2022,11,20,17,24,55,000000), dt.datetime(2022,11,20,
 # --- --- --- ---
 
 # --- constant offset over whole flight ---
-SECTION_determineOffsets = False
+SECTION_determineOffsets = True
 # interactive plot
-interactivePlot = False
+interactivePlot = True
 
 # grid search
 
@@ -99,12 +99,11 @@ outputData = True
 from pyIGRF import igrf_value
 from numpy import array,matmul,dot,abs
 from numpy.linalg import inv,norm
-from ACESII_code.class_var_func import butter_filter
+from myspaceToolsLib.filter import butter_filter
 from scipy.interpolate import CubicSpline
 rocketAttrs, b, c = ACES_mission_dicts()
 from scipy.fft import rfft, fftfreq
 from matplotlib.widgets import Slider
-from ACESII_code.class_var_func import butter_filter
 def buildDataDict(labels, dataToOutput):
     data_dict = {}
     for i, data in enumerate(dataToOutput):
@@ -455,9 +454,6 @@ def RingCore_Despin(wRocket,wFile, rocketFolderPath, justPrintFileNames, wflyer)
             IGRF = array([igrf_value(dataInterp_dict_attitude['Latgd'][i], dataInterp_dict_attitude['Long'][i], dataInterp_dict_attitude['Alt'][i], date) for i in range(len(data_dict_mag['Epoch'][0]))])
             IGRF_ENU = array([[IGRF[i][4], IGRF[i][3], -1 * IGRF[i][5]] for i in range(len(IGRF))])
             IGRF_spun = offsetResults_Amplitude[wRocket-4]*array([ matmul(invDCM[i],IGRF_ENU[i]) for i in range(len(IGRF))])
-
-
-
 
 
         # --- --- --- --- --- --- ---

@@ -27,7 +27,7 @@ outputPath_modifier = 'science\AlfvenSignatureAnalysis' # e.g. 'L2' or 'Langmuir
 # --- --- --- ---
 # plot all of the dispersion functions over a range of pitch angles (user input)
 # wDispersions = [2,3,4] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
-wDispersions = [3] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
+wDispersions = [5] # [] -> plot all dispersion traces, [#,#,#,...] plot specific ones. USE THE DISPERSION NUMBER NOT PYTHON -1 INDEX
 wPitch = 2 # plots specific pitch angles by their index
 # ---------------------------
 justPlotKeyDispersions = False #IF ==TRUE no cross-correlation will occur
@@ -40,7 +40,7 @@ maskVal = 2 # apply a single mask to the dispersion feature
 # ---------------------------
 isolateAlfvenSignature = True # removes unwanted data from the alfven signature
 # ---------------------------
-plotCorrelationProcess = False
+plotCorrelationProcess = True
 DetectorTimeResolution = 0.05 # in seconds
 DetectorEnergyResolution = 0.18
 # ---------------------------
@@ -129,7 +129,9 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
         ax[1].pcolormesh(Epoch_dis, Energy, np.array(data_dict['eepaa'][0][lowCut:highCut+1,wPitch,:]).T, cmap=mycmap, vmin=cbar_low, vmax=cbar_high)
         ax[1].set_yscale('log')
         ax[1].set_ylim(Energy[-1], Energy[np.abs(Energy - dispersionAttributes.keyDispersionEnergyLimits[wDis - 1][1]).argmin() - 1])
+        ax[1].set_ylabel('Time [s]')
         cbar = plt.colorbar(cmap,ax=ax.ravel().tolist())
+        cbar.set_label('Counts')
         plt.show()
     elif correlationAnalysis:
 
@@ -196,23 +198,29 @@ def AlfvenSignatureCrossCorrelation(wRocket, rocketFolderPath, justPrintFileName
             if plotCorrelationProcess:
                 fig, ax = plt.subplots(4)
                 figure_width = 10
-                figure_height = 20
+                figure_height = 15
+                Label_Fontsize=20
                 fig.set_figwidth(figure_width)
                 fig.set_figheight(figure_height)
-                fig.suptitle(f'High Energy {Energy[higherEnergyIndex]} \n Low Energy {Energy[lowerEnergyIndex]}')
+                fig.suptitle(f'High Energy {Energy[higherEnergyIndex]} \n Low Energy {Energy[lowerEnergyIndex]}',fontsize=Label_Fontsize)
                 ax[0].pcolormesh(Epoch_dis,Energy,np.array(eepaa_dis[:,wPitch,:]).T,cmap='turbo',vmin=cbar_low,vmax=cbar_high)
                 ax[0].set_yscale('log')
+                ax[0].set_ylabel('Energy',fontsize=Label_Fontsize)
                 ax[0].set_ylim(Energy[-1],Energy[higherEnergyIndex-1])
-                ax[0].axhline(Energy[lowerEnergyIndex], color='green')
-                ax[0].axhline(Energy[higherEnergyIndex], color='red')
-                ax[1].plot(eepaa_dis_onePitch[higherEnergyIndex])
-                ax[1].set_ylabel('Higher Energy Counts')
-                ax[2].plot(eepaa_dis_onePitch[lowerEnergyIndex])
-                ax[2].set_ylabel('Lower Energy Counts')
-                ax[3].plot(lags, corr)
-                ax[3].set_ylabel('Correlation (normalized)')
-                ax[3].set_xlabel('Lag')
+                ax[0].axhline(Energy[lowerEnergyIndex], color='green', linewidth=2)
+                ax[0].axhline(Energy[higherEnergyIndex], color='red', linewidth=2)
+                ax[1].plot([i*0.05 for i in range(len(eepaa_dis_onePitch[higherEnergyIndex]))],eepaa_dis_onePitch[higherEnergyIndex])
+                ax[1].set_ylabel('$v_{fast}$ \n Counts', fontsize=Label_Fontsize)
+                ax[1].sharex(ax[0])
+                ax[2].plot([i*0.05 for i in range(len(eepaa_dis_onePitch[higherEnergyIndex]))],eepaa_dis_onePitch[lowerEnergyIndex])
+                ax[2].set_xlabel('Time [s]',fontsize=Label_Fontsize)
+                ax[2].set_ylabel('$v_{slow}$ \n Counts', fontsize=Label_Fontsize)
+                ax[2].sharex(ax[0])
+                ax[3].plot(lags, corr_norm)
+                ax[3].set_ylabel('Correlation \n (normalized)', fontsize=Label_Fontsize)
+                ax[3].set_xlabel('Lag', fontsize=Label_Fontsize)
                 plt.tight_layout()
+                plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\THESIS\Figures\CrossCorrelationProcess.png')
                 plt.show()
 
             try:

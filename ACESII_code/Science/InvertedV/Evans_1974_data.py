@@ -8,10 +8,10 @@ from scipy.interpolate import CubicSpline
 from scipy.integrate import simpson
 
 # --- TOGGLES ---
-plot_Evans1974Curves = False
-plot_Example_BackScatterCurve = False
+plot_Evans1974Curves = True
+plot_Example_BackScatterCurve = True
 
-plot_Example_totalEnergyFlux = True
+plot_Example_totalEnergyFlux = False
 totalEnergyFlux_testEnergies = [610,1500,7550,10000]
 
 
@@ -94,17 +94,17 @@ if plot_Evans1974Curves:
     fig, ax = plt.subplots(1,2)
     fig.set_size_inches(12, 8)
     xData, yData = zip(*sorted(zip(Energy_DegradedPrimary,NFlux_up_PeriE_DegradedPrimary)))
-    ax[0].set_title('primary electron backscatter')
+    ax[0].set_title('Primaries Backscatter')
     ax[0].plot(xData, yData,color='black')
     ax[0].set_yscale('log')
     ax[0].set_ylim(1E-10,1E-3)
     ax[0].set_xscale('log')
     ax[0].set_xlim(1E-2, 1)
-    ax[0].set_ylabel(r'Units of $( \frac{E(Incident)/10000} ) \cdot (cm^{-2}sec^{-2}eV^{-1}$) Upgoing Flux per Incident Electron')
+    ax[0].set_ylabel(r'Units of $( E(Incident)/10000 ) \cdot (cm^{-2}sec^{-2}eV^{-1}$) Upgoing Flux per Incident Electron')
     ax[0].set_xlabel('E in Units of E(Backscatter)/E(Incident)')
 
     xData, yData = zip(*sorted(zip(Energy_secondaries, NFlux_up_PeriE_secondaries)))
-    ax[1].set_title('secondary electron backscatter ' )
+    ax[1].set_title('Secondaries' )
     ax[1].plot(xData, yData, color='black')
     ax[1].set_yscale('log')
     ax[1].set_ylim(1E-8, 1E-1)

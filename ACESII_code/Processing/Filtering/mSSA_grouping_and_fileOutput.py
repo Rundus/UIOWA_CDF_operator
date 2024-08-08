@@ -29,21 +29,39 @@ inputPath_modifier = 'L3\SSAcomponents_B'
 #################
 # --- TOGGLES ---
 #################
-plotLabelSize = 11
+figure_width = 12 # in inches
+figure_height = 8 # in inches
+Title_FontSize = 15
+Label_FontSize = 15
+Label_Padding = 8
+Line_LineWidth = 2.5
+Text_Fontsize = 25
+Tick_FontSize = 25
+Tick_FontSize_minor = 20
+Tick_Length = 10
+Tick_Width = 2
+Tick_Length_minor = 5
+Tick_Width_minor = 1
+Plot_LineWidth = 0.5
+Plot_MarkerSize = 14
+Legend_fontSize = 20
+dpi = 400
 
 # --- Plotting ---
-plot_GroupingSSA = False
+plot_GroupingSSA = True
 plot_wSSAComponetFile = 2
 plot_wAxesSSA = 0
 
 # --- OUTPUT DATA ---
-outputDataIntoOneMasterFile = True
+outputDataIntoOneMasterFile = False
 # -------------------
 
 #################
 # --- IMPORTS ---
 #################
 from numpy.fft import rfft, fftfreq
+from myspaceToolsLib.filter import generateGrouping
+from myspaceToolsLib.CDF_load import getInputFiles
 
 def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
 
@@ -100,9 +118,12 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                       'E_Field_low': [[0,1,2,3,4,5,12,13],
                                       [[i] for i in range(0,5)],
                                       3*SSA_window_Size],
-                      'RingCore_low': [[0,1,4,5],
-                                       [[i] for i in range(0,5)],
-                                       3*SSA_window_Size],
+                      # 'RingCore_low': [[0,1,4,5],
+                      #                  [[i] for i in range(0,5)],
+                      #                  3*SSA_window_Size],
+                    'RingCore_low': [[0,1,4,5],
+                                         [[2],[4],[6]],
+                                         SSA_window_Size],
                       'PoyntingFlux_low': [[4, 5, 6, 7, 8, 9, 11, 12, 13],
                                            [[i] for i in range(18, 21)],
                                            3*SSA_window_Size]
@@ -110,7 +131,7 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
 
 
     # generate the groupings variables
-    from ACESII_code.class_var_func import generateGrouping
+
     groupings = generateGrouping(SSA_window_Size = SSA_window_Size,
                                  badCompIndicies = groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][0],
                                  InvestigateIndicies = groupings_dict[wInstr+f'_{fliers[wRocket-4]}'][1],
@@ -135,12 +156,13 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
         # --- Plot the FFT and groupings for one wAxes axes ---
         # --- --- --- --- --- --- --- --- --- --- --- --- --- -
         fig, ax = plt.subplots(nrows=len(groupings), ncols=2)
+        fig.set_size_inches(figure_width, figure_height)
 
         rktName = 'ACESII 36359\n' if wRocket == 4 else 'ACESII 36364\n'
         fig.suptitle(rktName +
                      str(compNames[plot_wAxesSSA]) +
                      f'\n Window Length: {SSA_window_Size}, Time: ' +
-                     f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}',fontsize=20)
+                     f'{Epoch[0].strftime("%H:%M:%S")} to {Epoch[-1].strftime("%H:%M:%S")}',fontsize=Title_FontSize)
 
         origMax = 1
         origData = [[], []]
@@ -167,21 +189,21 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                 ax[i, 0].axvline(x=startPoint, color='black')
                 ax[i, 0].axvline(x=endPoint, color='black')
             if i == 0:
-                ax[i, 0].set_ylabel('Orig.', fontsize=plotLabelSize)
-                ax[i, 1].set_ylabel('Orig.', fontsize=plotLabelSize)
+                ax[i, 0].set_ylabel('Orig.', fontsize=Label_FontSize)
+                ax[i, 1].set_ylabel('Orig.', fontsize=Label_FontSize)
                 ax[i, 1].set_xticks([])
             elif i == 1:
-                ax[i, 0].set_ylabel('$f_{n}$', fontsize=plotLabelSize)
-                ax[i, 1].set_ylabel('$f_{n}$', fontsize=plotLabelSize)
+                ax[i, 0].set_ylabel('$f_{n}$', fontsize=Label_FontSize)
+                ax[i, 1].set_ylabel('$f_{n}$', fontsize=Label_FontSize)
                 ax[i, 1].set_xticks([])
             elif i == len(groupings) - 2:
-                ax[i, 0].set_ylabel('Noise', fontsize=plotLabelSize)
-                ax[i, 1].set_ylabel('Noise', fontsize=plotLabelSize)
+                ax[i, 0].set_ylabel('Noise', fontsize=Label_FontSize)
+                ax[i, 1].set_ylabel('Noise', fontsize=Label_FontSize)
                 ax[i, 1].set_xticks([])
             elif i == len(groupings) - 1:
-                ax[i, 0].set_ylabel('Phys.\n Signal', fontsize=plotLabelSize)
-                ax[i, 1].set_xlabel('Frequency [Hz]', fontsize=plotLabelSize)
-                ax[i, 1].set_ylabel('FFT', fontsize=plotLabelSize)
+                ax[i, 0].set_ylabel('Phys.\n Signal', fontsize=Label_FontSize)
+                ax[i, 1].set_xlabel('Frequency [Hz]', fontsize=Label_FontSize)
+                ax[i, 1].set_ylabel('FFT', fontsize=Label_FontSize)
 
                 # set the ticks
                 if MirrorData:
@@ -190,8 +212,9 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
                     ax[i, 0].set_xticks(ticks=tickLocs,labels=tickLabels)
 
             else:
-                ax[i, 0].set_ylabel('F{}'.format(i))
+                ax[i, 0].set_ylabel('F{}'.format(i), fontsize=Label_FontSize)
                 ax[i, 1].set_ylabel(groupings[i])
+
 
             # calculate the FFT and plot it BUT ONLY for the real data, NOT the mirrored data
             N, T = len(plotThisData[startPoint:endPoint]), 1 / 128
@@ -203,13 +226,13 @@ def mSSA_grouping_and_fileOutput(wRocket, rocketFolderPath, justPrintFileNames):
             elif i == len(groupings) - 1:
                 physData = [plotThisData, FFT]
 
-
             # ax[i, 1].plot(xf, FFT/origMax)
             ax[i, 1].plot(xf, FFT)
-            ax[i, 1].vlines([spinFreq * (i + 1) for i in range(50)], ymin=0, ymax=1, alpha=0.5, color='red')
+            ax[i, 1].vlines([spinFreq * (i + 1) for i in range(50)], ymin=0, ymax=1, alpha=0.25, color='red')
             ax[i, 1].set_xlim(-0.1, 15)
             ax[i, 1].set_ylim(0, 1)
 
+        plt.savefig(r'C:\Users\cfelt\OneDrive\Desktop\THESIS\ThesisPhotos\LF_mSSA_example')
         plt.show()
 
         fig, ax = plt.subplots(ncols=2, nrows=3)
