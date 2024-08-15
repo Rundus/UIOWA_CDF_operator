@@ -9,8 +9,7 @@ from scipy.integrate import simpson
 
 # --- TOGGLES ---
 plot_Evans1974Curves = True
-plot_Example_BackScatterCurve = True
-
+plot_Example_BackScatterCurve = False
 plot_Example_totalEnergyFlux = False
 totalEnergyFlux_testEnergies = [610,1500,7550,10000]
 
@@ -91,28 +90,47 @@ if plot_Evans1974Curves or plot_Example_BackScatterCurve or plot_Example_totalEn
 
 if plot_Evans1974Curves:
 
+    Label_fontsize = 25
+    Title_FontSize = 40
+    tick_LabelSize = 60
+    tick_SubplotLabelSize = 15
+    tick_Width = 2
+    tick_Length = 4
+    plot_LineWidth = 3
+
     fig, ax = plt.subplots(1,2)
     fig.set_size_inches(12, 8)
     xData, yData = zip(*sorted(zip(Energy_DegradedPrimary,NFlux_up_PeriE_DegradedPrimary)))
-    ax[0].set_title('Primaries Backscatter')
-    ax[0].plot(xData, yData,color='black')
+    ax[0].set_title('Primaries Backscatter',fontsize=Title_FontSize)
+    ax[0].plot(xData, yData,color='black', linewidth=plot_LineWidth)
     ax[0].set_yscale('log')
     ax[0].set_ylim(1E-10,1E-3)
     ax[0].set_xscale('log')
     ax[0].set_xlim(1E-2, 1)
-    ax[0].set_ylabel(r'Units of $( E(Incident)/10000 ) \cdot (cm^{-2}sec^{-2}eV^{-1}$) Upgoing Flux per Incident Electron')
-    ax[0].set_xlabel('E in Units of E(Backscatter)/E(Incident)')
+    ax[0].set_ylabel('Upgoing Flux per Incident Electron\n $[E(Incident)/10000 ] \cdot [cm^{-2}sec^{-2}eV^{-1}$]', fontsize=Label_fontsize)
+    ax[0].set_xlabel('E(Backscatter)/E(Incident)', fontsize=Label_fontsize)
 
     xData, yData = zip(*sorted(zip(Energy_secondaries, NFlux_up_PeriE_secondaries)))
-    ax[1].set_title('Secondaries' )
-    ax[1].plot(xData, yData, color='black')
+    ax[1].set_title('Secondaries',fontsize=Title_FontSize)
+    ax[1].plot(xData, yData, color='black', linewidth=plot_LineWidth)
     ax[1].set_yscale('log')
     ax[1].set_ylim(1E-8, 1E-1)
     ax[1].set_xscale('log')
     ax[1].set_xlim(1E1, 1E3)
-    ax[1].set_ylabel(r'Upgoing Flux $(cm^{-2}sec^{-2}eV^{-1}$) per Incident Electron')
-    ax[1].set_xlabel('Energy (eV)')
+    ax[1].set_ylabel('Upgoing Flux per Incident Electron \n $[cm^{-2}sec^{-2}eV^{-1}$]', fontsize=Label_fontsize)
+    ax[1].set_xlabel('Energy (eV)', fontsize=Label_fontsize)
 
+    for i in range(2):
+        ax[i].tick_params(axis='y', which='major', labelsize=tick_SubplotLabelSize + 4, width=tick_Width,
+                               length=tick_Length)
+        ax[i].tick_params(axis='y', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width,
+                               length=tick_Length / 2)
+        ax[i].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width,
+                               length=tick_Length)
+        ax[i].tick_params(axis='x', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width,
+                               length=tick_Length / 2)
+
+    plt.tight_layout()
     plt.show()
 
 if plot_Example_BackScatterCurve:

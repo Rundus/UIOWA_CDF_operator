@@ -38,7 +38,7 @@ from scipy.interpolate import CubicSpline
 # --- Collect the Data ---
 datasetReduction_TargetTime = [dt.datetime(2022, 11, 20, 17, 24, 50, 000000), dt.datetime(2022,11,20,17,25,15,000000)]
 targetVar = [datasetReduction_TargetTime, 'Epoch']
-mappingAltitudes = [5000, 2500, 400]
+mappingAltitudes = [6000, 5072, 3131]
 
 
 # note: Beta = 5 0.817 --> 5210.826
@@ -53,11 +53,11 @@ countNoiseLevel = 4
 
 # --- Model Primary Beam toggles ---
 N = 401
-# PS_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
-PS_BeamThreshEnergy = 621.29 # in eV
+PS_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+# PS_BeamThreshEnergy = 621.29 # in eV
 PS_BeamThreshPitch = 90
-# InV_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
-InV_BeamThreshEnergy = 621.29*(1) # in eV
+InV_BeamThreshEnergy = 621.29*(1)-231.8 # in eV
+# InV_BeamThreshEnergy = 621.29*(1) # in eV
 InV_BeamThreshPitch = 90
 
 # backscatter toggles
@@ -66,7 +66,7 @@ BackScatter_EnergyThreshold = [28, fitParameters[2]] # in eV
 BackScatter_wPitchAngles = np.array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
 
 # Other Plot toggles
-Plot_Individually = True
+Plot_Individually = False
 Plot_useVelGrid =False
 Plot_useDistributionFunction = False # use distribution Function instead of diffNFlux
 
@@ -99,11 +99,11 @@ Tick_Width_minor = 1
 Plot_LineWidth = 0.5
 Plot_MarkerSize = 14
 Legend_fontSize = 20
-dpi = 400
+dpi = 100
 
 # --- Velocity Space ---
 VelSpace_Norm = 1E7
-VelSpace_Max = 2
+VelSpace_Max = 2.8
 
 # --- Cbar ---
 mycmap = apl_rainbow_black0_cmap()
@@ -363,10 +363,10 @@ for d, mapAlt in enumerate(mappingAltitudes):
     AlfSpeedAtSpecificAlti.append(localAlfSpdInertial)
     if d == 2:
         PhiVal = round(0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (28) * q0 / m_e), 2) / q0)
-        # print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (28) * q0 / m_e), 2) / q0)
+        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (28) * q0 / m_e), 2) / q0)
     else:
         PhiVal = round(0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
-        # print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
+        print(Altitude, localAlfSpdInertial, 0.5 * m_e * np.power(localAlfSpdInertial - np.sqrt(2 * (InV_BeamThreshEnergy + fitParameters[-1]) * q0 / m_e), 2) / q0)
 
     PhiPotential.append(PhiVal)
     ResonanceLimits.append([localAlfSpdInertial - np.sqrt(2 * q0 * PhiVal / (m_e)), localAlfSpdInertial])
@@ -448,7 +448,7 @@ if Plot_Individually:
 else:
     ax_alfvenSpeed = fig.add_subplot(gs0[1, :])
 ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedMHD_sim)/VelSpace_Norm, color='blue',linewidth=Line_LineWidth+1, label='MHD',zorder=1)
-ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Kinetic (Inertial limit)', color='red', linewidth=Line_LineWidth+1,zorder=1)
+ax_alfvenSpeed.plot(deepcopy(altRange_sim)/1000, deepcopy(alfSpeedKinetic_sim)/VelSpace_Norm, label='Inertial', color='red', linewidth=Line_LineWidth+1,zorder=1)
 ax_alfvenSpeed.text(x=1250,y=3.5,s=r'$\lambda_{\perp 0}$ = '+f'{EToggles.lambdaPerp0/1000} km',fontsize=Text_Fontsize, ha='center', va='center',bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'))
 ax_alfvenSpeed.set_ylabel(r'Alfv$\'e$n Speed'+'\n  [10000 km/s]',fontsize=Label_FontSize)
 ax_alfvenSpeed.set_xlabel(f'Altitude [km]', fontsize=Label_FontSize)
@@ -523,18 +523,18 @@ if not Plot_Individually:
             #########################
             # --- RESONANCE BANDS ---
             #########################
-            # ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
-            # # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
-            #
-            # if i == 0:
-            #     ax.text(x=0.6, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-            # if i == 1:
-            #     ax.text(x=0.9, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{p} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-            # if i == 2:
-            #     ax.text(x=0.75, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
-            # ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
-            # ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
-            #
+            ax.axhline(ResonanceLimits[i][0] / VelSpace_Norm, linestyle='--', color='black', linewidth=Line_LineWidth)
+            # ax.text(x=0.65, y= sum(ResonanceLimits[i])/(2* VelSpace_Norm)+0.075, s=r'$|\frac{\omega}{k} - v_{\parallel} |< \sqrt{\frac{2e\phi}{m_{e}}}$', fontsize=Text_Fontsize-2)
+
+            if i == 0:
+                ax.text(x=0.7, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\Phi_{P} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            if i == 1:
+                ax.text(x=0.7, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\Phi_{max} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            if i == 2:
+                ax.text(x=0.7, y=sum(ResonanceLimits[i]) / (2 * VelSpace_Norm) + 0.075, s=r'$\Phi_{min} = $' + f'{PhiPotential[i]} eV', fontsize=Text_Fontsize - 2, ha='left')
+            ax.axhline(ResonanceLimits[i][1] / VelSpace_Norm, color='black', linewidth=Line_LineWidth)
+            ax.fill_between([-1 * VelSpace_Max, VelSpace_Max], ResonanceLimits[i][0] / VelSpace_Norm, ResonanceLimits[i][1] / VelSpace_Norm, color='grey', alpha=0.35)
+
             # # General Labels
             ax.set_ylim(0, VelSpace_Max)
             ax.set_xlim(-VelSpace_Max, VelSpace_Max)
@@ -543,9 +543,9 @@ if not Plot_Individually:
             ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
             ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
             ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
-            # ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
-            points = ['A','B','C']
-            ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{points[i]}', fontsize=Label_FontSize+5,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
+            ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{mappingAltitudes[i]} km', fontsize=Label_FontSize,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
+            # points = ['A','B','C']
+            # ax.text(x=-VelSpace_Max+0.2, y=0.15, s=rf'{points[i]}', fontsize=Label_FontSize+5,bbox=dict(facecolor='white', edgecolor='black',boxstyle='round'),va='top',ha='left')
 
             # Specific things
             if i == 0 and j == 0:
@@ -559,8 +559,8 @@ if not Plot_Individually:
                 ax.axhline(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm, color='tab:red',linewidth=Line_LineWidth)
                 ax.text(x=0.5, y=(np.sqrt(2 * fitParameters[2] * q0 / m_e) / VelSpace_Norm)-0.075,s='$V_{0}$' + f'= {round(fitParameters[2],1)} eV',fontsize=Text_Fontsize, color='black'  )
             # if j == 1 and i == 2:
-            #     ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
-            #     ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
+                # ax.axhline(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm, color='tab:red', linewidth=Line_LineWidth)
+                # ax.text(x=1.72, y=(np.sqrt(2 * 28 * q0 / m_e) / VelSpace_Norm) - 0.075, s='28 eV', fontsize=Text_Fontsize, color='black')
 
             if j == 0: # plot Vparallel labels
                 ax.set_ylabel('$V_{\parallel}$ ' + rf'[$10^4$ km/s]', fontsize=Label_FontSize)
@@ -575,7 +575,7 @@ if not Plot_Individually:
     cbar.ax.minorticks_on()
     cbar.ax.tick_params(labelsize=cbar_TickLabelSize)
     cbar.ax.get_yaxis().labelpad = 40
-    # cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
+    cbar.set_label(r'[cm$^{-2}$str$^{-1}$s$^{-1}$eV$^{-1}$]', fontsize=cbar_LabelFontSize, rotation=270)
     for l in cbar.ax.yaxis.get_ticklabels():
         l.set_weight("bold")
         l.set_fontsize(cbar_TickLabelSize)

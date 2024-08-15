@@ -17,24 +17,24 @@ simulationAlt = GenToggles.simAlt
 ##################
 plotting = True
 useTanakaDensity = False
-xNorm = m_to_km # use m_to_km otherwise
+xNorm = R_REF # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
-plottingDict = {'Temperature':False,
+plottingDict = {'Temperature':True,
                 'lambdaPerp': True,
-                'Density': False,
-                'ionMass': False,
-                'Beta': False,
-                'plasmaFreq': False,
-                'skinDepth': False,
-                'ionCyclotron': False,
-                'ionLarmorRadius': False,
-                'alfSpdMHD': False,
-                'kineticTerms': False,
-                'lambdaPara': False,
+                'Density': True,
+                'ionMass': True,
+                'Beta': True,
+                'plasmaFreq': True,
+                'skinDepth': True,
+                'ionCyclotron': True,
+                'ionLarmorRadius': True,
+                'alfSpdMHD': True,
+                'kineticTerms': True,
+                'lambdaPara': True,
                 'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = True if not runFullSimulation else True
+outputData = False if not runFullSimulation else True
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -42,6 +42,23 @@ data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField
 
 def generatePlasmaEnvironment(outputData, **kwargs):
     plotting = kwargs.get('showPlot', False)
+
+
+    # --- Plotting Toggles ---
+    figure_width = 14  # in inches
+    figure_height = 8.5  # in inches
+    Title_FontSize = 25
+    Label_FontSize = 25
+    Tick_FontSize = 25
+    Tick_FontSize_minor = 20
+    Tick_Length = 10
+    Tick_Width = 2
+    Tick_Length_minor = 5
+    Tick_Width_minor = 1
+    Text_Fontsize = 20
+    Plot_LineWidth = 2.5
+    Legend_fontSize = 16
+    dpi = 100
 
     # --- Temperature ---
     def temperatureProfile(altRange, **kwargs):
@@ -64,34 +81,44 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(3)
-            fig.set_figwidth(15)
-            fig.set_figheight(10)
+            fig, ax = plt.subplots(3,sharex=True)
+            fig.set_size_inches(figure_width, figure_height*(3/2))
 
-            ax[0].plot(altRange / xNorm, T_iono)
-            ax[0].set_title('Ionospheric Temperature Profile vs Altitude')
-            ax[0].set_ylabel('Temperature [eV]')
-            ax[0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0].plot(altRange / xNorm, T_iono,linewidth=Plot_LineWidth)
+            ax[0].set_title('Ionospheric Temperature Profile vs Altitude', fontsize=Title_FontSize)
+            ax[0].set_ylabel('Temperature [eV]',fontsize=Label_FontSize)
             ax[0].set_yscale('log')
             ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[0].grid(True)
 
-            ax[1].plot(altRange / xNorm, w)
-            ax[1].set_title('Weighting Function vs Altitude')
-            ax[1].set_ylabel('Weighting Function')
-            ax[1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1].plot(altRange / xNorm, w,linewidth=Plot_LineWidth)
+            ax[1].set_title('Weighting Function vs Altitude', fontsize=Title_FontSize)
+            ax[1].set_ylabel('Weighting Function',fontsize=Label_FontSize)
+            # ax[1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
 
-            ax[2].plot(altRange / xNorm, T_e)
+            ax[2].plot(altRange / xNorm, T_e,linewidth=Plot_LineWidth)
             ax[2].set_yscale('log')
-            ax[2].set_title('Total Electron Temperature vs Altitude')
-            ax[2].set_ylabel('Electron Temperature [eV]')
-            ax[2].set_xlabel(f'Altitude [{xLabel}]')
+            ax[2].set_title('Total Electron Temperature vs Altitude', fontsize=Title_FontSize)
+            ax[2].set_ylabel('Electron Temperature [eV]',fontsize=Label_FontSize)
+            ax[2].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[2].axvline(x=400000 / xNorm, label='Observation Height', color='red')
             ax[2].grid(True)
-            plt.legend()
+
+            for i in range(3):
+                ax[i].grid(True)
+                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+
+            plt.legend(fontsize=Legend_fontSize)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_Temperature.png',dpi=dpi)
 
         return T_e
 
@@ -107,22 +134,37 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(2)
-            ax[0].plot(altRange / xNorm, LambdaPerp)
-            ax[0].set_title('$\lambda_{\perp}$ vs Altitude \n'
-                            '$\lambda_{\perp 0}$=' +f'{EToggles.lambdaPerp0}')
-            ax[0].set_ylabel('Perpendicular Wavelength [m]')
-            ax[0].set_xlabel(f'Altitude [{xLabel}]')
-            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            fig, ax = plt.subplots()
+            fig.set_size_inches(figure_width+1, 1 + figure_height/2)
+            ax.plot(altRange / xNorm, LambdaPerp/1000, linewidth=Plot_LineWidth, color='black')
+            ax.set_title('$\lambda_{\perp}$, $k_{\perp}$ vs Altitude \n'
+                            '$\lambda_{\perp 0}$=' +f'{EToggles.lambdaPerp0/1000} km',fontsize=Title_FontSize)
+            ax.set_ylabel('$\lambda_{\perp}$ [km]',fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]', fontsize=Label_FontSize)
+            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+            ax.grid(True)
 
-            ax[1].plot(altRange / xNorm, kperp)
-            ax[1].set_title('$k_{\perp}$ vs Altitude')
-            ax[1].set_ylabel('Perpendicular Wavenumber [m$^{-1}$]')
-            ax[1].set_xlabel(f'Altitude [{xLabel}]')
-            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            plt.legend()
+            axKperp = ax.twinx()
+            axKperp.plot(altRange / xNorm, kperp, linewidth=Plot_LineWidth,color='black',linestyle='--')
+            axKperp.set_ylabel('$k_{\perp}$ [m$^{-1}$]',fontsize=Label_FontSize)
+
+            axKperp.axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+
+            axes = [ax,axKperp]
+            for axesE in axes:
+
+                axesE.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                axesE.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+                axesE.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                axesE.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+
+            plt.legend(fontsize=Legend_fontSize)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_kperp.png',dpi=dpi)
 
         return LambdaPerp, kperp
 
@@ -133,6 +175,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         useTanakaDensity = kwargs.get('useTanakaDensity', False)
 
         if useTanakaDensity:
+
             ##### TANAKA FIT #####
             # --- determine the density over all altitudes ---
             # Description: returns density for altitude "z [km]" in m^-3
@@ -160,19 +203,24 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange/m_to_km, n_density/(cm_to_m**3))
-            ax.set_title('$n_{i}$ vs Altitude')
-            ax.set_ylabel('Plasma Density [$cm^{-3}$]')
-            ax.set_xlabel(f'Altitude [km]')
-            ax.axvline(x=400000/xNorm,label='Observation Height',color='red')
-            ax.set_xscale('log')
-            ax.set_xlim(500,1.1E4)
+            fig.set_size_inches(figure_width,1 + figure_height/2)
+            ax.plot(altRange/xNorm, n_density/(cm_to_m**3),linewidth=Plot_LineWidth)
+            ax.set_title('$n$ vs Altitude', fontsize = Title_FontSize)
+            ax.set_ylabel('Density [$cm^{-3}$]', fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]', fontsize=Label_FontSize)
+            ax.axvline(x=400000/xNorm,label='Observation Height', color='red', linewidth=Plot_LineWidth)
             ax.set_yscale('log')
-            ax.set_ylim(1E-2,1E6)
+            ax.set_ylim(1E-2, 1E6)
             ax.margins(0)
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
             ax.grid(True)
-            plt.legend()
-            plt.show()
+            plt.legend(fontsize=Legend_fontSize)
+            plt.tight_layout()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_density',dpi=dpi)
+
 
         return n_density
 
@@ -191,25 +239,30 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(2)
-            fig.set_figwidth(15)
-            fig.set_figheight(10)
-            ax[0].plot(altRange / xNorm, n_Op, color='blue', label='$n_{0^{+}}$ [$m^{-3}$]')
-            ax[0].plot(altRange / xNorm, n_Hp, color='red', label='$n_{H^{+}}$ [$m^{-3}$]')
-            ax[0].set_title('Plasma densities vs Altitude')
-            ax[0].set_xlabel(f'Altitude [{xLabel}]')
-            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='black')
+            fig, ax = plt.subplots(2,sharex=True)
+            fig.set_size_inches(figure_width, figure_height)
+            ax[0].plot(altRange / xNorm, n_Op, color='blue', label='$n_{0^{+}}$ [$m^{-3}$]', linewidth=Plot_LineWidth)
+            ax[0].plot(altRange / xNorm, n_Hp, color='red', label='$n_{H^{+}}$ [$m^{-3}$]', linewidth=Plot_LineWidth)
+            ax[0].set_title('Plasma densities vs Altitude', fontsize=Title_FontSize)
+            ax[0].set_ylabel(r'Density [cm$^{-3}$]', fontsize=Label_FontSize)
+            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='black', linewidth=Plot_LineWidth)
             ax[0].set_yscale('log')
-            ax[0].grid(True)
-            ax[0].legend()
+            ax[0].legend(fontsize=Legend_fontSize)
 
-            ax[1].plot(altRange / xNorm, m_eff_i)
-            ax[1].set_ylabel('$m_{eff_{i}}$ [kg]')
-            ax[1].set_xlabel(f'Altitude [{xLabel}]')
-            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            plt.legend()
+            ax[1].plot(altRange / xNorm, m_eff_i, linewidth=Plot_LineWidth)
+            ax[1].set_ylabel('$m_{eff_{i}}$ [kg]', fontsize=Label_FontSize)
+            ax[1].set_xlabel(f'Altitude [{xLabel}]', fontsize=Label_FontSize)
+            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red', linewidth=Plot_LineWidth)
+            for i in range(2):
+                ax[i].grid(True)
+                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+
+            plt.legend(fontsize=Legend_fontSize)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_ionMass.png',dpi=dpi)
 
         return n_Op, n_Hp, m_eff_i
 
@@ -231,20 +284,27 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             colors= ['tab:red','tab:blue','tab:green']
 
             fig, ax = plt.subplots()
+            fig.set_size_inches(figure_width, figure_height)
 
             for k,temp in enumerate(Temps):
                 plasmaBeta = array([(plasmaDensity[i] * q0 * temp) / (Bgeo[i] ** 2 / (2 * u0)) for i in range(len(altRange))])
-                ax.plot(altRange/xNorm, plasmaBeta/ratio, color=colors[k], label=f'T_e = {temp} eV')
+                ax.plot(altRange/xNorm, plasmaBeta/ratio, color=colors[k], label=f'T_e = {temp} eV',linewidth=Plot_LineWidth)
 
-            ax.set_title(r'$\beta$ vs Altitude')
-            ax.set_ylabel('Plasma Beta / (m_e/m_i)')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000/xNorm, label='Observation Height', color='red',linestyle='--')
+            ax.set_title(r'$\beta$ vs Altitude',fontsize=Title_FontSize)
+            ax.set_ylabel('Plasma Beta / (m_e/m_i)',fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax.axvline(x=400000/xNorm, label='Observation Height', color='red',linestyle='--',linewidth=Plot_LineWidth)
             ax.axhline(y=1, color='black')
             ax.set_yscale('log')
+            plt.legend(fontsize=Legend_fontSize)
             ax.grid(True)
-            plt.legend()
-            plt.show()
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            plt.tight_layout()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_beta.png',dpi=dpi)
+
 
         return plasmaBeta
 
@@ -258,14 +318,21 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange/xNorm, plasmaFreq)
-            ax.set_title('$\omega_{pe}$ vs Altitude')
-            ax.set_ylabel('Plasma Freq [rad/s]')
+            fig.set_size_inches(figure_width, 1+ figure_height/2)
+            ax.plot(altRange/xNorm, plasmaFreq,linewidth=Plot_LineWidth)
+            ax.set_title('$\omega_{pe}$ vs Altitude',fontsize=Title_FontSize)
+            ax.set_ylabel('Plasma Freq [rad/s]',fontsize=Label_FontSize)
             ax.set_yscale('log')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000/xNorm,label='Observation Height',color='red')
-            plt.legend()
-            plt.show()
+            ax.set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax.axvline(x=400000/xNorm,label='Observation Height',color='red',linewidth=Plot_LineWidth)
+            plt.legend(fontsize=Legend_fontSize)
+            ax.grid(True)
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            plt.tight_layout()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_plasFreq.png',dpi=dpi)
 
         return plasmaFreq
 
@@ -280,18 +347,24 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange/xNorm, skinDepth, color='blue',label='SkinDepth')
-            ax.plot(altRange / xNorm, LambdaPerp, color='black', label=r'$\lambda_{\perp}$')
-            ax.set_title('$\lambda_{e}$ vs Altitude\n' + '$\lambda_{\perp}$= ' + rf'{EToggles.lambdaPerp0}m')
-            ax.set_ylabel('Skin Depth [m]')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000/xNorm, label='Observation Height', color='red')
+            fig.set_size_inches(figure_width, 2.5+ figure_height/2)
+            ax.plot(altRange/xNorm, skinDepth, color='blue',label='SkinDepth',linewidth=Plot_LineWidth)
+            ax.plot(altRange / xNorm, LambdaPerp, color='black', label=r'$\lambda_{\perp}$',linewidth=Plot_LineWidth)
+            ax.set_title('$\lambda_{e}$ vs Altitude\n' + '$\lambda_{\perp}$= ' + rf'{EToggles.lambdaPerp0}m', fontsize=Title_FontSize)
+            ax.set_ylabel('Skin Depth [m]',fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax.axvline(x=400000/xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
             ax.set_yscale('log')
             ax.set_ylim(10, 1E5)
             ax.margins(0)
             ax.grid(True)
-            plt.legend()
-            plt.show()
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor,length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            plt.legend(fontsize=Legend_fontSize)
+            plt.tight_layout()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_skinDepth.png',dpi=dpi)
 
         return skinDepth
 
@@ -310,36 +383,49 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(2)
-            ax[0].plot(altRange/xNorm, ionCyclotron, color='blue', label='$\omega_{total}$')
-            ax[0].plot(altRange / xNorm, ionCyclotron_Op, color='black', label='$\omega_{Op}$')
-            ax[0].plot(altRange / xNorm, ionCyclotron_Hp, color='red', label='$\omega_{Hp}$')
-            ax[0].set_title('$\omega_{ci}$ vs Altitude')
-            ax[0].set_ylabel('Ion Cyclotron [rad/s]')
-            ax[0].set_xlabel(f'Altitude [{xLabel}]')
-            ax[0].axvline(x=400000/xNorm, label='Observation Height',color='red')
+            fig, ax = plt.subplots(2,sharex=True)
+            fig.set_size_inches(figure_width, figure_height)
+            ax[0].plot(altRange/xNorm, ionCyclotron, color='blue', label='$\omega_{total}$',linewidth=Plot_LineWidth)
+            ax[0].plot(altRange / xNorm, ionCyclotron_Op, color='black', label='$\omega_{Op}$',linewidth=Plot_LineWidth)
+            ax[0].plot(altRange / xNorm, ionCyclotron_Hp, color='red', label='$\omega_{Hp}$',linewidth=Plot_LineWidth)
+            ax[0].set_title('$\omega_{ci}$ vs Altitude',fontsize=Title_FontSize)
+            ax[0].set_ylabel('$\omega_{ci}$ [rad/s]',fontsize=Label_FontSize)
+
+            ax[0].axvline(x=400000/xNorm, label='Observation Height',color='red',linewidth=Plot_LineWidth)
             ax[0].set_yscale('log')
             ax[0].set_ylim(0.1, 1E4)
             ax[0].set_xlim(0,GenToggles.simAltHigh/xNorm)
             ax[0].grid(True)
             ax[0].margins(0)
-            ax[0].legend()
+            ax[0].legend(fontsize=Legend_fontSize)
 
-            ax[1].plot(altRange / xNorm, ionCyclotron / (2*pi), color='blue', label='$f_{avg}$')
-            ax[1].plot(altRange / xNorm, ionCyclotron_Op/ (2*pi), color='black', label='$f_{Op}$')
-            ax[1].plot(altRange / xNorm, ionCyclotron_Hp/ (2*pi), color='green', label='$f_{Hp}$')
-            ax[1].set_title('$\Omega_{ci}$ vs Altitude')
-            ax[1].set_ylabel('Ion Cyclotron [Hz]')
-            ax[1].set_xlabel(f'Altitude [{xLabel}]')
-            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            ax[1].plot(altRange / xNorm, ionCyclotron / (2*pi), color='blue', label='$f_{avg}$',linewidth=Plot_LineWidth)
+            ax[1].plot(altRange / xNorm, ionCyclotron_Op/ (2*pi), color='black', label='$f_{Op}$',linewidth=Plot_LineWidth)
+            ax[1].plot(altRange / xNorm, ionCyclotron_Hp/ (2*pi), color='green', label='$f_{Hp}$',linewidth=Plot_LineWidth)
+            ax[1].set_title('$f_{ci}$ vs Altitude',fontsize=Title_FontSize)
+            ax[1].set_ylabel('$f_{ci}$ [Hz]',fontsize=Label_FontSize)
+            ax[1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
             ax[1].set_yscale('log')
             ax[1].set_ylim(0.1, 1000)
             ax[1].set_xlim(0, GenToggles.simAltHigh/xNorm)
             ax[1].margins(0)
             ax[1].grid(True)
-            plt.legend()
+            ax[1].legend(fontsize=Legend_fontSize)
+
+
+            for i in range(2):
+                ax[i].grid(True)
+                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_ionCyclo.png',dpi=dpi)
 
         return ionCyclotron, ionCyclotron_Op, ionCyclotron_Hp
 
@@ -361,21 +447,26 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange / xNorm, ionLarmorRadius, label=r'$\rho_{avg}$')
-            ax.plot(altRange / xNorm, ionLarmorRadius_Op, label=r'$\rho_{Op}$')
-            ax.plot(altRange / xNorm, ionLarmorRadius_Hp, label=r'$\rho_{Hp}$')
-            ax.set_title(r'$\rho_{i}$ vs Altitude')
-            ax.set_ylabel('Ion Larmor Radius [rad/s]')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red',linestyle='--')
-            ax.axvline(x=10000000 / xNorm, label='Magnetosheath Proton Limit', color='tab:green',linestyle='--')
+            fig.set_size_inches(figure_width, 1+ figure_height/2)
+            ax.plot(altRange / xNorm, ionLarmorRadius, label=r'$\rho_{avg}$',linewidth=Plot_LineWidth)
+            ax.plot(altRange / xNorm, ionLarmorRadius_Op, label=r'$\rho_{Op}$',linewidth=Plot_LineWidth)
+            ax.plot(altRange / xNorm, ionLarmorRadius_Hp, label=r'$\rho_{Hp}$',linewidth=Plot_LineWidth)
+            ax.set_title(r'$\rho_{i}$ vs Altitude',fontsize=Title_FontSize)
+            ax.set_ylabel(r'$\rho_{i}$ [m]',fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red',linestyle='--',linewidth=Plot_LineWidth)
+            # ax.axvline(x=10000000 / xNorm, label='Magnetosheath Proton Limit', color='tab:green',linestyle='--',linewidth=Plot_LineWidth)
             ax.set_yscale('log')
             ax.set_ylim(1, 4E5)
             ax.margins(0)
+            plt.legend(fontsize=Legend_fontSize)
             ax.grid(True)
-            plt.legend()
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor,length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor,length=Tick_Length_minor)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_ionLarmor.png',dpi=dpi)
 
         return ionLarmorRadius, ionLarmorRadius_Op, ionLarmorRadius_Hp
 
@@ -391,25 +482,30 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange / xNorm, VA_MHD/(10000*m_to_km), label='$V_{A} (MHD)$')
-            ax.set_title(r'$V_{A}$ vs Altitude')
-            ax.set_ylabel('MHD Alfven Speed  [10,000 km/s]')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--')
-            ax.grid(True)
+            fig.set_size_inches(figure_width, figure_height)
+            ax.plot(altRange / xNorm, VA_MHD/(10000*m_to_km), label='$V_{A} (MHD)$',linewidth=Plot_LineWidth)
+            ax.set_title(r'$V_{A}$ vs Altitude',fontsize=Title_FontSize)
+            ax.set_ylabel('MHD Alfven Speed  [10,000 km/s]',fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--',linewidth=Plot_LineWidth)
 
             # plot some thermal velocity comparisons
             Vth_low = sqrt(8*q0*1/(9.11E-31))/(10000*m_to_km)
-            ax.axhline(y=Vth_low, color='black')
-            ax.text(x=R_REF/xNorm,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black')
+            ax.axhline(y=Vth_low, color='black',linewidth=Plot_LineWidth)
+            ax.text(x=R_REF/xNorm,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black',fontsize=Text_Fontsize)
 
             Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/(10000*m_to_km)
-            ax.axhline(y=Vth_high, color='black')
-            ax.text(x=R_REF/xNorm, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black')
+            ax.axhline(y=Vth_high, color='black',linewidth=Plot_LineWidth)
+            ax.text(x=R_REF/xNorm, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black',fontsize=Text_Fontsize)
 
-            plt.legend()
+            ax.grid(True)
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor,length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor,length=Tick_Length_minor)
+            plt.legend(fontsize=Legend_fontSize)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_alfMHD.png',dpi=dpi)
 
         return VA_MHD
 
@@ -430,50 +526,55 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
 
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(nrows=2,ncols=2)
+            fig, ax = plt.subplots(nrows=2, ncols=2,sharex=True)
+            fig.set_size_inches(figure_width, figure_height)
 
             # Alfven Velocity
-            ax[0, 0].plot(altRange / xNorm, alfSpdMHD/m_to_km)
-            ax[0, 0].set_title('Alfven velocity (MHD)')
-            ax[0, 0].set_ylabel('Velocity [km/s]')
-            ax[0, 0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0, 0].plot(altRange / (xNorm), alfSpdMHD/(10000*m_to_km),linewidth=Plot_LineWidth)
+            ax[0, 0].set_title('Alfven velocity (MHD)',fontsize=Title_FontSize)
+            ax[0, 0].set_ylabel('Velocity [10,000 km/s]',fontsize=Label_FontSize)
+            # ax[0, 0].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[0, 0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            ax[0, 0].set_ylim(0, 5E4)
-            ax[0, 0].margins(0)
-            ax[0, 0].grid(True)
+            ax[0, 0].set_ylim(0, 5)
 
             # inerital term
-            ax[0, 1].plot(altRange / xNorm, inertialTerm)
-            ax[0, 1].set_title('Inertial Effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
-            ax[0, 1].set_ylabel('Length')
-            ax[0, 1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[0, 1].plot(altRange / xNorm, inertialTerm,linewidth=Plot_LineWidth,label='$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
+            ax[0, 1].set_title('(1 + $k_{\perp}^{2}\lambda_{e}^{2}$)',fontsize=Title_FontSize)
+            # ax[0, 1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[0, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            ax[0, 1].set_ylim(0, 7)
-            ax[0, 1].margins(0)
-            ax[0, 1].grid(True)
+            ax[0, 1].set_ylim(0, 3.5)
+            ax[0,1].legend(fontsize=Legend_fontSize)
 
             # larmor radius term
-            ax[1, 0].plot(altRange / xNorm, LarmorTerm)
-            ax[1, 0].set_title('Larmor radius effect\n' + '$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
-            ax[1, 0].set_ylabel('Ion Larmor radius')
-            ax[1, 0].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1, 0].plot(altRange / xNorm, LarmorTerm,linewidth=Plot_LineWidth,label='$\lambda_{\perp}$ =' + f'{EToggles.lambdaPerp0} [m]')
+            ax[1, 0].set_title(r'(1 + $k_{\perp}^{2}\rho_{i}^{2}$)',fontsize=Title_FontSize)
+            # ax[1, 0].set_ylabel('Ion Larmor radius',fontsize=Label_FontSize)
+            ax[1, 0].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[1, 0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            ax[1, 0].set_ylim(0, 4)
-            ax[1, 0].margins(0)
-            ax[1, 0].grid(True)
+            ax[1, 0].set_ylim(0, 3.5)
+            ax[1,0].legend(fontsize=Legend_fontSize)
 
             # finite frequency term
-            ax[1, 1].plot(altRange / xNorm, finiteFreqTerm)
-            ax[1, 1].set_title('Finite Freq. effect\n' + '$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
-            ax[1, 1].set_ylabel('Ion Larmor Frequency')
-            ax[1, 1].set_xlabel(f'Altitude [{xLabel}]')
+            ax[1, 1].plot(altRange / xNorm, finiteFreqTerm,linewidth=Plot_LineWidth,label='$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
+            ax[1, 1].set_title('(1 + $\omega^{2}/\omega_{ci}^{2}$)',fontsize=Title_FontSize)
+            # ax[1, 1].set_ylabel('',fontsize=Label_FontSize)
+            ax[1, 1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[1, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            ax[1, 1].set_ylim(0, 2)
-            ax[1, 1].margins(0)
-            ax[1, 1].grid(True)
+            ax[1, 1].set_ylim(0, 3.5)
+            ax[1,1].legend(fontsize=Legend_fontSize)
+
+
+            for i in range(2):
+                for j in range(2):
+                    ax[i,j].grid(True)
+                    ax[i, j].margins(0)
+                    ax[i,j].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                    ax[i,j].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+                    ax[i,j].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                    ax[i,j].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
 
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_kineticTerms.png',dpi=dpi)
 
         return inertialTerm, finiteFreqTerm, LarmorTerm
 
@@ -489,21 +590,30 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
         if plotBool:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(2)
-            ax[0].plot(altRange / xNorm, LambdaPara/m_to_km)
-            ax[0].set_title('$\lambda_{\parallel}$ vs Altitude')
-            ax[0].set_ylabel('Parallel Wavelength [km]')
-            ax[0].set_xlabel(f'Altitude [{xLabel}]')
-            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red')
+            fig, ax = plt.subplots(2,sharex=True)
+            fig.set_size_inches(figure_width, figure_height)
+            ax[0].plot(altRange / xNorm, LambdaPara/m_to_km, linewidth=Plot_LineWidth)
+            ax[0].set_title('$\lambda_{\parallel}$ vs Altitude',fontsize=Title_FontSize)
+            ax[0].set_ylabel('$\lambda_{\parallel}$ [km]',fontsize=Label_FontSize)
+            # ax[0].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+            ax[0].legend(fontsize=Legend_fontSize)
 
-            ax[1].plot(altRange / xNorm, kpara)
-            ax[1].set_title('$k_{\parallel}$ vs Altitude')
-            ax[1].set_ylabel('Parallel Wavenumber [m$^{-1}$]')
-            ax[1].set_xlabel(f'Altitude [{xLabel}]')
-            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
-            plt.legend()
+            ax[1].plot(altRange / xNorm, kpara, linewidth=Plot_LineWidth)
+            ax[1].set_title('$k_{\parallel}$ vs Altitude',fontsize=Title_FontSize)
+            ax[1].set_ylabel('$k_{\parallel}$ [m$^{-1}$]',fontsize=Label_FontSize)
+            ax[1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
+            ax[1].axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+            ax[1].legend(fontsize=Legend_fontSize)
+            for i in range(2):
+                ax[i].grid(True)
+                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_lambdaPara.png', dpi=dpi)
 
         return LambdaPara,kpara
 
@@ -519,30 +629,35 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.plot(altRange / xNorm, kineticAlfSpeed/(m_to_km), label='kinetic Alf speed', color='blue')
+            fig.set_size_inches(figure_width, figure_height)
+            ax.plot(altRange / xNorm, kineticAlfSpeed/(10000*m_to_km), label='DAW Speed', color='blue',linewidth=Plot_LineWidth)
             ax.set_title(r'$\omega_{wave}/k_{\parallel}$ vs Altitude' +
-                         '\n' + r'$\omega_{wave0}$=' + f'{EToggles.waveFreq_rad} rad/s \n'
-                                                       '$\lambda_{\perp 0}$ ='+f'{EToggles.lambdaPerp0/1000} km')
-            ax.set_ylabel('Kinetic Alfven Speed  [km/s]')
-            ax.set_xlabel(f'Altitude [{xLabel}]')
-            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--')
-            ax.grid(True)
+                         '\n' + r'$f_{wave}$=' + f'{round(EToggles.waveFreq_rad/(2*pi),1)} Hz, '
+                                                       '$\lambda_{\perp 0}$ ='+f'{EToggles.lambdaPerp0/1000} km', fontsize=Title_FontSize)
+            ax.set_ylabel('DAW Speed  [10,000 km/s]', fontsize=Label_FontSize)
+            ax.set_xlabel(f'Altitude [{xLabel}]', fontsize=Label_FontSize)
+            ax.axvline(x=400000 / xNorm, label='Observation Height', color='red', linestyle='--',linewidth=Plot_LineWidth)
 
             # plot the MHD alfven speed
-            ax.plot(altRange / xNorm, alfSpdMHD/(m_to_km), color='red')
+            ax.plot(altRange / xNorm, alfSpdMHD/(10000*m_to_km), color='red',linewidth=Plot_LineWidth, label='MHD Speed')
 
             # plot some thermal velocity comparisons
-            Vth_low = sqrt(8*q0*1/(9.11E-31))/m_to_km
-            ax.axhline(y=Vth_low, color='black')
-            ax.text(x=R_REF/xNorm,y=Vth_low*1.3,s='$V_{th_{e}}$ (1 eV)', color='black')
+            Vth_low = sqrt(8*q0*1/(9.11E-31))/(m_to_km*10000)
+            ax.axhline(y=Vth_low, color='black',linewidth=Plot_LineWidth)
+            ax.text(x=R_REF/xNorm,y=Vth_low*2,s='$V_{th_{e}}$ (1 eV)', color='black',fontsize=Text_Fontsize)
 
-            Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/m_to_km
-            ax.axhline(y=Vth_high, color='black')
-            ax.text(x=R_REF/xNorm, y=Vth_high * 1.1, s='$V_{th_{e}}$ (50 eV)', color='black')
+            Vth_high = sqrt(8 * q0 * 50 / (9.11E-31))/(m_to_km*10000)
+            ax.axhline(y=Vth_high, color='black',linewidth=Plot_LineWidth)
+            ax.text(x=R_REF/xNorm, y=Vth_high * 1.3, s='$V_{th_{e}}$ (50 eV)', color='black',fontsize=Text_Fontsize)
 
-            plt.legend()
+            ax.grid(True)
+            ax.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            ax.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width, length=Tick_Length)
+            ax.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor, width=Tick_Width_minor, length=Tick_Length_minor)
+            plt.legend(fontsize=Legend_fontSize)
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_DAWaflSpd.png',dpi=dpi)
 
         return kineticAlfSpeed
 

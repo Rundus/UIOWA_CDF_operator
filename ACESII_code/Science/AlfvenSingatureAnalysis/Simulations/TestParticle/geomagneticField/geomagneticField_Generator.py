@@ -11,10 +11,10 @@ from myspaceToolsLib.models import CHAOS
 ########################################
 # --- GENERATE THE B-FIELD & TOGGLES ---
 ########################################
-plot_BField = False
+plot_BField = True
 
 # --- OUTPUT DATA ------
-outputData = True if not runFullSimulation else True
+outputData = False if not runFullSimulation else True
 
 
 def generateGeomagneticField(outputData, **kwargs):
@@ -43,26 +43,49 @@ def generateGeomagneticField(outputData, **kwargs):
         if plotBool:
 
             import matplotlib.pyplot as plt
-            Label_Fontsize = 15
-            Title_Fontsize = 20
+            figure_width = 12  # in inches
+            figure_height = 8  # in inches
+            Title_FontSize = 25
+            Label_FontSize = 25
+            Tick_FontSize = 25
+            Tick_FontSize_minor = 20
+            Tick_Length = 10
+            Tick_Width = 2
+            Tick_Length_minor = 5
+            Tick_Width_minor = 1
+            Plot_LineWidth = 2.5
+            Legend_fontSize = 20
+            dpi = 100
 
             fig, ax = plt.subplots(2,sharex=True)
-            ax[0].plot(altRange/R_REF, Bgeo/(1E-9))
-            ax[0].set_title('|B| vs Altitude', fontsize=Title_Fontsize)
-            ax[0].set_ylabel('$B_{geo}$ [nT]', fontsize=Label_Fontsize)
+            fig.set_size_inches(figure_width, figure_height)
+            ax[0].plot(altRange/R_REF, Bgeo/(1E-9),linewidth=Plot_LineWidth)
+            ax[0].set_title('|B| vs Altitude', fontsize=Title_FontSize)
+            ax[0].set_ylabel('$B_{geo}$ [nT]', fontsize=Label_FontSize)
             ax[0].set_yscale('log')
-            # ax[0].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_Fontsize)
-            ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red')
-            ax[0].legend()
+            ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red',linewidth=Plot_LineWidth)
+            ax[0].legend(fontsize=Legend_fontSize)
 
-            ax[1].plot(altRange / R_REF, Bgrad/(1E-9))
-            ax[1].set_title(r'$\nabla B$ vs Altitude', fontsize=Title_Fontsize)
-            ax[1].set_ylabel(r'$\nabla B$ [nT/m]', fontsize=Label_Fontsize)
-            ax[1].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_Fontsize)
-            ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red')
-            ax[1].legend()
+            ax[1].plot(altRange / R_REF, Bgrad/(1E-9),linewidth=Plot_LineWidth)
+            ax[1].set_title(r'$\nabla B$ vs Altitude', fontsize=Title_FontSize)
+            ax[1].set_ylabel(r'$\nabla B$ [nT/m]', fontsize=Label_FontSize)
+            ax[1].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_FontSize)
+            ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+            ax[1].legend(fontsize=Legend_fontSize)
+
+            for i in range(2):
+                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                                           length=Tick_Length)
+                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
+                                           width=Tick_Width_minor, length=Tick_Length_minor)
+
             plt.tight_layout()
-            plt.show()
+            plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\geomagneticField\MODEL_Bgeo.png',dpi=dpi)
+            # plt.show()
 
         return Bgeo, Bgrad
 
