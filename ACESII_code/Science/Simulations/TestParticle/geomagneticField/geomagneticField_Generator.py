@@ -43,47 +43,49 @@ def generateGeomagneticField(outputData, **kwargs):
         if plotBool:
 
             import matplotlib.pyplot as plt
-            figure_width = 12  # in inches
+            figure_width = 20  # in inches
             figure_height = 8  # in inches
-            Title_FontSize = 25
-            Label_FontSize = 25
+            Title_FontSize = 35
+            Label_FontSize = 30
             Tick_FontSize = 25
             Tick_FontSize_minor = 20
             Tick_Length = 10
             Tick_Width = 2
             Tick_Length_minor = 5
             Tick_Width_minor = 1
-            Plot_LineWidth = 2.5
-            Legend_fontSize = 20
+            Plot_LineWidth = 4
+            Legend_fontSize = 30
             dpi = 100
 
-            fig, ax = plt.subplots(2,sharex=True)
+            fig, ax = plt.subplots()
             fig.set_size_inches(figure_width, figure_height)
-            ax[0].plot(altRange/R_REF, Bgeo/(1E-9),linewidth=Plot_LineWidth)
-            ax[0].set_title('|B| vs Altitude', fontsize=Title_FontSize)
-            ax[0].set_ylabel('$B_{geo}$ [nT]', fontsize=Label_FontSize)
-            ax[0].set_yscale('log')
-            ax[0].axvline(x=400000/R_REF,label='Observation Height',color='red',linewidth=Plot_LineWidth)
-            ax[0].legend(fontsize=Legend_fontSize)
+            ax.plot(altRange/R_REF, Bgeo/(1E-9),linewidth=Plot_LineWidth, color='black',label=r'$\vec{B}_{geo}$')
+            ax.set_title(r'|$\vec{B}_{geo}$|,$\nabla B$ vs Altitude', fontsize=Title_FontSize)
+            ax.set_ylabel('$B_{geo}$ [nT]', fontsize=Label_FontSize)
+            ax.set_xlabel('Altitude [$R_{E}$]', fontsize=Label_FontSize)
+            ax.set_yscale('log')
+            ax.axvline(x=400000/R_REF,label='Observation Height',color='red',linewidth=Plot_LineWidth)
+            ax.plot(altRange / R_REF, Bgrad / (1E-9), color='black', linewidth=Plot_LineWidth, linestyle='--', label=r'$\nabla B$', alpha=1)
+            ax.set_ylim(1E3,1E5)
+            ax.legend(fontsize=Legend_fontSize)
 
-            ax[1].plot(altRange / R_REF, Bgrad/(1E-9),linewidth=Plot_LineWidth)
-            ax[1].set_title(r'$\nabla B$ vs Altitude', fontsize=Title_FontSize)
-            ax[1].set_ylabel(r'$\nabla B$ [nT/m]', fontsize=Label_FontSize)
-            ax[1].set_xlabel('Altitude [$R_{E}$]', fontsize=Label_FontSize)
-            ax[1].axvline(x=400000 / R_REF, label='Observation Height', color='red',linewidth=Plot_LineWidth)
-            ax[1].legend(fontsize=Legend_fontSize)
+            axBGrad = ax.twinx()
+            axBGrad.plot(altRange / R_REF, Bgrad/(1E-9), color='black',linewidth=Plot_LineWidth, linestyle='--',label=r'$\nabla B$')
+            axBGrad.set_ylabel(r'$\nabla B$ [nT/m]', fontsize=Label_FontSize)
+            axBGrad.axvline(x=400000 / R_REF, label='Observation Height', color='red',linewidth=Plot_LineWidth)
 
-            for i in range(2):
-                ax[i].tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+            axesE = [ax,axBGrad]
+            for axes in axesE:
+                axes.tick_params(axis='y', which='major', labelsize=Tick_FontSize, width=Tick_Width,
                                            length=Tick_Length)
-                ax[i].tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
+                axes.tick_params(axis='y', which='minor', labelsize=Tick_FontSize_minor,
                                            width=Tick_Width_minor, length=Tick_Length_minor)
-                ax[i].tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
+                axes.tick_params(axis='x', which='major', labelsize=Tick_FontSize, width=Tick_Width,
                                            length=Tick_Length)
-                ax[i].tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
+                axes.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
                                            width=Tick_Width_minor, length=Tick_Length_minor)
 
-            plt.tight_layout()
+            plt.subplots_adjust(left=0.08, bottom=0.13, right=0.89, top=0.9, wspace=None, hspace=None)
             plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\geomagneticField\MODEL_Bgeo.png',dpi=dpi)
             # plt.show()
 

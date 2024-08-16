@@ -135,7 +135,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
         if plotBool:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            fig.set_size_inches(figure_width+1, 1 + figure_height/2)
+            fig.set_size_inches(figure_width, 1 + figure_height/2)
             ax.plot(altRange / xNorm, LambdaPerp/1000, linewidth=Plot_LineWidth, color='black')
             ax.set_title('$\lambda_{\perp}$, $k_{\perp}$ vs Altitude \n'
                             '$\lambda_{\perp 0}$=' +f'{EToggles.lambdaPerp0/1000} km',fontsize=Title_FontSize)
@@ -163,7 +163,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
                                            width=Tick_Width_minor, length=Tick_Length_minor)
 
             plt.legend(fontsize=Legend_fontSize)
-            plt.tight_layout()
+            plt.subplots_adjust(left=0.1, bottom=0.2, right=0.85, top=0.82, wspace=None, hspace=None)
             plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_kperp.png',dpi=dpi)
 
         return LambdaPerp, kperp
@@ -244,7 +244,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             ax[0].plot(altRange / xNorm, n_Op, color='blue', label='$n_{0^{+}}$ [$m^{-3}$]', linewidth=Plot_LineWidth)
             ax[0].plot(altRange / xNorm, n_Hp, color='red', label='$n_{H^{+}}$ [$m^{-3}$]', linewidth=Plot_LineWidth)
             ax[0].set_title('Plasma densities vs Altitude', fontsize=Title_FontSize)
-            ax[0].set_ylabel(r'Density [cm$^{-3}$]', fontsize=Label_FontSize)
+            ax[0].set_ylabel(r'Density [m$^{-3}$]', fontsize=Label_FontSize)
             ax[0].axvline(x=400000 / xNorm, label='Observation Height', color='black', linewidth=Plot_LineWidth)
             ax[0].set_yscale('log')
             ax[0].legend(fontsize=Legend_fontSize)

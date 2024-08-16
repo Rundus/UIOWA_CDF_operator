@@ -55,7 +55,7 @@ outputObservedParticle_cdfData = False
 if regenerateSimulation:
     from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
     from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
-    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alfvenWave.Eperp.alfven_Eperp_Generator import alfvenEperpGenerator
+    from ACESII_code.Science.Simulations.TestParticle.alfvenWave.Eperp.alfven_Eperp_Generator import alfvenEperpGenerator
     from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alfvenWave.Epara.alfven_Epara_Generator import alfvenEparaGenerator
     prgMsg('Regenerating Bgeo')
     generateGeomagneticField(outputData=True)

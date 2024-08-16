@@ -2,7 +2,7 @@
 # --- Author: C. Feltman ---
 # DESCRIPTION: Place to store all the Epoch conversions I often do
 
-
+m_to_km = 1000
 lat_to_meter = 111.319488  # 1 deg latitude to kilometers on Earth
 Re = 6357 # radius of earth in kilometer
 m_e = 9.11 * 10**(-31)
