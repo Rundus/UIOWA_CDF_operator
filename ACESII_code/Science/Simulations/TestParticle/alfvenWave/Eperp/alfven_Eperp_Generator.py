@@ -8,9 +8,9 @@
 #   ,...]
 
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles,EToggles,runFullSimulation
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
+from ACESII_code.Science.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles,EToggles,runFullSimulation
+from ACESII_code.Science.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
+from ACESII_code.Science.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
 import time
 import numpy as np
 from itertools import product
@@ -30,7 +30,7 @@ plot_Eperp = False
 ################
 # --- OUTPUT ---
 ################
-outputData = False if not runFullSimulation else False
+outputData = True if not runFullSimulation else True
 
 
 # --- Re-run the plasma environment and load the data ---

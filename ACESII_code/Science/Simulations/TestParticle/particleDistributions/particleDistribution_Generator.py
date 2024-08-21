@@ -1,6 +1,6 @@
 # --- imports ---
 from numpy import array,sqrt,degrees,arccos,abs
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles,ptclToggles
+from ACESII_code.Science.Simulations.TestParticle.simToggles import GenToggles,ptclToggles
 from random import seed, choice
 from numpy.random import uniform
 from scipy.special import erfinv
@@ -9,13 +9,11 @@ from scipy.special import erfinv
 def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc, **kwargs):
     plotting = kwargs.get('showPlot', False)
 
-
     # --- generate initial data dict ---
     data_dict = {}
     data_dict = {**data_dict, **{f"{vNam}": [] for vNam in varNames}}
     # for each energy, create a variable to hold the initial data
     initVars = [[] for thing in varNames]
-
 
     # --- Populate Initial Variables ---
     for h, Z0_ptcl in enumerate(ptclToggles.Z0_ptcl_ranges): # loop over all initial starting altitudes and fill in initial data
@@ -23,7 +21,7 @@ def generateInitial_Data_Dict(varNames, Bmag, Bgrad, forceFunc, **kwargs):
         # --- create initial particle velocites ---
         a = ptclToggles.ptcl_mass / (2 * ptclToggles.ptclTemperature*ptclToggles.ptcl_charge)
         U = uniform(low=1E-20, high=1,size=ptclToggles.N_ptcls)
-        Vels = erfinv(2 * U - 1) / sqrt(a)
+        Vels = erfinv(2 * U - 1) / sqrt(a) # use the inverse error function to fabricate a Maxwellian disribution
         seed(ptclToggles.seedChoice)
         Vperp = array([choice(Vels) for ptcl in range(ptclToggles.N_ptcls)]) # in meters
         Vpar = array([choice(Vels) for ptcl in range(ptclToggles.N_ptcls)]) # in meters

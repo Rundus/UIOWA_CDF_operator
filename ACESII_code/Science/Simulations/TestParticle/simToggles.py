@@ -47,12 +47,11 @@ class GenToggles:
 class ptclToggles:
     seedChoice = 10 # some value to define the randomness seed
     ptclTemperature = 5 # distribution temperature in eV
-    Z0_ptcl_ranges = array([0.5, 0.6]) * m_to_km * 6371 # initial altitude of particles (in meters)
-    N_ptcls = 200  # number of particles. Example: The real data at s3 has 10598 particles
+    Z0_ptcl_ranges = array([0.55]) * m_to_km * 6371 # initial altitude of particles (in meters)
+    N_ptcls = 500  # number of particles. Example: The real data at s3 has 10598 particles
     ptcl_mass = 9.11 * 10 ** (-31)  # mass of the particle
     ptcl_charge = 1.602176565 * 10 ** (-19)  # charge of the particle
-    simEnergyRanges = [[0.01, 1], [1, 5], [5, 10], [10, 15], [15, 30], [30, 60]]  # The range of energies for each color (the rightmost linspace point is ignored)
-
+    simEnergyRanges = [[0.01, 1], [1, 5], [5, 10], [10, 25], [25, 50], [50, 60]]  # The range of energies for each color (the rightmost linspace point is ignored)
     # calculated quantities
     totalNumberOfParticles = N_ptcls * len(Z0_ptcl_ranges)
 
@@ -62,14 +61,17 @@ class ptclToggles:
 class BgeoToggles:
     Lshell = 8.7
 
+    useConstantBval = False
+    ConstantBval = (10000E-9) # in tesla
+
 ########################
 # --- ELECTRIC FIELD ---
 ########################
 class EToggles:
     Z0_wave = (11000*m_to_km) # initial altitude of the wave (in meters)
     lambdaPerp0 = 3.2 * m_to_km  # lambdaPerp AT the Ionosphere (in meters)
-    waveFreq_Hz = 5 # in Hz
-    Eperp0 = 0.005  # V/m
+    waveFreq_Hz = 4 # in Hz
+    Eperp0 = 0.02  # V/m
     waveFraction = 2 # What fraction of the initial bipolar wave we want to keep. e.g. 2 --> Half the wave, 3 --> 1/3 of wave etc
     lambdaPerp_Rez = 11 # resolution of the x-direction (MUST BE ODD)
 
@@ -81,4 +83,6 @@ class EToggles:
     # toggles
     static_Kperp = False
     flipEField = True
+    staticDensity = False
+    staticDensityVal = 15*(100**3)
 

@@ -8,7 +8,7 @@
 #   ,...]
 
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import R_REF, GenToggles,EToggles,runFullSimulation
+from ACESII_code.Science.Simulations.TestParticle.simToggles import R_REF, GenToggles,EToggles,runFullSimulation
 from time import  time
 import numpy as np
 from itertools import product
@@ -26,7 +26,7 @@ plot_Epara = False
 ################
 # --- OUTPUT ---
 ################
-outputData = False if not runFullSimulation else False
+outputData = True if not runFullSimulation else True
 
 # get the Eperp and plasma environment Profiles
 data_dict_plasEvrn = loadDictFromFile(f'{GenToggles.simOutputPath}\plasmaEnvironment\plasmaEnvironment.cdf')

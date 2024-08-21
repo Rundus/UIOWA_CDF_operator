@@ -6,16 +6,10 @@ from numpy import exp, sqrt, array, pi, abs, tanh
 simulationAlt = GenToggles.simAlt
 
 
-# TODO: look at
-#  (1) k_parallel
-#  (2) kinetic alfven speed terms
-#  (3) Ion mass Profile.
-#  Something isn't right....
-
 ##################
 # --- PLOTTING ---
 ##################
-plotting = True
+plotting = False
 useTanakaDensity = False
 xNorm = R_REF # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
@@ -34,7 +28,7 @@ plottingDict = {'Temperature': True,
                 'alfSpdInertial': True}
 
 # --- Output Data ---
-outputData = False if not runFullSimulation else True
+outputData = True if not runFullSimulation else True
 
 # get the geomagnetic field data dict
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -189,6 +183,9 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             def fitFunc(x, n0, n1, z0, h, H, a):
                 return a * (n0 * exp(-1 * (x - z0) / h) + n1 * (x ** (H)))
             n_density = (cm_to_m ** 3) * array([ fitFunc(alt/m_to_km, n0, n1, z0, h, H, a) for alt in altRange])  # calculated density (in m^-3)
+
+        elif EToggles.staticDensity:
+            n_density = array([EToggles.staticDensity for alt in altRange])
 
         else:
             #### KLETZING AND TORBERT MODEL ####

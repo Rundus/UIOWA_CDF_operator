@@ -10,6 +10,8 @@ __author__ = "Connor Feltman"
 __date__ = "2022-08-22"
 __version__ = "1.0.0"
 
+import matplotlib.pyplot as plt
+
 from ACESII_code.myImports import *
 import matplotlib.gridspec as gridspec
 start_time = time.time()
@@ -50,7 +52,7 @@ tick_SubplotLabelSize = 15
 tick_Width = 2
 tick_Length = 4
 cbar_FontSize = 15
-dpi = 1200
+dpi = 100
 
 # dispersiveRegionTargetTime = [dt.datetime(2022,11,20,17,25,2,000000),
 #                               dt.datetime(2022,11,20,17,25,9,000000)]
@@ -83,7 +85,8 @@ PoyntingScale = 1E3# convert from W/m^2 to ergs/cm^2
 # --- plot COUNTS and ENERGY  toggles ---
 wPitchs_to_plot = [2, 3, 4, 5] # decide which pitch angles to get the peak energy for
 countsMask = 3
-fluxMask = 5E7
+# fluxMask = 5E7
+fluxMask = 0
 Energy_yLimit_Idx = 15 # ONLY consider energies above this index -> energies BELOW ~ 1345 eV
 
 
@@ -178,14 +181,11 @@ prgMsg('Beginning Plot')
 fig = plt.figure()
 fig.set_size_inches(figure_width, figure_height)
 gs0 = gridspec.GridSpec(2,1,figure=fig, height_ratios=[0.58,0.42],hspace=0.12)
-
 gs00 = gs0[0].subgridspec(3, 1)
 axPeakE = fig.add_subplot(gs00[2])
 axPitchHist = fig.add_subplot(gs00[0],sharex=axPeakE)
 axPoynting = fig.add_subplot(gs00[1],sharex=axPeakE)
-
 mainThreeAxes = [axPitchHist, axPoynting, axPeakE]
-
 gs01 = gs0[1].subgridspec(2, 2,hspace=0.1,wspace=0.2)
 axS1 = fig.add_subplot(gs01[0,0])
 axS2 = fig.add_subplot(gs01[0,1])
@@ -229,7 +229,7 @@ for tme in range(len(rktTime_counts)):
 # adjust the plot
 
 # cmapHist = axPitchHist.pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm)
-cmapHist = axPitchHist.pcolormesh(X, Y, np.transpose(data_dict_eepaa_high['Differential_Energy_Flux'][0][:,2,:]), cmap=cmap, vmin=5E7,vmax=1E9 )
+cmapHist = axPitchHist.pcolormesh(X, Y, np.transpose(data_dict_eepaa_high['Differential_Energy_Flux'][0][:,2,:]), cmap=cmap, vmin=5E7,vmax=1E9 ,norm='log')
 axPitchHist.set_yscale('log')
 axPitchHist.set_ylim(Energy[-1], Energy_yLimit)
 axPitchHist.set_ylabel('Energy  [eV]', fontsize=labels_FontSize)
@@ -258,7 +258,6 @@ for k,tme in enumerate(STEBtimes_rkt):
 
 axPoynting.grid(alpha=0.5)
 axPoynting.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
-
 
 
 # --- --- --- --- --- --- --- --- ---
@@ -322,13 +321,14 @@ for idx, ptchVal in enumerate(wPitchs_to_plot):
 
 
 axPeakE.set_xmargin(0)
-axPeakE.set_xlim(0.2,5.8)
 axPeakE.set_ylabel('Peak Energy\n [eV]',fontsize=labels_FontSize)
 axPeakE.legend(fontsize=legend_FontSize)
 axPeakE.set_ylim(-50, 1200)
 axPeakE.set_xlabel('Time Since Launch [s]',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
-# axPeakE.set_xlabel('STEB #',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
 axPeakE.grid(alpha=0.5)
+axPeakE.set_xlim(295.8,302)
+# axPeakE.set_xlabel('STEB #',fontsize=labels_FontSize-(labels_FontSize - 20), weight = 'bold')
+# axPeakE.set_xlim(0.2,5.8)
 
 
 # set the ticks for all plots
@@ -338,10 +338,13 @@ for ax in mainThreeAxes:
     ax.tick_params(axis='x', which='major', labelsize=tick_LabelSize, width=tick_Width, length=tick_Length)
     ax.tick_params(axis='x', which='minor', labelsize=tick_LabelSize, width=tick_Width, length=tick_Length / 2)
 
+
 fig.align_ylabels(mainThreeAxes+[subAxes[0],subAxes[2]])
 
-# --- Calculate Flux vs energy graphs ---
 
+
+
+# --- Calculate Flux vs energy graphs ---
 for t, tme in enumerate(STEBtimes[1:]):
 
     wDis = wSTEBtoPlot[t+1]
@@ -385,11 +388,13 @@ for t, tme in enumerate(STEBtimes[1:]):
     subAxes[t].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='x', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
 
+
+
 # Histogram Colorbar
 caxH = fig.add_axes([0.91,  0.828, 0.025, 0.162])
 cbar_hist = plt.colorbar(cmapHist,cax=caxH)
 cbar_hist.set_label('[cm$^{-2}$s$^{-1}$str$^{-1}$eV$^{-1}$]', fontsize=labels_FontSize, rotation=270)
-cbar_hist.ax.get_yaxis().labelpad = 40
+cbar_hist.ax.get_yaxis().labelpad = 22
 for l in cbar_hist.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbar_FontSize)
@@ -407,7 +412,6 @@ for l in cbar_hist.ax.yaxis.get_ticklabels():
 # output the figure
 plt.subplots_adjust(left=0.13, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)
 fileOutName = rf'C:\Users\cfelt\OneDrive\Desktop\Papers\ACESII_Alfven_Observations\Plot7\\Plot7_keyObservations_base.png'
-plt.savefig(fileOutName)
+plt.savefig(fileOutName,dpi=dpi)
 Done(start_time)
-plt.close()
 

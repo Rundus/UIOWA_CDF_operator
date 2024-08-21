@@ -27,13 +27,13 @@ start_time = time()
 ############################
 
 # --- Regenerate Plasma Environment ---
-regenerateSimulation = True
+regenerateSimulation = False
 
 # --- diagnostic plotting ---
 plotEuler_1step = False
 
 # --- Particle Trajectory ANIMATION ---
-outputAnimation = False
+outputAnimation = True
 
 # --- EEPAA Energy vs Time Plots ---
 simulated_EEPAA_plots = False
@@ -53,10 +53,10 @@ outputObservedParticle_cdfData = False
 ###############################
 
 if regenerateSimulation:
-    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
-    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
+    from ACESII_code.Science.Simulations.TestParticle.geomagneticField.geomagneticField_Generator import generateGeomagneticField
+    from ACESII_code.Science.Simulations.TestParticle.plasmaEnvironment.plasmaEnvironment_Generator import generatePlasmaEnvironment
     from ACESII_code.Science.Simulations.TestParticle.alfvenWave.Eperp.alfven_Eperp_Generator import alfvenEperpGenerator
-    from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.alfvenWave.Epara.alfven_Epara_Generator import alfvenEparaGenerator
+    from ACESII_code.Science.Simulations.TestParticle.alfvenWave.Epara.alfven_Epara_Generator import alfvenEparaGenerator
     prgMsg('Regenerating Bgeo')
     generateGeomagneticField(outputData=True)
     Done(start_time)
@@ -70,10 +70,10 @@ if regenerateSimulation:
 
 
 # --- simToggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import GenToggles, ptclToggles, EToggles, m_to_km,R_REF
+from ACESII_code.Science.Simulations.TestParticle.simToggles import GenToggles, ptclToggles, EToggles, m_to_km, R_REF
 
 # --- particle toggles ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.particleDistributions.particleDistribution_Generator import generateInitial_Data_Dict
+from ACESII_code.Science.Simulations.TestParticle.particleDistributions.particleDistribution_Generator import generateInitial_Data_Dict
 
 # --- geomagnetic B-Field ---
 data_dict_Bgeo = loadDictFromFile(rf'{GenToggles.simOutputPath}\geomagneticField\geomagneticField.cdf')
@@ -97,11 +97,10 @@ def testParticle_Sim():
     obsHeight = GenToggles.obsHeight
     fps = GenToggles.fps
 
-
     # --- GET SLICE IN PARALLEL E-FIELD ---
     # description: Take the center slice of the Epara E-Field for the simulation
     centerLine = int(EToggles.lambdaPerp_Rez/2)
-    E_Field = data_dict_Epara['Epara'][0][:,:, centerLine] if EToggles.flipEField else -1*data_dict_Epara['Epara'][0][:,:, centerLine]
+    E_Field = data_dict_Epara['Epara'][0][:, :, centerLine] if EToggles.flipEField else -1*data_dict_Epara['Epara'][0][:, :, centerLine]
 
     # --- GET Bgeo ---
     Bgeo, Bgrad = data_dict_Bgeo['Bgeo'][0], data_dict_Bgeo['Bgrad'][0]
@@ -190,19 +189,9 @@ def testParticle_Sim():
         # determine new particle pitch angles
         perpVal = newVperp
         parVal = newVpar
-        magnitudeVal = np.sqrt(perpVal ** 2 + parVal ** 2)
-        ptchVal = np.degrees(np.arccos(parVal / magnitudeVal))
-
-        if parVal >= 0 and perpVal >= 0:
-            ptchMod = 1
-        elif parVal < 0 and perpVal >= 0:
-            ptchMod = 1
-        elif parVal > 0 and perpVal < 0:
-            ptchMod = -1
-        elif parVal < 0 and perpVal < 0:
-            ptchMod = -1
-
-        data_dict["Pitch_Angle"][-1].append(ptchVal * ptchMod)
+        val = np.degrees(np.arctan2(perpVal,parVal))
+        ptchVal = 180 - val if val >= 0 else np.abs(val) - 180
+        data_dict["Pitch_Angle"][-1].append(ptchVal)
 
     Done(start_time)
     print('\n')
@@ -276,19 +265,9 @@ def testParticle_Sim():
                 # determine new particle pitch angles
                 perpVal = newVperp
                 parVal = newVpar
-                magnitudeVal = np.sqrt(perpVal ** 2 + parVal ** 2)
-                ptchVal = np.degrees(np.arccos(parVal / magnitudeVal))
-
-                if parVal >= 0 and perpVal >= 0:
-                    ptchMod = 1
-                elif parVal < 0 and perpVal >= 0:
-                    ptchMod = 1
-                elif parVal > 0 and perpVal < 0:
-                    ptchMod = -1
-                elif parVal < 0 and perpVal < 0:
-                    ptchMod = -1
-
-                data_dict["Pitch_Angle"][-1].append(ptchVal * ptchMod)
+                val = np.degrees(np.arctan2(perpVal, parVal))
+                ptchVal = 180 - val if val >= 0 else np.abs(val) - 180
+                data_dict["Pitch_Angle"][-1].append(ptchVal)
 
     # --- CHECK THE OBSERVED PARTICLES ---
     # description: Look through the observed data and find when a particle if/was observed. If it was
@@ -340,7 +319,7 @@ def testParticle_Sim():
 
 
     # --- --- --- --- --- --- --- --- --- --- --- ----
-    # --- CREATE OBSERVED PARTICLE DATAST VARIABLE ---
+    # --- CREATE OBSERVED PARTICLE DATASET VARIABLE ---
     # --- --- --- --- --- --- --- --- --- --- --- ----
 
     # get the ACESII information
@@ -429,46 +408,61 @@ def testParticle_Sim():
         prgMsg('Creating Animation')
         print('\n')
 
+        # --- PLOT TOGGLES ---
+        figure_height = 17
+        figure_width = 15
+        Plot_LineWidth = 3
+        Plot_textFontSize = 20
+        Plot_MarkerSize = 20
+        Text_FontSize = 20
+        Title_FontSize = 30
+        Labels_FontSize = 25
+        Labels_subplot_fontsize = 19
+        Legend_FontSize = 15
+        Tick_LabelSize = 20
+        Tick_SubplotLabelSize = 15
+        Tick_Width = 2
+        Tick_Length = 4
+        cbar_FontSize = 15
+        dpi = 100
+
         #################
         # --- ANIMATE ---
         #################
         fig = plt.figure()
-        figure_height = 17
-        figure_width = 15
         fig.set_figwidth(figure_width)
         fig.set_figheight(figure_height)
 
         # increase all the plot label sizes
-        plt.rcParams['axes.labelsize'] = 20
-        plt.rcParams['axes.titlesize'] = 30
+        plt.rcParams['axes.labelsize'] = Labels_FontSize
+        plt.rcParams['axes.titlesize'] = Title_FontSize
 
         # increase the tick label sizes
-        plt.rcParams['xtick.labelsize'] = 15
-        plt.rcParams['ytick.labelsize'] = 15
+        plt.rcParams['xtick.labelsize'] = Tick_LabelSize
+        plt.rcParams['ytick.labelsize'] = Tick_LabelSize
 
         # --- --- --- --- --
         # --- INITIALIZE ---
         # --- --- --- --- --
         title = fig.suptitle(f'$\Delta t$= {round(simTime[0],2)}\n' +
-                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
-                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$',fontsize=30)
+                             r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
+                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{round(EToggles.Z0_wave/R_REF,1)}'+'$R_{E}$',fontsize=Title_FontSize)
 
         # gridspec
         gs0 = gridspec.GridSpec(nrows=5, ncols=2, figure=fig,hspace=0.5,wspace=0.3)
 
         # Altitude Plot
         axAlt = fig.add_subplot(gs0[0:3, 0])
-        axAlt.axhline(y=obsHeight/m_to_km, linestyle='--')
-        axAlt.text(x=-180,y=(1.2)*obsHeight/m_to_km, s=f'{obsHeight/m_to_km} km',fontsize=10)
+        axAlt.axhline(y=obsHeight/m_to_km, linestyle='--',linewidth=Plot_LineWidth)
+        axAlt.text(x=-180,y=(1.3)*obsHeight/m_to_km, s=f'{obsHeight/m_to_km} km',fontsize=Text_FontSize)
         axAlt.set_xticks([-180 + 60*i for i in range(7)])
         axAlt.set_ylim(0, GenToggles.simAltHigh)
-        axAlt.set_xlabel('PA $[^{\circ}$]')
-        axAlt.set_ylabel('Alt [km]')
+        axAlt.set_xlabel('PA $[^{\circ}$]',fontsize=Labels_FontSize)
+        axAlt.set_ylabel('Alt [km]',fontsize=Labels_FontSize)
 
         # Show the E-Field
         axE = axAlt.twiny()
         E_Field_Wave, = axE.plot(E_Field[0], simAlt/m_to_km, color='black')
-
 
         # color the E-Field
         # negativeIndicies = np.where(E_Field[0] < 0)[0]
@@ -497,8 +491,8 @@ def testParticle_Sim():
 
         # Vspace Plot
         axVspace = fig.add_subplot(gs0[0:3, 1])
-        axVspace.set_ylabel('Vpar [km/s]')
-        axVspace.set_xlabel('Vperp [km/s]')
+        axVspace.set_ylabel('Vpar [km/s]',fontsize=Labels_FontSize)
+        axVspace.set_xlabel('Vperp [km/s]',fontsize=Labels_FontSize)
         axVspace.set_xlim(-5E3, 5E3)
         axVspace.set_ylim(-5E3, 5E3)
 
@@ -507,19 +501,19 @@ def testParticle_Sim():
         TEplot = axTspaceE.scatter([],[])
         axTspaceE.set_xlim(0, simTime[-1])
         axTspaceE.set_ylim(20, 1.2*TEmaxE) if TEmaxE != 0 else axTspaceE.set_ylim(20, 500)
-        axTspaceE.set_ylabel('Energy [eV]')
-        axTspaceE.set_xlabel('Time [s]')
+        axTspaceE.set_ylabel('Energy [eV]',fontsize=Labels_FontSize)
+        # axTspaceE.set_xlabel('Time [s]')
 
         patches = [mpatches.Patch(color=GenToggles.simColors[i], label=f'<{ptclToggles.simEnergyRanges[i][1]} eV') for i in range(len(ptclToggles.simEnergyRanges))]
-        axTspaceE.legend(handles=patches)
+        axTspaceE.legend(handles=patches,fontsize=Legend_FontSize)
 
         # Time vs Pitch Angle
         axTspacePitch = fig.add_subplot(gs0[4, 0:2])
         TPplot = axTspacePitch.scatter([], [])
         axTspacePitch.set_xlim(0, simTime[-1])
         axTspacePitch.set_yticks([-90 + 45 * i for i in range(5)])
-        axTspacePitch.set_ylabel('Pitch Angle [$^\circ$]')
-        axTspacePitch.set_xlabel('Time [s]')
+        axTspacePitch.set_ylabel('Pitch Angle [$^\circ$]',fontsize=Labels_FontSize)
+        axTspacePitch.set_xlabel('Time [s]',fontsize=Labels_FontSize)
 
         # --- INITIALIZE THE PLOTS ---
         # AltitudeArtists = []
@@ -538,6 +532,7 @@ def testParticle_Sim():
         # plot energies
         # VspaceArtists.append(axVspace.scatter(vperps, vpars, color=data_dict['color'][0]))
         VspaceArtists = axVspace.scatter(vperps, vpars, color=data_dict['color'][0])
+        plt.subplots_adjust(left=0.09, bottom=0.05, right=0.96, top=0.88, wspace=None, hspace=0.08)
 
         ############################
         # --- Animation Function ---
@@ -549,7 +544,7 @@ def testParticle_Sim():
             # --- update the title ---
             title.set_text(f'$\Delta t$= {round(simTime[j],2)}\n' +
                              r'$\lambda_{\perp 0}$ = ' + f'{EToggles.lambdaPerp0/m_to_km} [km], ' + r'$\omega_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]\n'
-                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{EToggles.Z0_wave/R_REF}'+'$R_{E}$')
+                             +'$E_{\perp} =$' + f'{EToggles.Eperp0*m_to_km} [mV/m], '+'$Z0_{wave}$ = ' + f'{round(EToggles.Z0_wave/R_REF,1)}'+'[$R_{E}$]')
             # axAlt.set_xticks([-180 + 60 * i for i in range(7)])
 
             # --- update the electric field ---
@@ -591,8 +586,10 @@ def testParticle_Sim():
                     ptcls_to_plot.append([simTime[j], energy, Ptches[k], data_dict['color'][0][k]])
 
             # update axes limits of Vspace plot
-            axVspace.set_xlim(perpMin*1.2, perpMax*1.2)
-            axVspace.set_ylim(parMin*1.2, parMax*1.2)
+            # axVspace.set_xlim(perpMin*1.2, perpMax*1.2)
+            # axVspace.set_ylim(parMin*1.2, parMax*1.2)
+            axVspace.set_xlim(-5E3, 5E3)
+            axVspace.set_ylim(-5E3, 5E3)
 
             # --- update the ENERGY vs TIME plot ---
             if len(ptcls_to_plot) != 0:
