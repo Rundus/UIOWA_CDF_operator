@@ -29,7 +29,6 @@ print(color.UNDERLINE + f'Plot7_keyObservations' + color.END)
 #################
 figure_height = (16)
 figure_width = (12)
-# figure_width = (15)
 
 cmap = 'turbo'
 from my_matplotlib_Assets.colorbars.apl_rainbow_black0 import apl_rainbow_black0_cmap
@@ -85,7 +84,6 @@ PoyntingScale = 1E3# convert from W/m^2 to ergs/cm^2
 wPitchs_to_plot = [2, 3, 4, 5] # decide which pitch angles to get the peak energy for
 countsMask = 3
 fluxMask = 5E7
-fluxMask = 0
 Energy_yLimit_Idx = 15 # ONLY consider energies above this index -> energies BELOW ~ 1345 eV
 
 
@@ -185,7 +183,6 @@ gs00 = gs0[0].subgridspec(3, 1)
 axPeakE = fig.add_subplot(gs00[2])
 axPitchHist = fig.add_subplot(gs00[0],sharex=axPeakE)
 axPoynting = fig.add_subplot(gs00[1],sharex=axPeakE)
-# axPoynting = fig.add_subplot(gs00[1])
 
 mainThreeAxes = [axPitchHist, axPoynting, axPeakE]
 
@@ -230,13 +227,15 @@ for tme in range(len(rktTime_counts)):
         Z[engy][tme] = medianVal_pitchVal
 
 # adjust the plot
-print(Z)
-cmapHist = axPitchHist.pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm)
+
+# cmapHist = axPitchHist.pcolormesh(X, Y, Z, cmap=cmap_hist, norm=histNorm)
+cmapHist = axPitchHist.pcolormesh(X, Y, np.transpose(data_dict_eepaa_high['Differential_Energy_Flux'][0][:,2,:]), cmap=cmap, vmin=5E7,vmax=1E9 )
 axPitchHist.set_yscale('log')
 axPitchHist.set_ylim(Energy[-1], Energy_yLimit)
 axPitchHist.set_ylabel('Energy  [eV]', fontsize=labels_FontSize)
 axPitchHist.tick_params(axis='x', which='major', labelbottom=False)
 axPitchHist.set_xmargin(0)
+
 
 # --- --- --- --- --- --- --
 # --- FLUX ESTIMATE PLOT ---
@@ -386,23 +385,24 @@ for t, tme in enumerate(STEBtimes[1:]):
     subAxes[t].tick_params(axis='x', which='major', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length)
     subAxes[t].tick_params(axis='x', which='minor', labelsize=tick_SubplotLabelSize, width=tick_Width, length=tick_Length / 2)
 
-    # subAxes[t].set_visible(True)
-
 # Histogram Colorbar
 caxH = fig.add_axes([0.91,  0.828, 0.025, 0.162])
-cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
-cbar_hist.set_label(f'Median Pitch Angle', fontsize=labels_FontSize, rotation=270)
-cbar_hist.ax.get_yaxis().labelpad = 22
-cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
+cbar_hist = plt.colorbar(cmapHist,cax=caxH)
+cbar_hist.set_label('[cm$^{-2}$s$^{-1}$str$^{-1}$eV$^{-1}$]', fontsize=labels_FontSize, rotation=270)
+cbar_hist.ax.get_yaxis().labelpad = 40
 for l in cbar_hist.ax.yaxis.get_ticklabels():
     l.set_weight("bold")
     l.set_fontsize(cbar_FontSize)
 
-# TURN OFF THE TOP TWO PLOTS
-# axPoynting.set_visible(True)
-# axPitchHist.set_visible(True)
-# axPeakE.set_visible(True)
-# caxH.set_visible(True)
+
+# cbar_hist = plt.colorbar(mpl.cm.ScalarMappable(norm=histNorm, cmap=cmap_hist), cax=caxH, drawedges=False)
+# cbar_hist.set_label(f'Median Pitch Angle', fontsize=labels_FontSize, rotation=270)
+# cbar_hist.ax.get_yaxis().labelpad = 22
+# cbar_hist.set_ticks(ticks=[0, 20, 40, 60, 80], labels=[20*i for i in range(5)])
+# for l in cbar_hist.ax.yaxis.get_ticklabels():
+#     l.set_weight("bold")
+#     l.set_fontsize(cbar_FontSize)
+
 
 # output the figure
 plt.subplots_adjust(left=0.13, bottom=0.055, right=0.9, top=0.99, wspace=None, hspace=0.08)

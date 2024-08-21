@@ -200,10 +200,10 @@ ax00.tick_params(axis='x', which='minor', labelsize=tickFontSize, width=tickWidt
 # plot the black vertical lines
 vertical_lineStyles = ['dotted','dashdot','dotted','dashdot']
 
-for k,disIdx in enumerate(wDispersions):
-    for i in range(NoOfSlices):
-        timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{disIdx + 1}'][i]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
-        ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle=vertical_lineStyles[k],alpha=0.6)
+# for k,disIdx in enumerate(wDispersions):
+#     for i in range(NoOfSlices):
+#         timeTag = round(EpochTo_T0_Rocket(InputEpoch=[sliceTimes[f's{disIdx + 1}'][i]], T0=data_dict_eepaa_high['Epoch'][0][0])[0], 2)
+#         ax00.axvline(x=timeTag, color='black', linewidth=lineWidth, linestyle=vertical_lineStyles[k],alpha=0.6)
 
 
 

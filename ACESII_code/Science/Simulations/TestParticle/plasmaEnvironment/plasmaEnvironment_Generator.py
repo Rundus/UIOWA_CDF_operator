@@ -1,5 +1,5 @@
 # --- imports ---
-from ACESII_code.Science.AlfvenSingatureAnalysis.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles, EToggles, runFullSimulation
+from ACESII_code.Science.Simulations.TestParticle.simToggles import m_to_km, R_REF, GenToggles, EToggles, runFullSimulation
 from myspaceToolsLib.physicsVariables import lightSpeed,u0,m_e,ep0,cm_to_m,IonMasses,q0
 from myspaceToolsLib.CDF_load import loadDictFromFile
 from numpy import exp, sqrt, array, pi, abs, tanh
@@ -19,7 +19,7 @@ plotting = True
 useTanakaDensity = False
 xNorm = R_REF # use m_to_km otherwise
 xLabel = '$R_{E}$' if xNorm == R_REF else 'km'
-plottingDict = {'Temperature':True,
+plottingDict = {'Temperature': True,
                 'lambdaPerp': True,
                 'Density': True,
                 'ionMass': True,
@@ -136,18 +136,19 @@ def generatePlasmaEnvironment(outputData, **kwargs):
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
             fig.set_size_inches(figure_width, 1 + figure_height/2)
-            ax.plot(altRange / xNorm, LambdaPerp/1000, linewidth=Plot_LineWidth, color='black')
+            ax.plot(altRange / xNorm, LambdaPerp/1000, linewidth=Plot_LineWidth, color='black',label='$\lambda_{\perp}$')
             ax.set_title('$\lambda_{\perp}$, $k_{\perp}$ vs Altitude \n'
                             '$\lambda_{\perp 0}$=' +f'{EToggles.lambdaPerp0/1000} km',fontsize=Title_FontSize)
             ax.set_ylabel('$\lambda_{\perp}$ [km]',fontsize=Label_FontSize)
             ax.set_xlabel(f'Altitude [{xLabel}]', fontsize=Label_FontSize)
             ax.axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
+            ax.plot(altRange / xNorm, LambdaPerp/1000, linewidth=Plot_LineWidth, color='black', linestyle='--', label='$k_{\perp}$')
             ax.grid(True)
+            ax.legend(fontsize=Legend_fontSize,loc='right')
 
             axKperp = ax.twinx()
-            axKperp.plot(altRange / xNorm, kperp, linewidth=Plot_LineWidth,color='black',linestyle='--')
+            axKperp.plot(altRange / xNorm, kperp, linewidth=Plot_LineWidth,color='black',linestyle='--',label='$k_{\perp}$')
             axKperp.set_ylabel('$k_{\perp}$ [m$^{-1}$]',fontsize=Label_FontSize)
-
             axKperp.axvline(x=400000 / xNorm, label='Observation Height', color='red',linewidth=Plot_LineWidth)
 
             axes = [ax,axKperp]
@@ -162,7 +163,6 @@ def generatePlasmaEnvironment(outputData, **kwargs):
                 axesE.tick_params(axis='x', which='minor', labelsize=Tick_FontSize_minor,
                                            width=Tick_Width_minor, length=Tick_Length_minor)
 
-            plt.legend(fontsize=Legend_fontSize)
             plt.subplots_adjust(left=0.1, bottom=0.2, right=0.85, top=0.82, wspace=None, hspace=None)
             plt.savefig('C:\Data\ACESII\science\simulations\TestParticle\plasmaEnvironment\MODEL_kperp.png',dpi=dpi)
 
@@ -556,7 +556,7 @@ def generatePlasmaEnvironment(outputData, **kwargs):
 
             # finite frequency term
             ax[1, 1].plot(altRange / xNorm, finiteFreqTerm,linewidth=Plot_LineWidth,label='$f_{wave}$ =' + f'{EToggles.waveFreq_Hz} [Hz]')
-            ax[1, 1].set_title('(1 + $\omega^{2}/\omega_{ci}^{2}$)',fontsize=Title_FontSize)
+            ax[1, 1].set_title('(1 - $\omega^{2}/\omega_{ci}^{2}$)',fontsize=Title_FontSize)
             # ax[1, 1].set_ylabel('',fontsize=Label_FontSize)
             ax[1, 1].set_xlabel(f'Altitude [{xLabel}]',fontsize=Label_FontSize)
             ax[1, 1].axvline(x=400000 / xNorm, label='Observation Height', color='red')
