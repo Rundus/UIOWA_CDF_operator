@@ -514,6 +514,7 @@ def testParticle_Sim():
         axTspacePitch.set_yticks([-90 + 45 * i for i in range(5)])
         axTspacePitch.set_ylabel('Pitch Angle [$^\circ$]',fontsize=Labels_FontSize)
         axTspacePitch.set_xlabel('Time [s]',fontsize=Labels_FontSize)
+        axTspacePitch.axhline(0,linewidth=Plot_LineWidth,linestyle='--',alpha=0.6,color='black')
 
         # --- INITIALIZE THE PLOTS ---
         # AltitudeArtists = []

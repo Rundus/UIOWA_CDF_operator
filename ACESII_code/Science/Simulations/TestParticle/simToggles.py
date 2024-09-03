@@ -47,7 +47,7 @@ class GenToggles:
 class ptclToggles:
     seedChoice = 10 # some value to define the randomness seed
     ptclTemperature = 5 # distribution temperature in eV
-    Z0_ptcl_ranges = array([0.55]) * m_to_km * 6371 # initial altitude of particles (in meters)
+    Z0_ptcl_ranges = array([0.5, 0.55, 0.6]) * m_to_km * 6371 # initial altitude of particles (in meters)
     N_ptcls = 500  # number of particles. Example: The real data at s3 has 10598 particles
     ptcl_mass = 9.11 * 10 ** (-31)  # mass of the particle
     ptcl_charge = 1.602176565 * 10 ** (-19)  # charge of the particle

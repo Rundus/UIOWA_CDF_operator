@@ -2,37 +2,36 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import linspace
-from numpy import array
 from myspaceToolsLib.physicsVariables import m_to_km,q0,m_e
 from myspaceToolsLib.CDF_load import outputCDFdata
 
 
 # --- SIMULATION TOGGLES ---
-simLen = 200 # how many delta T steps to simulate
-deltaT = 0.05 # in seconds
-alt_Rez = 1000 # number of points in the altitude grid
+simLen = 600 # how many delta T steps to simulate
+deltaT = 0.025 # in seconds
+alt_Rez = 2000 # number of points in the altitude grid
 simAltLow = 200*m_to_km # low altitude (in meters)
-simAltHigh = 20000*m_to_km # high altitude (in meters)
+simAltHigh = 50000*m_to_km # high altitude (in meters)
 simAlt = linspace(simAltLow, simAltHigh, alt_Rez)  # in METERS
 simTime = linspace(0, deltaT * simLen, simLen + 1)  # in second
 
 # --- WAVE ---
-Z0Start = 12500*m_to_km# initial position of parallel E-Field
-waveSpeed = 750*m_to_km
+Z0Start = 40000*m_to_km# initial position of parallel E-Field
+waveSpeed = 4000*m_to_km
 
 # Wave - Sin
-wavefreq = 0.5 # in Hz
+wavefreq = 1.5 # in Hz
 tau0 = 1/wavefreq
 lambdaPara = waveSpeed/wavefreq  # in km
-EparaAmp = 1E-5
+EparaAmp = 5E-6
 
 # Wave - Exponential
-PhiAmp = 1
+PhiAmp = 0.25
 WaveFlatness = 0.65
 
 # PARTICLES
-elec_Z0 = np.array([11000, 17000])*m_to_km  # in km
-elec_V0 =  np.array([0.2, 1.5])*waveSpeed
+elec_Z0 = np.array([38000, 46000, 10000])*m_to_km  # in km
+elec_V0 =  np.array([0.8, 1.2,0])*waveSpeed
 Nptcls = len(elec_V0)
 
 # --- Plot toggles ---
@@ -40,8 +39,6 @@ Plot_theData = False
 useSinPulse = True
 figure_height = 6
 figure_width = 12
-
-
 
 
 def Epara_generator_sin(z, t, Vel, initialZ):
@@ -119,7 +116,6 @@ data_dict_sim['elec_lf_y'][0].append([data_dict_sim['Phi_lf'][0][0][np.abs(simAl
 # INITALIZE - Wave Frame
 data_dict_sim['elec_wf_x'][0].append(elec_Z0)
 data_dict_sim['elec_wf_v'][0].append(-1*(elec_V0-waveSpeed))
-
 EparaInit = data_dict_sim['EField_wf'][0][0]
 data_dict_sim['accel_wf'][0].append([(-q0/m_e)*EparaInit[np.abs(simAlt - data_dict_sim['elec_wf_x'][0][0][ptclIdx]).argmin()] for ptclIdx in range(Nptcls)] )
 data_dict_sim['elec_wf_y'][0].append([data_dict_sim['Phi_wf'][0][0][np.abs(simAlt - data_dict_sim['elec_wf_x'][0][0][ptclIdx]).argmin()] for ptclIdx in range(Nptcls)])
@@ -190,6 +186,14 @@ for idx, t in enumerate(simTime):
         data_dict_sim['accel_wf'][0].append([(-q0 / m_e) * Epara_n2[np.abs(simAlt - elec_x_n2[ptclIdx]).argmin()] for ptclIdx in range(Nptcls)])
         data_dict_sim['elec_wf_y'][0].append([data_dict_sim['Phi_wf'][0][idx][np.abs(simAlt - data_dict_sim['elec_wf_x'][0][idx][ptclIdx]).argmin()] for ptclIdx in range(Nptcls)])
 
+
+# "center" the lab frame data
+centerPoint = (simAltHigh - simAltLow - lambdaPara)/2
+for idx, t in enumerate(simTime):
+    data_dict_sim['elec_wf_x'][0][idx] = np.array(data_dict_sim['elec_wf_x'][0][idx] - np.abs(centerPoint -Z0Start ))
+    data_dict_sim['EField_wf'][0][idx] = [EFunc(z=val, t=0, initialZ=centerPoint, Vel=waveSpeed) for val in simAlt]
+    data_dict_sim['Phi_wf'][0][idx] = [PhiFunc(z=val, t=0, initialZ=centerPoint, Vel=waveSpeed) for val in simAlt]
+
 if Plot_theData:
     import itertools
     colors = itertools.cycle(["r", "b", "g"])
@@ -203,7 +207,7 @@ if Plot_theData:
         ax[0].plot(simAlt, data_dict_sim['EField_lf'][0][t],color='tab:blue')
         ax[0].plot(simAlt, data_dict_sim['Phi_lf'][0][t], color='tab:red')
         for ptclIdx in range(Nptcls):
-            ax[0].scatter(data_dict_sim['elec_lf_x'][0][t][ptclIdx],data_dict_sim['elec_lf_y'][0][t][0],color=colorChoice[ptclIdx],s=40)
+            ax[0].scatter(data_dict_sim['elec_lf_x'][0][t][ptclIdx],data_dict_sim['elec_lf_y'][0][t][ptclIdx],color=colorChoice[ptclIdx],s=40)
 
         ax[0].set_xlim(0, simAltHigh)
         ax[0].set_ylim(-1.5*(EparaAmp),1.5*EparaAmp)
@@ -223,8 +227,8 @@ if Plot_theData:
         ax[1].set_xlim(0, simAltHigh)
         ax[1].set_ylim(-1.5 * (EparaAmp), 1.5 * EparaAmp)
 
-        E_textXY = (Z0Start+ (lambdaPara/2), 0)
-        Phi_textXY = (Z0Start+ (lambdaPara/2), EparaAmp)
+        E_textXY = (centerPoint + lambdaPara/2, 0)
+        Phi_textXY = (centerPoint+lambdaPara/2, EparaAmp)
         ax[1].annotate('$E_{\parallel}$', E_textXY, color='tab:blue')
         ax[1].annotate('$\Phi_{max}$', Phi_textXY, color='tab:red')
         ax[1].scatter(*E_textXY)
